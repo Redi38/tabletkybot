@@ -3,3 +3,6 @@ webhook.key
 webhook.pem
 backup.sql
 .idea/
+__pycache__/
+*.pyc
+*.pyo
