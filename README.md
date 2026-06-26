@@ -4,6 +4,12 @@ A production-ready Telegram bot for medication schedule management, built with P
 
 > Bachelor's Diploma Project · NTU "Kharkiv Polytechnic Institute" · 2026
 
+## Try it out
+
+[@tabletkybot](https://t.me/tabletkybot)
+
+![QR Code](qr.png)
+
 ---
 
 ## Features
