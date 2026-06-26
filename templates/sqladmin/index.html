@@ -1,0 +1,166 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    .custom-font { font-family: 'Nunito', sans-serif !important; }
+    .chart-container { position: relative; width: 100%; }
+    .pie-container { height: 300px; }
+    .bar-container { height: 300px; }
+</style>
+
+<div class="page-wrapper custom-font">
+    <div class="page-body">
+        <div class="container-xl mt-4">
+
+            <div class="d-flex justify-content-center mb-4">
+                <div class="card shadow-sm" style="width: 100%; max-width: 900px;">
+                    <div class="card-header justify-content-center">
+                        <h2 class="card-title fs-2"><b>Вітаємо в панелі адміністратора MedBot!</b></h2>
+                    </div>
+                    <div class="card-body p-4 d-flex flex-column align-items-center">
+                        <p class="text-secondary mb-2 fs-3 text-center">Тут ви маєте повний контроль над базою даних Telegram-бота.</p>
+                        <hr class="w-100 mt-2 mb-3">
+                        <h2 class="mt-2 mb-3 text-center">Можливості системи:</h2>
+
+                        <div style="display: inline-block; text-align: left;">
+                            <ul style="line-height: 1.8; font-size: 1.15rem; list-style-type: none; padding-left: 0; margin-bottom: 0;">
+                                <li>👥 <b>Користувачі:</b> Перегляд та управління профілями пацієнтів.</li>
+                                <li>💊 <b>Препарати та Аптечка:</b> Управління курсами лікування та автоматичний облік залишків препаратів.</li>
+                                <li>⏰ <b>Розклади прийомів:</b> Налаштування гнучких графіків (декілька прийомів на день для одного препарату).</li>
+                                <li>📋 <b>Історія прийомів:</b> Статистика прийнятих та пропущених ліків.</li>
+                                <li>🤖 <b>Історія діалогів ШІ:</b> Моніторинг запитів до медичного асистента.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-center mb-4">
+                <div class="btn-group shadow-sm" role="group">
+                    <button type="button" class="btn btn-outline-primary active" onclick="loadDashboard('all', this)">За весь час</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="loadDashboard('30d', this)">Останні 30 днів</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="loadDashboard('7d', this)">Останні 7 днів</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="loadDashboard('24h', this)">Останні 24 години</button>
+                </div>
+            </div>
+
+            <div class="row row-cards align-items-stretch mb-5">
+
+                <div class="col-12 col-lg-5">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header justify-content-center">
+                            <h2 class="card-title"><b>Співвідношення прийомів ліків</b></h2>
+                        </div>
+                        <div class="card-body d-flex flex-column justify-content-center">
+                            <div class="chart-container pie-container">
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-7">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header justify-content-center">
+                            <h2 class="card-title"><b>Активність приймання ліків по годинах </b></h2>
+                        </div>
+                        <div class="card-body d-flex flex-column justify-content-center">
+                            <div class="chart-container bar-container">
+                                <canvas id="hourlyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    let pieChartInstance = null;
+    let hourlyChartInstance = null;
+    const hourLabels = Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboard('all');
+    });
+
+    async function loadDashboard(period, btnElement = null) {
+        if (btnElement) {
+            document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+            btnElement.classList.add('active');
+        }
+
+        try {
+            const response = await fetch(`/api/admin/stats?period=${period}`);
+            if (!response.ok) throw new Error("Помилка мережі або сервера");
+
+            const data = await response.json();
+            renderPieChart(data.pie);
+            renderHourlyChart(data.hourly);
+        } catch (error) {
+            console.error("Помилка завантаження статистики:", error);
+        }
+    }
+
+    function renderPieChart(pieData) {
+        const ctx = document.getElementById('pieChart').getContext('2d');
+        if (pieChartInstance) pieChartInstance.destroy();
+
+        const taken = pieData.taken || 0;
+        const skipped = pieData.skipped || 0;
+        const chartData = (taken === 0 && skipped === 0) ? [70, 30] : [taken, skipped];
+        const colors = (taken === 0 && skipped === 0) ? ['#e0e0e0', '#f0f0f0'] : ['#2fb344', '#d63939'];
+
+        pieChartInstance = new window.Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Прийнято', 'Пропущено'],
+                datasets: [{
+                    data: chartData,
+                    backgroundColor: colors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                cutout: '65%'
+            }
+        });
+    }
+
+    function renderHourlyChart(hourlyData) {
+        const ctx = document.getElementById('hourlyChart').getContext('2d');
+        if (hourlyChartInstance) hourlyChartInstance.destroy();
+
+        hourlyChartInstance = new window.Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: hourLabels,
+                datasets: [{
+                    label: 'Кількість прийомів ліків',
+                    data: hourlyData,
+                    backgroundColor: 'rgba(47, 179, 68, 0.7)',
+                    borderColor: '#2fb344',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+    }
+</script>
+{% endblock %}
