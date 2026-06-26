@@ -1,175 +1,184 @@
-# 🤖 MedBot — Telegram-бот з інтеграцією ШІ
+# MedBot – AI-Powered Medication Reminder Telegram Bot
 
-Telegram-бот для зручного керування графіком прийому ліків, генерації звітів та інтелектуальних консультацій. Бот підтримує розпізнавання тексту та зображень (PDF, фото) за допомогою штучного інтелекту (через NVIDIA API з fallback-перемиканням на локальну модель Ollama).
+A production-ready Telegram bot for medication schedule management, built with Python and aiogram 3. Features an integrated AI assistant powered by NVIDIA NIM (Llama-3.1, Llama-3.2-Vision) with automatic fallback to a local Ollama model. Deployed on Oracle Cloud with webhook architecture, Docker Compose orchestration, and a web-based admin panel.
 
----
-
-## 🌟 Основні можливості
-*   **Керування ліками:** Додавання, редагування, видалення графіків прийому як через бота, так і через Адмінку.
-*   **Нагадування:** Точні сповіщення з урахуванням часового поясу користувача (APScheduler).
-*   **Web-Адмінка (FastAPI + SQLAdmin):** Зручний дашборд для управління користувачами, препаратами та перегляду історії ШІ.
-*   **Event-Driven Синхронізація:** Точкове (Micro-Batching) оновлення розкладу нагадувань у пам'яті бота через внутрішні вебхуки при будь-яких змінах в адмінці.
-*   **AI-Асистент (Текст та Vision):** Аналіз фотографій ліків, результатів аналізів у форматі PDF, відповіді на медичні питання та орієнтування по цінах на препарати в єдиному чаті.
-*   **Експорт:** Генерація красивих Excel та CSV-звітів про прийом ліків за весь час.
-*   **Безперебійність:** Автоматичне перемикання на локальну ШІ-модель (Ollama), якщо зовнішній DeepSeek API недоступний.
+> Bachelor's Diploma Project · NTU "Kharkiv Polytechnic Institute" · 2026
 
 ---
 
-## 📁 Структура проєкту
-```text
+## Features
+
+- **Medication Management** — add, edit, and delete medication schedules with time-zone-aware reminders
+- **Smart Reminders** — precise APScheduler-based notifications with hourly follow-ups for unacknowledged intakes
+- **AI Assistant** — analyze medication photos, PDF instructions, and answer medical questions via chat
+- **Vision Support** — automatic PDF-to-image conversion (PyMuPDF) for AI analysis
+- **Dual LLM Pipeline** — NVIDIA NIM API as primary, Ollama as local fallback (no external dependencies required)
+- **Reports & Export** — styled Excel (.xlsx) and CSV reports of medication history
+- **Admin Panel** — FastAPI + SQLAdmin dashboard for user and medication management
+- **Event-Driven Sync** — real-time scheduler updates via internal webhooks when admin changes occur
+- **Data Encryption** — sensitive user data encrypted at rest using the `cryptography` library
+- **Multilingual** — Ukrainian and English interface support
+
+---
+
+## Tech Stack
+
+| Category | Technologies |
+|---|---|
+| Language | Python 3.11+ |
+| Bot Framework | aiogram 3 (async) |
+| Web Framework | FastAPI, uvicorn |
+| AI / LLM | NVIDIA NIM API (Llama-3.1, Llama-3.2-Vision), Ollama |
+| ORM | SQLAlchemy (async) |
+| Database | PostgreSQL (asyncpg driver) |
+| Cache / FSM | Redis |
+| Scheduling | APScheduler |
+| Admin Panel | SQLAdmin (Tabler UI) |
+| Reports | openpyxl |
+| PDF Processing | PyMuPDF (fitz) |
+| DevOps | Docker, Docker Compose, Oracle Cloud |
+| Security | cryptography, SSL/TLS, iptables |
+
+---
+
+## Project Structure
+
+```
 tgbot/
-├── main.py                  # Точка входу бота, ініціалізація та внутрішній aiohttp сервер
-├── admin_app.py             # Точка входу Web-Адмінки (FastAPI)
-├── config.py                # Завантаження конфігурації (.env)
-├── requirements.txt         # Залежності Python
-├── Dockerfile               # Образ Docker для проєкту
-├── docker-compose.yml       # Оркестрація контейнерів (Бот + Адмінка + PostgreSQL)
-├── .env.example             # Приклад змінних середовища
+├── main.py                  # Bot entry point, aiohttp internal server
+├── admin_app.py             # Admin panel entry point (FastAPI)
+├── config.py                # Configuration loader (.env)
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example
 │
 ├── admin/
-│   └──app.py                # Адмін-Панель бота
+│   └── app.py               # SQLAdmin panel setup
 │
-├── handlers/                # Обробники команд та повідомлень бота
-│   ├── start.py             # /start, /help, вибір мови
-│   ├── medicines.py         # Управління ліками (FSM, CRUD)
-│   ├── ai_chat.py           # Режим AI-чату, обробка PDF/фото та запитів
-│   ├── report.py            # Генерація Excel-звіту
-│   ├── settings.py          # Налаштування профілю (ПІБ, Timezone)
-│   └── errors.py            # Глобальний обробник винятків
+├── handlers/                # Telegram command and message handlers
+│   ├── start.py             # /start, /help, language selection
+│   ├── medicines.py         # Medication CRUD (FSM-based)
+│   ├── ai_chat.py           # AI chat mode, PDF/photo processing
+│   ├── report.py            # Excel report generation
+│   ├── settings.py          # User profile (name, timezone)
+│   └── errors.py            # Global exception handler
 │
-├── services/                # Бізнес-логіка та інтеграції
-│   ├── ai_service.py        # Взаємодія з NVIDIA та Ollama
-│   ├── scheduler.py         # APScheduler (додавання/видалення та точкова синхронізація)
-│   └── report_service.py    # Формування та стилізація Excel (.xlsx)
+├── services/
+│   ├── ai_service.py        # NVIDIA NIM + Ollama integration
+│   ├── scheduler.py         # APScheduler (reminders + sync)
+│   └── report_service.py    # Excel formatting and export
 │
-├── database/                # Робота з базою даних
-│   ├── models.py            # Декларативні моделі (Users, Medicines, Records, ChatHistory)
-│   ├── db.py                # Створення engine та async_sessionmaker
-│   └── crud.py              # Функції для роботи з БД
+├── database/
+│   ├── models.py            # SQLAlchemy models (Users, Medicines, Records, ChatHistory)
+│   ├── db.py                # Async engine and session factory
+│   └── crud.py              # Database operations
 │
-├── templates/               # HTML-шаблони (Jinja2)
-│   └── sqladmin/            # Кастомна головна сторінка для адмінки
-│
-├── locales/
-│   └── texts.py             # Словники для локалізації (UK/EN)
-│
+├── templates/sqladmin/      # Custom Jinja2 templates for admin panel
+├── locales/texts.py         # UK/EN localization strings
 └── middleware/
-    └── db_middleware.py     # Ін'єкція сесії БД у кожен запит бота
+    └── db_middleware.py     # DB session injection middleware
 ```
 
 ---
 
-## ⚙️ Розгортання та запуск
+## Getting Started
 
-### Варіант 1 — Docker Compose (Рекомендовано)
+### Option 1 — Docker Compose (Recommended)
 
-**Вимоги:** Docker Desktop або Docker Engine + Docker Compose.
+**Requirements:** Docker + Docker Compose
 
-1.  **Налаштуйте змінні середовища:**
-    ```bash
-    cp .env.example .env
-    # Відкрийте .env та вкажіть ваш BOT_TOKEN, NVIDIA_API_KEY та паролі БД
-    ```
+```bash
+# 1. Configure environment
+cp .env.example .env
+# Fill in BOT_TOKEN, NVIDIA_API_KEY, and DB credentials
 
-2.  **Запустіть контейнери:**
-    ```bash
-    docker compose up -d
-    ```
-3.  **Перевірте логи (щоб переконатися, що все працює):**
-    ```bash
-    docker compose logs -f bot
-    ```
-4.  **Зупинка:**
-    ```bash
-    docker compose down
-    ```
+# 2. Start containers
+docker compose up -d
 
----
+# 3. Check logs
+docker compose logs -f bot
 
-### Варіант 2 — Локальний запуск (без Docker)
+# 4. Stop
+docker compose down
+```
 
-**Вимоги:** Python 3.11+ та встановлений PostgreSQL 15+.
+### Option 2 — Local Setup
 
-1.  **Встановіть Python залежності:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-2.  **Створіть базу даних PostgreSQL:**
-    ```bash
-    psql -U postgres
-    CREATE USER botuser WITH PASSWORD 'botpassword';
-    CREATE DATABASE medbot OWNER botuser;
-    \q
-    ```
-3.  **Налаштуйте `.env` файл.**
-4.  **Запустіть бота:**
-    ```bash
-    python main.py
-    ```
+**Requirements:** Python 3.11+, PostgreSQL 15+
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Create database
+psql -U postgres
+CREATE USER botuser WITH PASSWORD 'botpassword';
+CREATE DATABASE medbot OWNER botuser;
+\q
+
+# 3. Configure .env and run
+python main.py
+```
 
 ---
 
-## 🔑 Ключі API та AI-моделі
+## Configuration
 
-### 1. Telegram BOT_TOKEN
-*   Знайдіть **@BotFather** у Telegram.
-*   Надішліть `/newbot`, оберіть ім'я та отримайте токен.
+### Telegram Bot Token
+Get from [@BotFather](https://t.me/BotFather) → `/newbot`
 
-### 2. NVIDIA API (Основний ШІ)
-Бот використовує NVIDIA для доступу до найкращих моделей (DeepSeek, OpenAI, Llama тощо).
-*   Зареєструйтеся на [Nvidia](https://build.nvidia.com/).
-*   Оберіть модель та створіть ключ, натиснувши Get API Key.
-*   У `.env` вкажіть ключі та моделі, наприклад:
-    ```env
-    NVIDIA_API_KEY=nvapi-...
-    NVIDIA_MODEL=meta/llama-3.1-70b-instruct
-    NVIDIA_VISION_MODEL=meta-llama/llama-3.2-11b-vision-instruct
-    ```
+### NVIDIA NIM API (Primary AI)
+Register at [build.nvidia.com](https://build.nvidia.com), create an API key, and set in `.env`:
 
-### 3. Ollama (Локальний Fallback ШІ)
-Використовується автоматично, якщо немає доступу до інтернету або вичерпано ліміт NVIDIA.
-*   Встановіть [Ollama](https://ollama.com).
-*   Завантажте базову текстову та Vision моделі:
-    ```bash
-    ollama pull llama3
-    ollama pull llava
-    ```
-*   У `.env` вкажіть:
-    ```env
-    OLLAMA_URL=http://localhost:11434
-    OLLAMA_MODEL=llama3
-    OLLAMA_VISION_MODEL=llava
-    ```
+```env
+NVIDIA_API_KEY=nvapi-...
+NVIDIA_MODEL=meta/llama-3.1-70b-instruct
+NVIDIA_VISION_MODEL=meta-llama/llama-3.2-11b-vision-instruct
+```
+
+### Ollama (Local Fallback AI)
+Install [Ollama](https://ollama.com), pull models, and configure:
+
+```bash
+ollama pull llama3
+ollama pull llava
+```
+
+```env
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3
+OLLAMA_VISION_MODEL=llava
+```
 
 ---
 
-## 🧪 Тестування сценаріїв
+## Key User Scenarios
 
-| Сценарій                       | Дія користувача                        | Очікуваний результат                                                            |
-|:-------------------------------|:---------------------------------------|:--------------------------------------------------------------------------------|
-| **Реєстрація та налаштування** | `/start` → Налаштування ⚙️             | Вибір мови (Укр/Eng), встановлення ПІБ та часового поясу (напр. `Europe/Kyiv`). |
-| **Додавання ліків**            | 💊 Ліки → ➕ Додати                     | Валідація часу (ГГ:ХХ) та днів. Запуск планувальника нагадувань.                |
-| **Редагування графіку**        | 💊 Ліки → Список → ✏️ Редагувати       | Зміна дози або часу. Бот переплановує нагадування у реальному часі.             |
-| **Адмін-Панель**               | Зміна/Видалення ліків у Web-панелі     | Бот точково оновлює планувальник в пам'яті.                                     |
-| **Отримання нагадування**      | Дочекатись встановленого часу          | Повідомлення з кнопками "Прийнято ✅" або "Пропустити ⏭️".                       |
-| **Аналіз фото / PDF**          | 🤖 Режим AI → Відправити фото/документ | Бот конвертує першу сторінку PDF у зображення, ШІ аналізує інструкцію.          |
-| **Пошук ціни**                 | 🤖 Режим AI → "Яка ціна на Аспірин?"   | AI шукає дані та видає орієнтовні ціни.                                         |
-| **Експорт даних**              | 📤 Звіти та Експорт                    | Бот генерує стилізований `.xlsx`/ `.csv` файл з прийнятими/пропущеними ліками.  |
+| Scenario | Action | Result |
+|---|---|---|
+| Registration | `/start` → Settings ⚙️ | Language selection, name and timezone setup |
+| Add medication | 💊 Medicines → ➕ Add | Time validation, scheduler starts |
+| Edit schedule | 💊 Medicines → ✏️ Edit | Real-time reminder rescheduling |
+| Admin change | Edit via web panel | Bot scheduler syncs instantly via internal webhook |
+| Reminder received | Wait for scheduled time | Message with ✅ Taken / ⏭️ Skip buttons |
+| AI photo analysis | 🤖 AI Mode → Send photo/PDF | PDF converted to image, AI analyzes instructions |
+| Export data | 📤 Reports | Styled `.xlsx` / `.csv` with full medication history |
 
 ---
 
-## 📦 Залежності (`requirements.txt`)
+## Dependencies
 
-| Бібліотека            | Призначення                                                                         |
-|:----------------------|:------------------------------------------------------------------------------------|
-| **aiogram**           | Сучасний асинхронний фреймворк для Telegram Bot API.                                |
-| **SQLAlchemy**        | ORM для безпечної та зручної роботи з БД.                                           |
-| **asyncpg**           | Високопродуктивний асинхронний драйвер для PostgreSQL.                              |
-| **APScheduler**       | Планувальник фонових завдань (відправка нагадувань за часом).                       |
-| **openpyxl**          | Створення, форматування та стилізація Excel-звітів.                                 |
-| **aiohttp**           | Асинхронні HTTP-запити до NVIDIA та Ollama API.                                     |
-| **PyMuPDF (`fitz`)**  | Швидка конвертація PDF-документів (інструкцій до ліків) у зображення для AI Vision. |
-| **pytz**              | Коректна обробка та валідація часових поясів користувачів.                          |
-| **fastapi / uvicorn** | Фреймворк та ASGI-сервер для Web-Адмін-Панелі та внутрішніх вебхуків.               |
-| **sqladmin**          | Готова панель адміністратора (Tabler UI).                                           |
-| **cryptography**      | Шифрування конфіденційних медичних та персональних даних користувачів у базі даних. |
+| Library | Purpose |
+|---|---|
+| aiogram | Async Telegram Bot API framework |
+| SQLAlchemy + asyncpg | Async ORM and PostgreSQL driver |
+| APScheduler | Background task scheduling |
+| openpyxl | Excel report generation |
+| aiohttp | Async HTTP requests to AI APIs |
+| PyMuPDF (fitz) | PDF to image conversion for AI Vision |
+| pytz | Timezone handling and validation |
+| fastapi + uvicorn | Admin panel and internal webhooks |
+| sqladmin | Web-based admin dashboard |
+| cryptography | Encryption of sensitive user data |
+| redis | FSM state storage |
