@@ -6,7 +6,7 @@ A production-ready Telegram bot for medication schedule management, built with P
 
 ## Try it out
 
-[@tabletkybot](https://t.me/tabletkybot)
+[t.me/tabletkybot](https://t.me/tabletkybot)
 
 ![QR Code](qr.jpg)
 
