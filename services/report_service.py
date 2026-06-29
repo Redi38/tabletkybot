@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Any
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
+from openpyxl.worksheet.filters import FilterColumn
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from locales.texts import get_text
@@ -43,6 +44,91 @@ def _get_clean_status_text(status: str, lang: str) -> str:
 
     return raw_status_text.replace("✅", "").replace("❌", "").replace("⏭️", "").strip()
 
+
+def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
+                                 header_font: Font, center: Alignment,
+                                 border: Border) -> None:
+    """Зведена таблиця: один рядок на препарат + % прийому + автофільтр."""
+    ws = wb.create_sheet(title=get_text(lang, "excel_med_stats_sheet"))
+
+    # ── Рядок 1: заголовок аркуша ─────────────────────────────────────────
+    ws.merge_cells("A1:G1")
+    c: Any = ws.cell(row=1, column=1)
+    c.value = get_text(lang, "excel_med_stats_title")
+    c.font = Font(name="Calibri", bold=True, size=13)
+    c.alignment = center
+    ws.row_dimensions[1].height = 24
+
+    # ── Рядок 2: заголовки стовпців ───────────────────────────────────────
+    med_headers = [
+        get_text(lang, "excel_h_med_name"),
+        get_text(lang, "excel_h_med_dose"),
+        get_text(lang, "excel_h_med_taken"),
+        get_text(lang, "excel_h_med_missed"),
+        get_text(lang, "excel_h_med_total"),
+        get_text(lang, "excel_h_med_pct"),
+        get_text(lang, "excel_h_med_last"),
+    ]
+    med_widths = [22, 14, 12, 12, 10, 14, 18]
+    med_fill = PatternFill("solid", fgColor="4472C4")
+
+    for col_idx, (hdr, width) in enumerate(zip(med_headers, med_widths), start=1):
+        c = ws.cell(row=2, column=col_idx)
+        c.value = hdr
+        c.font = header_font
+        c.fill = med_fill
+        c.alignment = center
+        c.border = border
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+    ws.row_dimensions[2].height = 20
+
+    # ── Агрегація по препаратах ───────────────────────────────────────────
+    med_stats: dict[tuple, dict] = {}  # (name, dosage) → {taken, missed, last_dt}
+
+    for name, dosage, _, taken_dt, status in sorted_records:
+        key = (name, dosage)
+        if key not in med_stats:
+            med_stats[key] = {"taken": 0, "missed": 0, "last_dt": None}
+        if status == "taken":
+            med_stats[key]["taken"] += 1
+            if med_stats[key]["last_dt"] is None or taken_dt > med_stats[key]["last_dt"]:
+                med_stats[key]["last_dt"] = taken_dt
+        elif status in ["missed", "skipped"]:
+            med_stats[key]["missed"] += 1
+
+    # ── Дані: один рядок на препарат ──────────────────────────────────────
+    pct_good = PatternFill("solid", fgColor="C6EFCE")
+    pct_mid  = PatternFill("solid", fgColor="FFEB9C")
+    pct_bad  = PatternFill("solid", fgColor="FFC7CE")
+
+    for row_idx, ((name, dosage), data) in enumerate(
+        sorted(med_stats.items(), key=lambda x: x[0][0].lower()), start=3
+    ):
+        taken  = data["taken"]
+        missed = data["missed"]
+        total  = taken + missed
+        pct    = round(taken / total * 100, 1) if total > 0 else 0.0
+        last_str = data["last_dt"].strftime("%d.%m.%Y %H:%M") if data["last_dt"] else "—"
+
+        for col_idx, value in enumerate([name, dosage, taken, missed, total, pct, last_str], start=1):
+            c = ws.cell(row=row_idx, column=col_idx)
+            c.value = value
+            c.alignment = center
+            c.border = border
+            if col_idx == 6:  # % прийому — кольорова індикація
+                if pct >= 80:
+                    c.fill = pct_good
+                    c.font = Font(name="Calibri", bold=True, color="375623")
+                elif pct >= 50:
+                    c.fill = pct_mid
+                    c.font = Font(name="Calibri", bold=True, color="7E6000")
+                else:
+                    c.fill = pct_bad
+                    c.font = Font(name="Calibri", bold=True, color="9C0006")
+
+    # ── Закріплення рядка ──────────────────────────────────────────────────
+    ws.freeze_panes = "A3"
 
 # ── Основні генератори звітів ──────────────────────────────────────────────
 def create_excel_report(records: list[tuple], lang: str = "uk", user_name: str = "",
@@ -133,6 +219,15 @@ def create_excel_report(records: list[tuple], lang: str = "uk", user_name: str =
             if col_idx == 6:
                 cell.fill = fill
 
+    # ── AutoFilter на журналі ──────────────────────────────────────────────
+    last_data_row = 3 + len(sorted_records)
+    ws.auto_filter.ref = f"A3:F{last_data_row}"
+
+    for col_idx in range(6): # Прибрати автофільтр від А до F (0 до 5)
+        if col_idx != 1:    # Індекс столбця B
+            col_filter = FilterColumn(colId=col_idx, hiddenButton=True, blank=False)
+            ws.auto_filter.filterColumn.append(col_filter)
+
     ws.freeze_panes = "A4"
 
     # ── Статистика (Лист 2) ────────────────────────────────────────────────
@@ -211,6 +306,9 @@ def create_excel_report(records: list[tuple], lang: str = "uk", user_name: str =
 
             if row_idx == 3 and col_idx > 1 and isinstance(value, int) and value > 0:
                 cell.font = Font(color="FF0000", bold=True)
+
+    # ── По препаратах (Лист 3) ────────────────────────────────────────────
+    _build_medicine_stats_sheet(wb, sorted_records, lang, header_font, center, border)
 
     buffer = io.BytesIO()
     wb.save(buffer)

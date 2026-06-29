@@ -146,6 +146,17 @@ TEXTS = {
         "excel_days_151_180": "151-180 днів",
         "excel_days_180_plus": "180+ днів",
 
+	# Статистика по препаратам
+	"excel_med_stats_sheet": "По препаратах",
+        "excel_med_stats_title": "Статистика по препаратах",
+        "excel_h_med_name": "Препарат",
+        "excel_h_med_dose": "Доза",
+        "excel_h_med_taken": "Прийнято",
+        "excel_h_med_missed": "Пропущено",
+        "excel_h_med_total": "Всього",
+        "excel_h_med_pct": "% прийому",
+        "excel_h_med_last": "Останній прийом",
+
         # AI Чат
         "ai_btn_clear": "🧹 Очистити контекст",
         "ai_btn_exit": "🚫 Вийти з AI",
@@ -317,6 +328,17 @@ TEXTS = {
         "excel_days_121_150": "121-150 days",
         "excel_days_151_180": "151-180 days",
         "excel_days_180_plus": "180+ days",
+
+	# Статистика по препаратам
+	"excel_med_stats_sheet": "By Medicine",
+        "excel_med_stats_title": "Statistics by Medicine",
+        "excel_h_med_name": "Medicine",
+        "excel_h_med_dose": "Dosage",
+        "excel_h_med_taken": "Taken",
+        "excel_h_med_missed": "Missed",
+        "excel_h_med_total": "Total",
+        "excel_h_med_pct": "Adherence %",
+        "excel_h_med_last": "Last taken",
 
         # AI Чат
         "ai_btn_clear": "🧹 Clear context",
