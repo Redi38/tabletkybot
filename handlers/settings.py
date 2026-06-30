@@ -5,7 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import crud
-from locales.texts import get_text, TEXTS
+from locales.texts import get_text, TEXTS, btn_variants
 from services.scheduler import add_reminders_for_medicine
 
 router = Router()
@@ -41,7 +41,7 @@ async def _msg_ctx(message: Message, state: FSMContext) -> tuple[str, str] | Non
     return message.text.strip(), data.get("lang", "uk")
 
 
-@router.message(F.text.in_({TEXTS["uk"]["btn_settings"], TEXTS["en"]["btn_settings"]}))
+@router.message(F.text.in_(btn_variants("btn_settings")))
 async def settings_menu(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import crud
 from services.ai_service import get_ai_response, get_ai_vision_response
 from config import Config
-from locales.texts import get_text, TEXTS
+from locales.texts import get_text, TEXTS, btn_variants
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ async def user_main_keyboard(session: AsyncSession, user_id: int) -> ReplyKeyboa
     return get_main_keyboard(language)
 
 
-@router.message(F.text.in_({TEXTS["uk"]["btn_ai"], TEXTS["en"]["btn_ai"]}))
+@router.message(F.text.in_(btn_variants("btn_ai")))
 @router.message(Command("ai"))
 async def enter_ai_mode(message: Message, state: FSMContext, session: AsyncSession) -> None:
     if not message.from_user:

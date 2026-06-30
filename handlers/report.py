@@ -4,13 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from database import crud
 from services.report_service import create_excel_report, create_csv_report
-from locales.texts import get_text, TEXTS
+from locales.texts import get_text, TEXTS, btn_variants
 
 router = Router()
 
 
 # Головне меню звітів
-@router.message(F.text.in_({TEXTS["uk"]["btn_report"], TEXTS["en"]["btn_report"]}))
+@router.message(F.text.in_(btn_variants("btn_report")))
 async def report_menu_handler(message: Message, session: AsyncSession) -> None:
     """Відкриває Inline-меню вибору звітів."""
     if not message.from_user: return

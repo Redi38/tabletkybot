@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
 from database.models import Medicine
-from locales.texts import get_text, TEXTS
+from locales.texts import get_text, TEXTS, btn_variants
 from services.scheduler import add_reminders_for_medicine, remove_reminders, cancel_repeat_reminder
 
 router = Router()
@@ -116,7 +116,7 @@ def track_stock_kb(language: str = "uk") -> InlineKeyboardMarkup:
 
 
 # ── Навігація ─────────────────────────────────────────────────────────────
-@router.message(F.text.in_({TEXTS["uk"]["btn_medicines"], TEXTS["en"]["btn_medicines"]}))
+@router.message(F.text.in_(btn_variants("btn_medicines")))
 async def medicines_menu(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return

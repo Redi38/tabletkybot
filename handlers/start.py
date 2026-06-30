@@ -7,7 +7,7 @@ from aiogram.types import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.crud import get_or_create_user, update_user_language, get_user_language
-from locales.texts import get_text, TEXTS
+from locales.texts import get_text, TEXTS, btn_variants
 
 router = Router()
 
@@ -28,6 +28,7 @@ def get_main_keyboard(language: str = "uk") -> ReplyKeyboardMarkup:
 def language_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="Українська", callback_data="lang_uk", style="primary"),
+	InlineKeyboardButton(text="Русский", callback_data="lang_ru", style="primary"),
         InlineKeyboardButton(text="English", callback_data="lang_en", style="primary"),
     ]])
 
@@ -48,7 +49,7 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext) 
     )
 
 @router.message(Command("help"))
-@router.message(F.text.in_({TEXTS["uk"]["btn_help"], TEXTS["en"]["btn_help"]}))
+@router.message(F.text.in_(btn_variants("btn_help")))
 async def cmd_help(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return
@@ -63,14 +64,14 @@ async def cmd_help(message: Message, session: AsyncSession) -> None:
         reply_markup=get_main_keyboard(language),
     )
 
-@router.message(F.text.in_({TEXTS["uk"]["btn_lang"], TEXTS["en"]["btn_lang"]}))
+@router.message(F.text.in_(btn_variants("btn_lang")))
 async def choose_language(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return
     language = await get_user_language(session, message.from_user.id)
     await message.answer(get_text(language, "lang_choose"), reply_markup=language_keyboard())
 
-@router.callback_query(F.data.in_({"lang_uk", "lang_en"}))
+@router.callback_query(F.data.startswith("lang_"))
 async def set_language(call: CallbackQuery, session: AsyncSession) -> None:
     if not call.from_user or not call.data or not isinstance(call.message, Message):
         return
