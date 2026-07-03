@@ -6,9 +6,11 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from locales.texts import get_text
-from database.models import Medicine, User
+from database.models import Medicine, User, Prescription
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
@@ -222,3 +224,77 @@ async def sync_single_reminder(
         logger.info(f"Оновлено розклади для med_{medicine_id}")
     else:
         remove_reminders(medicine_id)
+
+def get_prescription_alert_keyboard(prescription_id: int, language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text=get_text(language, "btn_mark_bought"),
+            callback_data=f"presc_buy_ask_{prescription_id}",
+        )
+    ]])
+ 
+ 
+async def check_prescription_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
+    """
+    Запускається щогодини.
+    Для кожного активного рецепту рахує ЛОКАЛЬНУ дату юзера (за його timezone)
+    і надсилає нагадування рівно тоді, коли:
+      - сьогодні (локально) = expires_at - reminder_days_before
+      - зараз (локально) 9-та година
+    """
+    from database import crud
+ 
+    async with session_factory() as session:
+        pending = await crud.get_prescriptions_needing_reminder(session)
+ 
+        for prescription, user in pending:
+            try:
+                tz = ZoneInfo(user.timezone or "Europe/Kyiv")
+            except Exception:
+                tz = ZoneInfo("Europe/Kyiv")
+ 
+            local_now = datetime.now(tz)
+            target_date = prescription.expires_at - timedelta(days=prescription.reminder_days_before)
+ 
+            if local_now.date() != target_date or local_now.hour != 9:
+                continue
+ 
+            days_left = (prescription.expires_at - local_now.date()).days
+            language = user.language or "uk"
+ 
+            try:
+                await bot.send_message(
+                    chat_id=user.id,
+                    text=get_text(
+                        language, "presc_expiring_alert",
+                        name=prescription.medicine_name,
+                        expires=prescription.expires_at.strftime("%d.%m.%Y"),
+                        days=days_left,
+                    ),
+                    reply_markup=get_prescription_alert_keyboard(prescription.id, language),
+                    parse_mode="HTML",
+                )
+                await crud.mark_prescription_reminder_sent(session, prescription.id)
+                logger.info(f"Нагадування про рецепт {prescription.id} відправлено {user.id}")
+            except Exception as e:
+                logger.error(f"Помилка нагадування про рецепт {prescription.id}: {e}")
+
+
+async def archive_expired_prescriptions(bot: Bot, session_factory: async_sessionmaker) -> None:
+    from database import crud
+ 
+    async with session_factory() as session:
+        expired = await crud.get_expired_active_prescriptions(session)
+ 
+        for prescription, user in expired:
+            await crud.archive_prescription(session, prescription.id)
+            language = user.language or "uk"
+            try:
+                await bot.send_message(
+                    chat_id=user.id,
+                    text=get_text(language, "presc_expired_auto_archived", name=prescription.medicine_name),
+                    parse_mode="HTML",
+                )
+                logger.info(f"Рецепт {prescription.id} автоархівовано (термін минув)")
+            except Exception as e:
+                logger.error(f"Помилка сповіщення про автоархівацію рецепту {prescription.id}: {e}")

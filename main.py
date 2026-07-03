@@ -14,8 +14,8 @@ from config import load_config
 from database.db import init_db
 from middleware.db_middleware import DatabaseMiddleware
 
-from services.scheduler import start_scheduler, stop_scheduler, sync_reminders, sync_single_reminder, scheduler
-from handlers import start, medicines, ai_chat, report, errors, settings
+from services.scheduler import start_scheduler, stop_scheduler, sync_reminders, sync_single_reminder, scheduler, check_prescription_reminders
+from handlers import start, medicines, ai_chat, report, errors, settings, prescriptions
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,6 +82,7 @@ async def main() -> None:
 
     dp.include_router(errors.router)
     dp.include_router(settings.router)
+    dp.include_router(prescriptions.router)
     dp.include_router(medicines.router)
     dp.include_router(ai_chat.router)
     dp.include_router(report.router)
@@ -95,6 +96,12 @@ async def main() -> None:
     scheduler.add_job(
         sync_reminders, trigger='interval', hours=1, id='db_sync_job_hourly',
         replace_existing=True, kwargs={'bot': bot, 'session_factory': session_factory}
+    )
+
+    scheduler.add_job(
+        check_prescription_reminders, trigger='cron', minute=0, timezone='UTC',
+        id='presc_reminder_check_hourly', replace_existing=True,
+        kwargs={'bot': bot, 'session_factory': session_factory}
     )
 
     # Читаємо сертифікат для Telegram

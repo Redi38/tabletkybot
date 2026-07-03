@@ -19,7 +19,7 @@ def get_main_keyboard(language: str = "uk") -> ReplyKeyboardMarkup:
             [KeyboardButton(text=get_text(language, "btn_ai")),
              KeyboardButton(text=get_text(language, "btn_lang"))],
             [KeyboardButton(text=get_text(language, "btn_settings")),
-             KeyboardButton(text=get_text(language, "btn_help"))],
+             KeyboardButton(text=get_text(language, "btn_prescriptions"))],
         ],
         resize_keyboard=True,
         input_field_placeholder=get_text(language, "btn_placeholder"),

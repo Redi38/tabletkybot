@@ -8,7 +8,7 @@ from sqladmin import Admin, ModelView
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from config import load_config
-from database.models import User, Medicine, MedicineRecord, ChatHistory, MedicineSchedule
+from database.models import User, Medicine, MedicineRecord, ChatHistory, MedicineSchedule, Prescription
 from database import crud
 
 from wtforms.validators import NumberRange, DataRequired, Length, Regexp, AnyOf
@@ -134,6 +134,31 @@ class MedicineRecordAdmin(ModelView, model=MedicineRecord):
         remaining_days=dict(validators=[NumberRange(min=0, message="Залишок не може бути від'ємним")])
     )
 
+class PrescriptionAdmin(ModelView, model=Prescription):
+    name = "Рецепт"
+    name_plural = "Рецепти"
+    icon = "fa-solid fa-file-prescription"
+    column_list = [
+        Prescription.id, Prescription.user, Prescription.medicine_name,
+        Prescription.dosage, Prescription.issued_at, Prescription.valid_from,
+        Prescription.expires_at, Prescription.max_quantity, Prescription.purchased_quantity,
+        Prescription.is_fully_purchased, Prescription.reminder_days_before,
+        Prescription.reminder_sent, Prescription.is_active,
+    ]
+    column_searchable_list = ["medicine_name", "dosage", "user.full_name"]
+    column_default_sort = ("expires_at", False)
+    column_details_exclude_list = [Prescription.medicine]
+    form_args = dict(
+        medicine_name=dict(validators=[
+            DataRequired(message="Назва препарату обов'язкова"),
+            Length(max=150)
+        ]),
+        dosage=dict(validators=[Length(max=64, message="Максимум 64 символи")]),
+        max_quantity=dict(validators=[NumberRange(min=0, message="Має бути >= 0 (або пусто)")]),
+        purchased_quantity=dict(validators=[NumberRange(min=0, message="Не може бути від'ємним")]),
+        reminder_days_before=dict(validators=[NumberRange(min=0, max=90, message="Від 0 до 90 днів")]),
+    )
+
 class ChatHistoryAdmin(ModelView, model=ChatHistory):
     name = "Повідомлення ШІ"
     name_plural = "Історія діалогів ШІ"
@@ -145,6 +170,7 @@ admin.add_view(UserAdmin)
 admin.add_view(MedicineAdmin)
 admin.add_view(MedicineScheduleAdmin)
 admin.add_view(MedicineRecordAdmin)
+admin.add_view(PrescriptionAdmin)
 admin.add_view(ChatHistoryAdmin)
 
 # ─── Роути для Дашборду та Статистики ─────────────────────────────────────
