@@ -1,5 +1,9 @@
 {% extends "sqladmin/layout.html" %}
 
+{% block head %}
+    {{ super() }} <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    {% endblock %}
+
 {% block content %}
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
