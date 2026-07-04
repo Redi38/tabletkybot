@@ -30,7 +30,7 @@ def format_markdown_to_html(text: str) -> str:
     return text
 
 
-def system_prompt(language: str = "uk") -> str:
+def system_prompt(language: str = "ua") -> str:
     """Генерує системний промпт залежно від мови."""
     html_instruction = (
         "You MUST format your response using ONLY Telegram-supported HTML tags: "
@@ -59,7 +59,7 @@ async def _post_json(url: str, payload: dict, headers: dict | None, timeout: aio
 
 async def ask_nvidia(
         api_key: str, base_url: str, model: str,
-        messages: list[dict], language: str = "uk",
+        messages: list[dict], language: str = "ua",
 ) -> str:
     payload = {
         "model": model,
@@ -78,7 +78,7 @@ async def ask_nvidia(
 
 async def ask_nvidia_vision(
         api_key: str, base_url: str, model: str,
-        image_bytes: bytes, user_text: str, language: str = "uk",
+        image_bytes: bytes, user_text: str, language: str = "ua",
 ) -> str:
     image_b64 = base64.b64encode(image_bytes).decode()
     payload = {
@@ -105,7 +105,7 @@ async def ask_nvidia_vision(
 
 
 async def ask_ollama(
-        ollama_url: str, model: str, messages: list[dict], language: str = "uk",
+        ollama_url: str, model: str, messages: list[dict], language: str = "ua",
 ) -> str:
     payload = {
         "model": model,
@@ -120,7 +120,7 @@ async def ask_ollama(
 
 
 async def ask_ollama_vision(
-        ollama_url: str, model: str, image_bytes: bytes, user_text: str, language: str = "uk",
+        ollama_url: str, model: str, image_bytes: bytes, user_text: str, language: str = "ua",
 ) -> str:
     image_b64 = base64.b64encode(image_bytes).decode()
     payload = {
@@ -139,7 +139,7 @@ async def ask_ollama_vision(
 
 
 async def get_ai_response(
-        config: Config, messages: list[dict], language: str = "uk"
+        config: Config, messages: list[dict], language: str = "ua"
 ) -> tuple[str, str]:
     """Текстовий запит: NVIDIA → Ollama fallback."""
     if config.nvidia_api_key:
@@ -161,7 +161,7 @@ async def get_ai_response(
 
 
 async def get_ai_vision_response(
-        config: Config, image_bytes: bytes, user_text: str, language: str = "uk"
+        config: Config, image_bytes: bytes, user_text: str, language: str = "ua"
 ) -> tuple[str, str]:
     """Vision запит: NVIDIA Vision → Ollama Vision fallback."""
     if config.nvidia_api_key:

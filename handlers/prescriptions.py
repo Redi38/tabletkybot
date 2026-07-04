@@ -90,7 +90,7 @@ class RestorePrescription(StatesGroup):
 
 
 # ── Клавіатури ───────────────────────────────────────────────────────────
-def prescription_menu_kb(language: str = "uk") -> InlineKeyboardMarkup:
+def prescription_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text=get_text(language, "btn_add"), callback_data="presc_add", style="success"),
@@ -100,33 +100,33 @@ def prescription_menu_kb(language: str = "uk") -> InlineKeyboardMarkup:
     ])
 
 
-def prescription_back_only_kb(language: str = "uk") -> InlineKeyboardMarkup:
+def prescription_back_only_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_menu")]
     ])
 
 
-def back_to_list_kb(language: str = "uk") -> InlineKeyboardMarkup:
+def back_to_list_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_list")]
     ])
 
 
-def duration_kb(language: str = "uk") -> InlineKeyboardMarkup:
+def duration_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text=get_text(language, "btn_duration_30"), callback_data="presc_dur_30"),
         InlineKeyboardButton(text=get_text(language, "btn_duration_60"), callback_data="presc_dur_60"),
     ]])
 
 
-def edit_duration_kb(prescription_id: int, language: str = "uk") -> InlineKeyboardMarkup:
+def edit_duration_kb(prescription_id: int, language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text=get_text(language, "btn_duration_30"), callback_data=f"presc_edur_30_{prescription_id}"),
         InlineKeyboardButton(text=get_text(language, "btn_duration_60"), callback_data=f"presc_edur_60_{prescription_id}"),
     ]])
 
 
-def edit_field_kb(prescription_id: int, language: str = "uk") -> InlineKeyboardMarkup:
+def edit_field_kb(prescription_id: int, language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(language, "btn_edit_valid_from"), callback_data=f"presc_ef_valid_{prescription_id}", style="primary")],
         [InlineKeyboardButton(text=get_text(language, "btn_edit_presc_duration"), callback_data=f"presc_ef_duration_{prescription_id}", style="primary")],
@@ -135,7 +135,7 @@ def edit_field_kb(prescription_id: int, language: str = "uk") -> InlineKeyboardM
     ])
 
 
-def archived_prescription_row(prescription_id: int, language: str = "uk") -> list[InlineKeyboardButton]:
+def archived_prescription_row(prescription_id: int, language: str = "ua") -> list[InlineKeyboardButton]:
     return [
         InlineKeyboardButton(text=get_text(language, "btn_restore_presc"), callback_data=f"presc_restore_{prescription_id}", style="success"),
         InlineKeyboardButton(text=get_text(language, "btn_delete_presc"), callback_data=f"presc_delete_ask_{prescription_id}", style="danger"),
@@ -174,7 +174,7 @@ async def back_to_main_menu(call: CallbackQuery, state: FSMContext, session: Asy
     msg, _ = ctx
     await state.clear()
     user = await crud.get_or_create_user(session, call.from_user.id, call.from_user.username, call.from_user.full_name)
-    lang = str(user.language) if user.language else "uk"
+    lang = str(user.language) if user.language else "ua"
     await msg.edit_text(get_text(lang, "start_text", name=str(user.full_name)), parse_mode="HTML")
     await call.answer()
 
@@ -195,7 +195,7 @@ async def add_start(call: CallbackQuery, state: FSMContext, session: AsyncSessio
 async def add_name(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     await state.update_data(name=message.text.strip())
     await message.answer(get_text(lang, "add_presc_valid_from"), parse_mode="HTML")
     await state.set_state(AddPrescription.valid_from)
@@ -205,7 +205,7 @@ async def add_name(message: Message, state: FSMContext) -> None:
 async def add_valid_from(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     valid_from = parse_date(message.text)
     if not valid_from:
         await message.answer(get_text(lang, "err_date"), parse_mode="HTML")
@@ -223,7 +223,7 @@ async def duration_chosen(call: CallbackQuery, state: FSMContext) -> None:
     if not isinstance(call.message, Message) or not call.data:
         return
     data = await state.get_data()
-    lang = data.get("lang", "uk")
+    lang = data.get("lang", "ua")
     days = int(str(call.data).split("_")[-1])
 
     valid_from = date.fromisoformat(data["valid_from"])
@@ -239,7 +239,7 @@ async def duration_chosen(call: CallbackQuery, state: FSMContext) -> None:
 async def add_quantity(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     qty = parse_optional_int(message.text)
     if qty == -1:
         await message.answer(get_text(lang, "err_stock"), parse_mode="HTML")
@@ -254,7 +254,7 @@ async def add_reminder(message: Message, state: FSMContext, session: AsyncSessio
     if not message.text or not message.from_user:
         return
     data = await state.get_data()
-    lang = data.get("lang", "uk")
+    lang = data.get("lang", "ua")
     text = message.text.strip()
 
     reminder_days = 3
@@ -358,7 +358,7 @@ async def edit_valid_from_save(message: Message, state: FSMContext, session: Asy
     if not message.text:
         return
     data = await state.get_data()
-    lang = data.get("lang", "uk")
+    lang = data.get("lang", "ua")
     new_date = parse_date(message.text)
     if not new_date:
         await message.answer(get_text(lang, "err_date"), parse_mode="HTML")
@@ -430,7 +430,7 @@ async def edit_quantity_save(message: Message, state: FSMContext, session: Async
     if not message.text:
         return
     data = await state.get_data()
-    lang = data.get("lang", "uk")
+    lang = data.get("lang", "ua")
     qty = parse_optional_int(message.text)
     if qty == -1:
         await message.answer(get_text(lang, "err_stock"), parse_mode="HTML")
@@ -465,7 +465,7 @@ async def buy_amount_entered(message: Message, state: FSMContext, session: Async
     if not message.text:
         return
     data = await state.get_data()
-    lang = data.get("lang", "uk")
+    lang = data.get("lang", "ua")
     prescription_id = data["prescription_id"]
 
     amount = parse_optional_int(message.text)
@@ -657,7 +657,7 @@ async def restore_start(call: CallbackQuery, state: FSMContext, session: AsyncSe
 async def restore_valid_from(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     valid_from = parse_date(message.text)
     if not valid_from:
         await message.answer(get_text(lang, "err_date"), parse_mode="HTML")
@@ -675,7 +675,7 @@ async def restore_duration(call: CallbackQuery, state: FSMContext) -> None:
     if not isinstance(call.message, Message) or not call.data:
         return
     data = await state.get_data()
-    lang = data.get("lang", "uk")
+    lang = data.get("lang", "ua")
     days = int(str(call.data).split("_")[-1])
     valid_from = date.fromisoformat(data["valid_from"])
     expires_at = valid_from + timedelta(days=days)
@@ -690,7 +690,7 @@ async def restore_quantity(message: Message, state: FSMContext, session: AsyncSe
     if not message.text:
         return
     data = await state.get_data()
-    lang = data.get("lang", "uk")
+    lang = data.get("lang", "ua")
     qty = parse_optional_int(message.text)
     if qty == -1:
         await message.answer(get_text(lang, "err_stock"), parse_mode="HTML")

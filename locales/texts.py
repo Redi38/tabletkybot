@@ -1,5 +1,5 @@
 TEXTS = {
-    "uk": {
+    "ua": {
         # Головне меню
         "btn_medicines": "💊 Ліки",
         "btn_report": "📤 Звіти та Експорт",
@@ -711,7 +711,7 @@ TEXTS = {
 
 
 def get_text(lang: str, key: str, **kwargs) -> str:
-    text = TEXTS.get(lang, TEXTS["uk"]).get(key, f"Missing key: {key}")
+    text = TEXTS.get(lang, TEXTS["ua"]).get(key, f"Missing key: {key}")
     return text.format(**kwargs) if kwargs else text
 
 

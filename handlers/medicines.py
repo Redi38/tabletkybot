@@ -91,7 +91,7 @@ class RestockMedicine(StatesGroup):
 
 
 # ── Клавіатури ─────────────────────────────────────────────────────────────
-def medicine_menu_kb(language: str = "uk") -> InlineKeyboardMarkup:
+def medicine_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text=get_text(language, "btn_add"), callback_data="med_add", style="success"),
@@ -102,13 +102,13 @@ def medicine_menu_kb(language: str = "uk") -> InlineKeyboardMarkup:
     ])
 
 
-def medicine_back_only_kb(language: str = "uk") -> InlineKeyboardMarkup:
+def medicine_back_only_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_menu")]
     ])
 
 
-def track_stock_kb(language: str = "uk") -> InlineKeyboardMarkup:
+def track_stock_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text=get_text(language, "btn_yes"), callback_data="track_stock_yes"),
         InlineKeyboardButton(text=get_text(language, "btn_no"), callback_data="track_stock_no"),
@@ -143,7 +143,7 @@ async def back_to_main_menu(call: CallbackQuery, state: FSMContext, session: Asy
     msg, _ = ctx
     await state.clear()
     user = await crud.get_or_create_user(session, call.from_user.id, call.from_user.username, call.from_user.full_name)
-    lang = str(user.language) if user.language else "uk"
+    lang = str(user.language) if user.language else "ua"
     await msg.edit_text(get_text(lang, "start_text", name=str(user.full_name)), parse_mode="HTML")
     await call.answer()
 
@@ -164,7 +164,7 @@ async def add_start(call: CallbackQuery, state: FSMContext, session: AsyncSessio
 async def add_name(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     await state.update_data(name=message.text.strip())
     await message.answer(get_text(lang, "add_form"), parse_mode="HTML")
     await state.set_state(AddMedicine.form)
@@ -174,7 +174,7 @@ async def add_name(message: Message, state: FSMContext) -> None:
 async def add_form(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     await state.update_data(form=message.text.strip())
     await message.answer(get_text(lang, "add_dosage"), parse_mode="HTML")
     await state.set_state(AddMedicine.dosage)
@@ -184,7 +184,7 @@ async def add_form(message: Message, state: FSMContext) -> None:
 async def add_dosage(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     await state.update_data(dosage=message.text.strip())
     await message.answer(get_text(lang, "add_time"), parse_mode="HTML")
     await state.set_state(AddMedicine.time)
@@ -194,7 +194,7 @@ async def add_dosage(message: Message, state: FSMContext) -> None:
 async def add_time(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     parsed_times = parse_times(message.text)
     if not parsed_times:
         await message.answer(get_text(lang, "err_time"), parse_mode="HTML")
@@ -208,7 +208,7 @@ async def add_time(message: Message, state: FSMContext) -> None:
 async def add_duration(message: Message, state: FSMContext, session: AsyncSession) -> None:
     if not message.text or not message.from_user:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     days = parse_int(message.text.strip())
     if not days:
         await message.answer(get_text(lang, "err_duration"))
@@ -230,7 +230,7 @@ async def add_duration(message: Message, state: FSMContext, session: AsyncSessio
 async def add_timezone(message: Message, state: FSMContext, session: AsyncSession) -> None:
     if not message.text or not message.from_user:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     tz_text = message.text.strip()
     try:
         pytz.timezone(tz_text)
@@ -260,7 +260,7 @@ async def add_track_stock(call: CallbackQuery, state: FSMContext, session: Async
 async def add_stock_amount(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "uk")
+    lang = (await state.get_data()).get("lang", "ua")
     amount = parse_int(message.text.strip())
     if amount is None:
         await message.answer(get_text(lang, "err_stock"))
@@ -275,7 +275,7 @@ async def add_stock_threshold(message: Message, state: FSMContext, session: Asyn
     if not message.text:
         return
     data = await state.get_data()
-    lang = data.get("lang", "uk")
+    lang = data.get("lang", "ua")
     threshold = parse_int(message.text.strip())
     if threshold is None:
         await message.answer(get_text(lang, "err_invalid_number"))
@@ -462,7 +462,7 @@ async def extend_course_start(call: CallbackQuery, state: FSMContext, session: A
 @router.message(ExtendMedicine.waiting_for_days)
 async def extend_course_save(message: Message, state: FSMContext, session: AsyncSession, bot: Bot) -> None:
     data = await state.get_data()
-    lang = data.get("lang", "uk")
+    lang = data.get("lang", "ua")
     days = parse_int(message.text.strip()) if message.text else None
     if days is None:
         await message.answer(get_text(lang, "err_duration"))
@@ -523,7 +523,7 @@ async def edit_field_save(message: Message, state: FSMContext, session: AsyncSes
     if not message.from_user or not message.text:
         return
     data = await state.get_data()
-    medicine_id, field, lang = data["medicine_id"], data["field"], data.get("lang", "uk")
+    medicine_id, field, lang = data["medicine_id"], data["field"], data.get("lang", "ua")
     new_value = message.text.strip()
 
     if field == "schedules":
@@ -651,7 +651,7 @@ async def restock_save(message: Message, state: FSMContext, session: AsyncSessio
         return
     data = await state.get_data()
     medicine_id = data["medicine_id"]
-    lang = data.get("lang", "uk")
+    lang = data.get("lang", "ua")
     needs_take = data.get("needs_take", False)
 
     amount = parse_int(message.text.strip())

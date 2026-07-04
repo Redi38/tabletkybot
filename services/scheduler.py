@@ -107,7 +107,7 @@ def remove_reminders(medicine_id: int) -> None:
 
 def add_reminders_for_medicine(
         bot: Bot, medicine: Medicine, timezone: str,
-        chat_id: int, language: str = "uk", is_sync: bool = False,
+        chat_id: int, language: str = "ua", is_sync: bool = False,
 ) -> None:
     if not medicine.is_active:
         remove_reminders(medicine.id)
@@ -187,7 +187,7 @@ async def sync_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
             bot=bot, medicine=med,
             timezone=user.timezone or "Europe/Kyiv",
             chat_id=user.id,
-            language=user.language or "uk",
+            language=user.language or "ua",
             is_sync=True,
         )
 
@@ -218,7 +218,7 @@ async def sync_single_reminder(
             bot=bot, medicine=med,
             timezone=user.timezone or "Europe/Kyiv",
             chat_id=user.id,
-            language=user.language or "uk",
+            language=user.language or "ua",
             is_sync=True,
         )
         logger.info(f"Оновлено розклади для med_{medicine_id}")
@@ -260,7 +260,7 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
                 continue
  
             days_left = (prescription.expires_at - local_now.date()).days
-            language = user.language or "uk"
+            language = user.language or "ua"
  
             try:
                 await bot.send_message(
@@ -288,7 +288,7 @@ async def archive_expired_prescriptions(bot: Bot, session_factory: async_session
  
         for prescription, user in expired:
             await crud.archive_prescription(session, prescription.id)
-            language = user.language or "uk"
+            language = user.language or "ua"
             try:
                 await bot.send_message(
                     chat_id=user.id,

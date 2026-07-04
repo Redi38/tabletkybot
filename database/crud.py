@@ -52,7 +52,7 @@ async def update_user_language(session: AsyncSession, user_id: int, language: st
 
 async def get_user_language(session: AsyncSession, user_id: int) -> str:
     user = await _get_user(session, user_id)
-    return str(user.language) if user and user.language else "uk"
+    return str(user.language) if user and user.language else "ua"
 
 async def get_user_timezone(session: AsyncSession, user_id: int) -> str:
     user = await _get_user(session, user_id)

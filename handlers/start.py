@@ -11,7 +11,7 @@ from locales.texts import get_text, TEXTS, btn_variants
 
 router = Router()
 
-def get_main_keyboard(language: str = "uk") -> ReplyKeyboardMarkup:
+def get_main_keyboard(language: str = "ua") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=get_text(language, "btn_medicines")),
@@ -27,7 +27,7 @@ def get_main_keyboard(language: str = "uk") -> ReplyKeyboardMarkup:
 
 def language_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="Українська", callback_data="lang_uk", style="primary"),
+        InlineKeyboardButton(text="Українська", callback_data="lang_ua", style="primary"),
 	InlineKeyboardButton(text="Русский", callback_data="lang_ru", style="primary"),
         InlineKeyboardButton(text="English", callback_data="lang_en", style="primary"),
     ]])
@@ -41,7 +41,7 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext) 
         session, message.from_user.id,
         message.from_user.username, message.from_user.full_name,
     )
-    language = user.language or "uk"
+    language = user.language or "ua"
     await message.answer(
         get_text(language, "start_text", name=user.full_name),
         reply_markup=get_main_keyboard(language),
@@ -57,7 +57,7 @@ async def cmd_help(message: Message, session: AsyncSession) -> None:
         session, message.from_user.id,
         message.from_user.username, message.from_user.full_name,
     )
-    language = user.language or "uk"
+    language = user.language or "ua"
     await message.answer(
         get_text(language, "help_text"),
         parse_mode="HTML",
@@ -93,5 +93,5 @@ async def fallback_handler(message: Message, state: FSMContext, session: AsyncSe
             session, message.from_user.id,
             message.from_user.username, message.from_user.full_name,
         )
-        language = user.language or "uk"
+        language = user.language or "ua"
         await message.answer(get_text(language, "fallback_text"), reply_markup=get_main_keyboard(language))

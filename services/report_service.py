@@ -131,7 +131,7 @@ def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
     ws.freeze_panes = "A3"
 
 # ── Основні генератори звітів ──────────────────────────────────────────────
-def create_excel_report(records: list[tuple], lang: str = "uk", user_name: str = "",
+def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str = "",
                         user_tz: str = "Europe/Kyiv") -> io.BytesIO:
     """Генерація Excel-звіту про прийом препаратів (Історія + Статистика)."""
     wb = openpyxl.Workbook()
@@ -316,7 +316,7 @@ def create_excel_report(records: list[tuple], lang: str = "uk", user_name: str =
     return buffer
 
 
-def create_csv_report(records: list[tuple], lang: str = "uk", user_name: str = "",
+def create_csv_report(records: list[tuple], lang: str = "ua", user_name: str = "",
                       user_tz: str = "Europe/Kyiv") -> io.BytesIO:
     """Генерація легкого CSV-звіту про прийом препаратів."""
     output = io.StringIO()

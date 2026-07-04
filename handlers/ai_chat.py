@@ -21,7 +21,7 @@ class AIState(StatesGroup):
     active = State()
 
 
-def ai_keyboard(language: str = "uk") -> ReplyKeyboardMarkup:
+def ai_keyboard(language: str = "ua") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=get_text(language, "ai_btn_clear"))],

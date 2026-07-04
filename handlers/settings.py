@@ -17,7 +17,7 @@ class SettingsState(StatesGroup):
     lang = State()
 
 
-def settings_keyboard(language: str = "uk") -> InlineKeyboardMarkup:
+def settings_keyboard(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(language, "btn_change_name"), callback_data="set_name", style="primary")],
         [InlineKeyboardButton(text=get_text(language, "btn_change_tz"), callback_data="set_tz", style="primary")],
@@ -38,7 +38,7 @@ async def _msg_ctx(message: Message, state: FSMContext) -> tuple[str, str] | Non
     if not message.text or not message.from_user:
         return None
     data = await state.get_data()
-    return message.text.strip(), data.get("lang", "uk")
+    return message.text.strip(), data.get("lang", "ua")
 
 
 @router.message(F.text.in_(btn_variants("btn_settings")))
@@ -49,7 +49,7 @@ async def settings_menu(message: Message, session: AsyncSession) -> None:
         session, message.from_user.id,
         message.from_user.username, message.from_user.full_name,
     )
-    lang = user.language or "uk"
+    lang = user.language or "ua"
     await message.answer(
         get_text(lang, "settings_title", name=str(user.full_name), tz=str(user.timezone)),
         reply_markup=settings_keyboard(lang),
