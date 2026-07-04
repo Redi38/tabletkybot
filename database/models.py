@@ -132,12 +132,7 @@ class Prescription(Base):
  
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
-    medicine_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("medicines.id", ondelete="SET NULL"), nullable=True
-    )
     medicine_name: Mapped[str] = mapped_column(EncryptedString)
-    dosage: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    issued_at: Mapped[date] = mapped_column(Date)
     valid_from: Mapped[date] = mapped_column(Date)
     expires_at: Mapped[date] = mapped_column(Date)
     max_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -146,11 +141,9 @@ class Prescription(Base):
     reminder_days_before: Mapped[int] = mapped_column(Integer, default=3)
     reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    notes: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
  
     user: Mapped["User"] = relationship(back_populates="prescriptions")
-    medicine: Mapped["Medicine | None"] = relationship()
- 
+
     def __str__(self) -> str:
         return f"{self.medicine_name} (до {self.expires_at.strftime('%d.%m.%Y')})"

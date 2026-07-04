@@ -186,7 +186,7 @@ TEXTS = {
 	"btn_prescriptions": "📝 Рецепти",
     	"presc_menu_title": "📝 <b>Управління рецептами</b>\n\nОберіть дію:",
     	"presc_empty": "📭 У вас немає доданих рецептів.\n\nДодайте перший за допомогою кнопки нижче:",
-    	"presc_list_title": "📝 <b>Ваші рецепти:</b>\n\n",
+    	"presc_list_title": "📋 <b>Ваші рецепти:</b>\n\n",
 	"presc_valid_from_label": "Дійсний з",
 	"presc_purchased_label": "Куплено",
 	"btn_edit_presc": "✏️ Редагувати",
@@ -207,19 +207,17 @@ TEXTS = {
 
 	# Рецепти (додавання до списку)
     	"add_presc_name": "💊 Введіть <b>назву препарату</b> з рецепту:",
-    	"add_presc_issued": "📅 Введіть <b>дату видачі рецепту</b> у форматі ДД.ММ.РРРР:",
     	"err_date": "❌ Невірний формат дати. Введіть у форматі ДД.ММ.РР (наприклад: 15.07.26):",
     	"add_presc_quantity": "💊 Скільки одиниць дозволено купити по рецепту? (введіть число, або \"-\" якщо не обмежено):",
     	"add_presc_reminder": "⏰ За скільки днів до закінчення нагадати? (введіть число, або \"-\" для значення за замовчуванням — 3 дні):",
     	"presc_added": "✅ Рецепт на <b>{name}</b> додано!\n📅 Діє до: <b>{expires}</b>",
-	"presc_valid_match_question": "Дата початку дії співпадає з датою видачі рецепта?",
-	"add_presc_valid_from": "Введіть дату початку дії рецепта (ДД.ММ.РР):",
+	"add_presc_valid_from": "📅 Введіть дату початку дії рецепта (ДД.ММ.РР):",
 	"presc_choose_duration": "Оберіть термін дії рецепта:",
 	"btn_duration_30": "30 днів",
 	"btn_duration_60": "60 днів",
 
 	# Рецепти (купівля, архів)
-    	"btn_mark_bought": "🛒 Відмітити купівлю",
+    	"btn_mark_bought": "🛒 Куплено",
     	"ask_bought_amount_limit": "💊 Скільки одиниць ви купили?\n<i>Залишилось по рецепту: {remaining}</i>",
     	"presc_bought_confirm": "Підтвердити купівлю <b>{amount}</b> од. препарату <b>{name}</b>?",
     	"btn_confirm_bought": "✅ Підтвердити",
@@ -230,9 +228,11 @@ TEXTS = {
 	"presc_kept_active": "📌 Рецепт залишено активним (як нагадування отримати новий).",
     	"presc_expiring_alert": "⏰ <b>Нагадування про рецепт!</b>\n\n💊 {name}\nРецепт діє до <b>{expires}</b> — залишилось {days} дн.\n\nНе забудьте скористатись рецептом вчасно!",
     	"btn_archive_presc": "🗂  В архів",
-    	"presc_archived": "🗂  Рецепт архівовано",
+    	"presc_archived": "🗂  Рецепт <b>{name}</b> архівовано",
 	"presc_valid_until": "Дійсний до",
 	"presc_expired_auto_archived": "⌛ Рецепт на <b>{name}</b> закінчився і був автоматично архівований.\n\nЯкщо лікування триває — отримайте новий рецепт у лікаря.",
+	"btn_confirm_archive": "🗂  Так, архівувати",
+	"presc_archive_confirm_q": "Перемістити рецепт на <b>{name}</b> в архів?",
     },
     "en": {
         # Головне меню
@@ -421,7 +421,7 @@ TEXTS = {
 	"btn_prescriptions": "📝 Prescriptions",
     	"presc_menu_title": "📝 <b>Prescription management</b>\n\nChoose an action:",
     	"presc_empty": "📭 You have no prescriptions yet.\n\nAdd the first one using the button below:",
-    	"presc_list_title": "📝 <b>Your prescriptions:</b>\n\n",
+    	"presc_list_title": "📋 <b>Your prescriptions:</b>\n\n",
 	"presc_valid_from_label": "Valid from",
 	"presc_purchased_label": "Purchased",
 	"btn_edit_presc": "✏️ Edit",
@@ -442,19 +442,17 @@ TEXTS = {
 
 	# Рецепти (додавання)
     	"add_presc_name": "💊 Enter the <b>medicine name</b> from the prescription:",
-    	"add_presc_issued": "📅 Enter the <b>issue date</b> in DD.MM.YY format:",
     	"err_date": "❌ Invalid date format. Use DD.MM.YYYY (e.g., 15.07.26):",
     	"add_presc_quantity": "💊 How many units are allowed by this prescription? (enter a number, or \"-\" if unlimited):",
     	"add_presc_reminder": "⏰ How many days before expiry should I remind you? (enter a number, or \"-\" for default — 3 days):",
     	"presc_added": "✅ Prescription for <b>{name}</b> added!\n📅 Valid until: <b>{expires}</b>",
-	"presc_valid_match_question": "Does the validity start date match the issue date?",
-	"add_presc_valid_from": "Enter the prescription validity start date (DD.MM.YY):",    	
+	"add_presc_valid_from": "📅 Enter the prescription validity start date (DD.MM.YY):",    	
 	"presc_choose_duration": "Choose prescription validity period:",
 	"btn_duration_30": "30 days",
 	"btn_duration_60": "60 days",
 
 	# Рецепти (купівля, архів)
-	"btn_mark_bought": "🛒 Mark as bought",
+	"btn_mark_bought": "🛒 Bought",
     	"ask_bought_amount_limit": "💊 How many units did you buy?\n<i>Remaining on prescription: {remaining}</i>",
 	"err_exceeds_prescription_limit": "❌ Prescription limit exceeded! Only <b>{remaining}</b> units left. Enter a smaller number:",
     	"presc_bought_confirm": "Confirm purchase of <b>{amount}</b> units of <b>{name}</b>?",
@@ -467,8 +465,10 @@ TEXTS = {
     	"presc_expired_auto_archived": "⌛ The prescription for <b>{name}</b> has expired and was automatically archived.\n\nIf treatment continues, please get a new prescription from your doctor.",
     	"presc_expiring_alert": "⏰ <b>Prescription reminder!</b>\n\n💊 {name}\nValid until <b>{expires}</b> — {days} days left.\n\nDon't forget to use it in time!",
     	"btn_archive_presc": "🗂  To archive",
-    	"presc_archived": "🗂  Prescription archived",
+    	"presc_archived": "🗂  Prescription <b>{name}</b> archived",
 	"presc_valid_until": "Valid until",
+	"btn_confirm_archive": "🗂  Yes, archive",
+	"presc_archive_confirm_q": "Move the prescription for <b>{name}</b> to archive?",
     },
     "ru": {
 	# Головне меню
@@ -657,7 +657,7 @@ TEXTS = {
 	"btn_prescriptions": "📝 Рецепты",
     	"presc_menu_title": "📝 <b>Управление рецептами</b>\n\nВыберите действие:",
     	"presc_empty": "📭 У вас нет добавленных рецептов.\n\nДобавьте первый с помощью кнопки ниже:",
-    	"presc_list_title": "📝 <b>Ваши рецепты:</b>\n\n",
+    	"presc_list_title": "📋 <b>Ваши рецепты:</b>\n\n",
 	"presc_valid_from_label": "Действителен с",
 	"presc_purchased_label": "Куплено",
 	"btn_edit_presc": "✏️ Редактировать",
@@ -678,21 +678,17 @@ TEXTS = {
 	
 	# Рецепти (додавання)
     	"add_presc_name": "💊 Введите <b>название препарата</b> из рецепта:",
-    	"add_presc_doctor": "👨‍⚕️ Введите <b>имя врача</b> (или отправьте \"-\" чтобы пропустить):",
-    	"add_presc_number": "🔢 Введите <b>номер рецепта</b> (или \"-\" чтобы пропустить):",
-    	"add_presc_issued": "📅 Введите <b>дату выдачи рецепта</b> в формате ДД.ММ.ГГ:",
     	"err_date": "❌ Неверный формат даты. Введите в формате ДД.ММ.ГГ (например: 15.07.26):",
     	"add_presc_quantity": "💊 Сколько единиц разрешено купить по рецепту? (введите число, или \"-\" если не ограничено):",
     	"add_presc_reminder": "⏰ За сколько дней до окончания напомнить? (введите число, или \"-\" для значения по умолчанию — 3 дня):",
     	"presc_added": "✅ Рецепт на <b>{name}</b> добавлен!\n📅 Действует до: <b>{expires}</b>",
-	"presc_valid_match_question": "Дата начала действия совпадает с датой выдачи рецепта?",
-	"add_presc_valid_from": "Введите дату начала действия рецепта (ДД.ММ.ГГ):",	
+	"add_presc_valid_from": "📅 Введите дату начала действия рецепта (ДД.ММ.ГГ):",	
 	"presc_choose_duration": "Выберите срок действия рецепта:",
 	"btn_duration_30": "30 дней",
 	"btn_duration_60": "60 дней",
 
 	# Рецепти (купівля, архів)
-    	"btn_mark_bought": "🛒 Отметить покупку",
+    	"btn_mark_bought": "🛒 Куплено",
 	"ask_bought_amount_limit": "💊 Сколько единиц вы купили?\n<i>Осталось по рецепту: {remaining}</i>",
     	"err_exceeds_prescription_limit": "❌ Превышен лимит рецепта! Осталось только <b>{remaining}</b> ед. Введите меньшее число:",
     	"ask_bought_amount": "💊 Сколько единиц вы купили?",
@@ -706,8 +702,10 @@ TEXTS = {
     	"presc_expired_auto_archived": "⌛ Рецепт на <b>{name}</b> истёк и был автоматически архивирован.\n\nЕсли лечение продолжается — получите новый рецепт у врача.",
     	"presc_expiring_alert": "⏰ <b>Напоминание о рецепте!</b>\n\n💊 {name}\nРецепт действует до <b>{expires}</b> — осталось {days} дн.\n\nНе забудьте воспользоваться рецептом вовремя!",
     	"btn_archive_presc": "🗂  В архив",
-    	"presc_archived": "🗂  Рецепт архивирован",
+    	"presc_archived": "🗂  Рецепт <b>{name}</b> архивирован",
 	"presc_valid_until": "Действителен до",
+	"btn_confirm_archive": "🗂  Да, архивировать",
+	"presc_archive_confirm_q": "Переместить рецепт на <b>{name}</b> в архив?",
     }
 }
 

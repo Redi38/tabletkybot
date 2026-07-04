@@ -13,4 +13,4 @@ sqladmin
 SQLAlchemy
 uvicorn
 cryptography
-wtforms
+wtforms<3.2

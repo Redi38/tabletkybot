@@ -294,24 +294,20 @@ async def clear_chat_history(session: AsyncSession, user_id: int) -> None:
 # ─── Рецепти ─────────────────────────────────────────────────────────────────
 async def add_prescription(
         session: AsyncSession, user_id: int, medicine_name: str,
-        issued_at: date, valid_from: date, expires_at: date,
-        medicine_id: int | None = None, dosage: str | None = None,
+        valid_from: date, expires_at: date,
         max_quantity: int | None = None, reminder_days_before: int = 3,
-        notes: str | None = None,
 ) -> Prescription:
     prescription = Prescription(
-        user_id=user_id, medicine_id=medicine_id, medicine_name=medicine_name,
-        dosage=dosage,
-        issued_at=issued_at, valid_from=valid_from, expires_at=expires_at,
+        user_id=user_id, medicine_name=medicine_name,
+        valid_from=valid_from, expires_at=expires_at,
         max_quantity=max_quantity, reminder_days_before=reminder_days_before,
-        notes=notes,
     )
     session.add(prescription)
     await session.flush()
     await session.refresh(prescription)
     return prescription
- 
- 
+
+
 async def get_user_prescriptions(
         session: AsyncSession, user_id: int, active_only: bool = True
 ) -> list[Prescription]:
@@ -423,13 +419,12 @@ async def get_user_archived_prescriptions(session: AsyncSession, user_id: int) -
 
 async def restore_prescription(
         session: AsyncSession, prescription_id: int,
-        issued_at: date, valid_from: date, expires_at: date,
+        valid_from: date, expires_at: date,
         max_quantity: int | None,
 ) -> bool:
     prescription = await get_prescription_by_id(session, prescription_id)
     if not prescription:
         return False
-    prescription.issued_at = issued_at
     prescription.valid_from = valid_from
     prescription.expires_at = expires_at
     prescription.max_quantity = max_quantity

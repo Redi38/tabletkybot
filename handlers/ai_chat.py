@@ -53,7 +53,7 @@ async def enter_ai_mode(message: Message, state: FSMContext, session: AsyncSessi
     )
 
 
-@router.message(AIState.active, F.text.in_({TEXTS["uk"]["ai_btn_exit"], TEXTS["en"]["ai_btn_exit"]}))
+@router.message(AIState.active, F.text.in_(btn_variants("ai_btn_exit")))
 async def exit_ai_mode(message: Message, state: FSMContext, session: AsyncSession) -> None:
     if not message.from_user:
         return
@@ -66,7 +66,7 @@ async def exit_ai_mode(message: Message, state: FSMContext, session: AsyncSessio
     )
 
 
-@router.message(AIState.active, F.text.in_({TEXTS["uk"]["ai_btn_clear"], TEXTS["en"]["ai_btn_clear"]}))
+@router.message(AIState.active, F.text.in_(btn_variants("ai_btn_clear")))
 async def clear_context(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return
@@ -244,12 +244,10 @@ async def handle_ai_message(message: Message, session: AsyncSession, config: Con
         )
         return
 
-    main_buttons = {
-        TEXTS["uk"]["btn_medicines"], TEXTS["uk"]["btn_report"],
-        TEXTS["uk"]["btn_ai"], TEXTS["uk"]["btn_help"], TEXTS["uk"]["btn_lang"],
-        TEXTS["en"]["btn_medicines"], TEXTS["en"]["btn_report"],
-        TEXTS["en"]["btn_ai"], TEXTS["en"]["btn_help"], TEXTS["en"]["btn_lang"],
-    }
+    main_buttons = (
+    btn_variants("btn_medicines") | btn_variants("btn_report") |
+    btn_variants("btn_ai") | btn_variants("btn_prescriptions") | btn_variants("btn_lang")
+    )
 
     if message.text in main_buttons:
         await state.clear()

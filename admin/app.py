@@ -148,20 +148,17 @@ class PrescriptionAdmin(ModelView, model=Prescription):
     icon = "fa-solid fa-file-prescription"
     column_list = [
         Prescription.id, Prescription.user, Prescription.medicine_name,
-        Prescription.dosage, Prescription.issued_at, Prescription.valid_from,
-        Prescription.expires_at, Prescription.max_quantity, Prescription.purchased_quantity,
-        Prescription.is_fully_purchased, Prescription.reminder_days_before,
-        Prescription.reminder_sent, Prescription.is_active,
+        Prescription.valid_from, Prescription.expires_at, Prescription.max_quantity,
+	Prescription.purchased_quantity, Prescription.is_fully_purchased,
+	Prescription.reminder_days_before, Prescription.reminder_sent, Prescription.is_active,
     ]
-    column_searchable_list = ["medicine_name", "dosage", "user.full_name"]
+    column_searchable_list = ["medicine_name", "user.full_name"]
     column_default_sort = ("expires_at", False)
-    column_details_exclude_list = [Prescription.medicine]
     form_args = dict(
         medicine_name=dict(validators=[
             DataRequired(message="Назва препарату обов'язкова"),
             Length(max=150)
         ]),
-        dosage=dict(validators=[Length(max=64, message="Максимум 64 символи")]),
         max_quantity=dict(validators=[NumberRange(min=0, message="Має бути >= 0 (або пусто)")]),
         purchased_quantity=dict(validators=[NumberRange(min=0, message="Не може бути від'ємним")]),
         reminder_days_before=dict(validators=[NumberRange(min=0, max=90, message="Від 0 до 90 днів")]),
