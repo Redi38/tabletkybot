@@ -210,7 +210,7 @@ async def add_duration(message: Message, state: FSMContext, session: AsyncSessio
         return
     lang = (await state.get_data()).get("lang", "ua")
     days = parse_int(message.text.strip())
-    if not days:
+    if days is None or days == 0:
         await message.answer(get_text(lang, "err_duration"))
         return
     await state.update_data(duration=days)
