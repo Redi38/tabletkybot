@@ -32,8 +32,45 @@ def format_markdown_to_html(text: str) -> str:
     return text
 
 
+# ─── Визначення мови останнього повідомлення користувача ───────────────────
+_UA_ONLY_CHARS = set("іїєґІЇЄҐ")
+_RU_ONLY_CHARS = set("ёъыэЁЪЫЭ")
+
+_LANG_NAMES = {"ua": "Ukrainian", "ru": "Russian", "en": "English"}
+
+
+def detect_message_language(text: str) -> str | None:
+    if not text:
+        return None
+
+    has_ua = any(ch in _UA_ONLY_CHARS for ch in text)
+    has_ru = any(ch in _RU_ONLY_CHARS for ch in text)
+
+    if has_ua and not has_ru:
+        return "ua"
+    if has_ru and not has_ua:
+        return "ru"
+    if has_ua and has_ru:
+        return None
+
+    letters = [ch for ch in text if ch.isalpha()]
+    if letters and all(ord(ch) < 128 for ch in letters):
+        return "en"
+
+    return None
+
+
+def _resolve_language(messages: list[dict], fallback: str) -> str:
+    """Визначає мову за останнім повідомленням user; якщо не вдалося — fallback (мова профілю)."""
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            detected = detect_message_language(msg.get("content", "") or "")
+            return detected or fallback
+    return fallback
+
+
 def system_prompt(language: str = "ua") -> str:
-    """Генерує системний промпт (англійською, мовно-нейтральний)."""
+    """Генерує системний промпт (англійською, з чіткою вказівкою поточної мови відповіді)."""
     html_instruction = (
         "You MUST format your response using ONLY Telegram-supported HTML tags: "
         "<b>bold</b> for headings/key terms, <i>italic</i>, and <code>code</code>. "
@@ -45,17 +82,24 @@ def system_prompt(language: str = "ua") -> str:
         "4. Highlight medicine names, prices, and main ideas using <b> tags. "
         "Make the text visually appealing and easy to scan."
     )
+
+    lang_name = _LANG_NAMES.get(language, "the same language as the user's latest message")
+    language_rule = (
+        f"CRITICAL LANGUAGE RULE: The user's most recent message is written in "
+        f"{lang_name}. You MUST write your ENTIRE response in {lang_name}, "
+        f"regardless of what language earlier messages, tool results, or any "
+        f"other data in this conversation are written in. Do not mix languages "
+        f"within your response. This rule overrides any other language "
+        f"preference or instruction."
+    )
+
     return (
         "You are a helpful medical assistant in a Telegram bot for medication "
         "management. You help users track their medicines, dosages, schedules, "
         "and prescriptions. If given an image or PDF with test results, analyze "
         "it carefully. Always remind users to consult a doctor for serious "
         "medical concerns. "
-        "CRITICAL LANGUAGE RULE: Always respond in the SAME language the user's "
-        "LATEST message is written in, regardless of any other language used "
-        "earlier in the conversation. If they write in Russian, respond in "
-        "Russian. If Ukrainian, respond in Ukrainian. If English, respond in "
-        "English. This rule overrides any other language preference. "
+        f"{language_rule} "
         "You have access to tools that fetch the user's REAL medicine and "
         "prescription data (get_my_medicines, get_my_prescriptions). When asked "
         "about the user's own medicines, doses, schedule, or prescriptions, you "
@@ -161,6 +205,8 @@ async def get_ai_response(
         config: Config, messages: list[dict], language: str = "ua"
 ) -> tuple[str, str]:
     """Текстовий запит: NVIDIA → Ollama fallback."""
+    language = _resolve_language(messages, language)
+
     if config.nvidia_api_key:
         try:
             response = await ask_nvidia(
@@ -183,6 +229,8 @@ async def get_ai_vision_response(
         config: Config, image_bytes: bytes, user_text: str, language: str = "ua"
 ) -> tuple[str, str]:
     """Vision запит: NVIDIA Vision → Ollama Vision fallback."""
+    language = detect_message_language(user_text) or language
+
     if config.nvidia_api_key:
         try:
             response = await ask_nvidia_vision(
@@ -202,7 +250,6 @@ async def get_ai_vision_response(
         logger.error(f"Ollama Vision помилка: {type(e).__name__}: {e}")
 
     return get_text(language, "ai_err_vision"), "none"
-
 
 
 _MAX_AGENT_ITERATIONS = 5  # захист від нескінченного циклу tool-викликів
@@ -242,7 +289,11 @@ async def get_ai_agent_response(
     """
     Агентний цикл: LLM може викликати tools (get_my_medicines,
     get_my_prescriptions) перед тим, як дати фінальну відповідь.
+    Мова визначається один раз на початку — за останнім повідомленням
+    користувача — і не змінюється всередині одного агентного циклу.
     """
+    language = _resolve_language(messages, language)
+
     if not config.nvidia_api_key:
         return await get_ai_response(config, messages, language)
 

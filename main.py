@@ -15,7 +15,7 @@ from database.db import init_db
 from middleware.db_middleware import DatabaseMiddleware
 
 from services.scheduler import start_scheduler, stop_scheduler, sync_reminders, sync_single_reminder, scheduler, check_prescription_reminders
-from handlers import start, medicines, ai_chat, report, errors, settings, prescriptions
+from handlers import start, medicines, report, errors, settings, prescriptions
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,7 +84,6 @@ async def main() -> None:
     dp.include_router(settings.router)
     dp.include_router(prescriptions.router)
     dp.include_router(medicines.router)
-    dp.include_router(ai_chat.router)
     dp.include_router(report.router)
     dp.include_router(start.router)
 

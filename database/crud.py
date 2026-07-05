@@ -269,10 +269,29 @@ async def get_dashboard_stats(session: AsyncSession, period: str = "all") -> dic
 
 # ─── Історія діалогу з ШІ ───────────────────────────────────────────────────
 async def add_chat_message(
-        session: AsyncSession, user_id: int, role: str, content: str
+        session: AsyncSession, user_id: int, role: str, content: str,
+        keep_last: int = 20,
 ) -> None:
     session.add(ChatHistory(user_id=user_id, role=role, content=content))
     await session.flush()
+
+    subq = (
+        select(ChatHistory.id)
+        .where(ChatHistory.user_id == user_id)
+        .order_by(ChatHistory.created_at.desc())
+        .limit(keep_last)
+    )
+    result = await session.execute(subq)
+    keep_ids = [row[0] for row in result.all()]
+
+    if keep_ids:
+        await session.execute(
+            delete(ChatHistory).where(
+                ChatHistory.user_id == user_id,
+                ChatHistory.id.notin_(keep_ids),
+            )
+        )
+        await session.flush()
 
 async def get_chat_history(
         session: AsyncSession, user_id: int, limit: int = 10
@@ -317,13 +336,13 @@ async def get_user_prescriptions(
     stmt = stmt.order_by(Prescription.expires_at)
     result = await session.execute(stmt)
     return list(result.scalars().all())
- 
- 
+
+
 async def get_prescription_by_id(session: AsyncSession, prescription_id: int) -> Prescription | None:
     result = await session.execute(select(Prescription).where(Prescription.id == prescription_id))
     return result.scalar_one_or_none()
- 
- 
+
+
 async def update_prescription_field(session: AsyncSession, prescription_id: int, field: str, value) -> bool:
     prescription = await get_prescription_by_id(session, prescription_id)
     if not prescription:
@@ -331,19 +350,19 @@ async def update_prescription_field(session: AsyncSession, prescription_id: int,
     setattr(prescription, field, value)
     await session.flush()
     return True
- 
- 
+
+
 async def mark_prescription_purchased(session: AsyncSession, prescription_id: int, amount: int) -> dict:
     """Додає amount до purchased_quantity. Повертає стан для показу юзеру."""
     prescription = await get_prescription_by_id(session, prescription_id)
     if not prescription:
         return {"success": False}
- 
+
     prescription.purchased_quantity = (prescription.purchased_quantity or 0) + amount
- 
+
     if prescription.max_quantity is not None and prescription.purchased_quantity >= prescription.max_quantity:
         prescription.is_fully_purchased = True
- 
+
     await session.flush()
     return {
         "success": True,
@@ -352,12 +371,12 @@ async def mark_prescription_purchased(session: AsyncSession, prescription_id: in
         "max_quantity": prescription.max_quantity,
         "is_fully_purchased": prescription.is_fully_purchased,
     }
- 
- 
+
+
 async def archive_prescription(session: AsyncSession, prescription_id: int) -> bool:
     return await update_prescription_field(session, prescription_id, "is_active", False)
- 
- 
+
+
 async def delete_prescription(session: AsyncSession, prescription_id: int) -> bool:
     prescription = await get_prescription_by_id(session, prescription_id)
     if not prescription:
@@ -365,8 +384,8 @@ async def delete_prescription(session: AsyncSession, prescription_id: int) -> bo
     await session.delete(prescription)
     await session.flush()
     return True
- 
- 
+
+
 async def get_prescriptions_needing_reminder(session: AsyncSession) -> list[tuple[Prescription, User]]:
     """
     Повертає всі активні, ще не повністю викуплені рецепти без надісланого
@@ -385,8 +404,8 @@ async def get_prescriptions_needing_reminder(session: AsyncSession) -> list[tupl
     )
     result = await session.execute(stmt)
     return [(row[0], row[1]) for row in result.all()]
- 
- 
+
+
 async def mark_prescription_reminder_sent(session: AsyncSession, prescription_id: int) -> None:
     await update_prescription_field(session, prescription_id, "reminder_sent", True)
 

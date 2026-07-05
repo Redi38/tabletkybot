@@ -1,9 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import crud
 
-
-# Схеми tools — те, що бачить LLM і на основі чого вирішує, коли викликати
-
 TOOL_SCHEMAS = [
     {
         "type": "function",
@@ -41,13 +38,10 @@ TOOL_SCHEMAS = [
 ]
 
 
-# Виконавці — реальна Python-логіка за кожним tool
-
 async def execute_get_my_medicines(session: AsyncSession, user_id: int) -> dict:
     medicines = await crud.get_user_medicines(session, user_id, active_only=True)
     if not medicines:
-        return {"medicines": [], "note": "У користувача немає активних препаратів."}
-
+        return {"medicines": [], "note": "No active medicines found for this user."}
     result = []
     for med in medicines:
         result.append({
@@ -64,8 +58,7 @@ async def execute_get_my_medicines(session: AsyncSession, user_id: int) -> dict:
 async def execute_get_my_prescriptions(session: AsyncSession, user_id: int) -> dict:
     prescriptions = await crud.get_user_prescriptions(session, user_id, active_only=True)
     if not prescriptions:
-        return {"prescriptions": [], "note": "У користувача немає активних рецептів."}
-
+        return {"prescriptions": [], "note": "No active prescriptions found for this user."}
     result = []
     for p in prescriptions:
         result.append({
@@ -80,7 +73,6 @@ async def execute_get_my_prescriptions(session: AsyncSession, user_id: int) -> d
 
 
 # Диспетчер — викликається з ai_service.py при отриманні tool_calls від LLM
-
 TOOL_EXECUTORS = {
     "get_my_medicines": execute_get_my_medicines,
     "get_my_prescriptions": execute_get_my_prescriptions,
@@ -90,8 +82,8 @@ TOOL_EXECUTORS = {
 async def execute_tool(tool_name: str, session: AsyncSession, user_id: int) -> dict:
     executor = TOOL_EXECUTORS.get(tool_name)
     if not executor:
-        return {"error": f"Невідомий tool: {tool_name}"}
+        return {"error": f"Unknown tool: {tool_name}"}
     try:
         return await executor(session, user_id)
     except Exception as e:
-        return {"error": f"Помилка виконання {tool_name}: {e}"}
+        return {"error": f"Error executing {tool_name}: {e}"}
