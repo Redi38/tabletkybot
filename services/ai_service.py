@@ -2,6 +2,8 @@ import aiohttp
 import logging
 import base64
 import re
+import json
+from services.ai_tools import TOOL_SCHEMAS, execute_tool
 from config import Config
 from locales.texts import get_text
 
@@ -31,7 +33,7 @@ def format_markdown_to_html(text: str) -> str:
 
 
 def system_prompt(language: str = "ua") -> str:
-    """Генерує системний промпт залежно від мови."""
+    """Генерує системний промпт (англійською, мовно-нейтральний)."""
     html_instruction = (
         "You MUST format your response using ONLY Telegram-supported HTML tags: "
         "<b>bold</b> for headings/key terms, <i>italic</i>, and <code>code</code>. "
@@ -43,7 +45,24 @@ def system_prompt(language: str = "ua") -> str:
         "4. Highlight medicine names, prices, and main ideas using <b> tags. "
         "Make the text visually appealing and easy to scan."
     )
-    return f"{get_text(language, 'ai_sys_prompt')} {get_text(language, 'ai_lang_instr')} {html_instruction}"
+    return (
+        "You are a helpful medical assistant in a Telegram bot for medication "
+        "management. You help users track their medicines, dosages, schedules, "
+        "and prescriptions. If given an image or PDF with test results, analyze "
+        "it carefully. Always remind users to consult a doctor for serious "
+        "medical concerns. "
+        "CRITICAL LANGUAGE RULE: Always respond in the SAME language the user's "
+        "LATEST message is written in, regardless of any other language used "
+        "earlier in the conversation. If they write in Russian, respond in "
+        "Russian. If Ukrainian, respond in Ukrainian. If English, respond in "
+        "English. This rule overrides any other language preference. "
+        "You have access to tools that fetch the user's REAL medicine and "
+        "prescription data (get_my_medicines, get_my_prescriptions). When asked "
+        "about the user's own medicines, doses, schedule, or prescriptions, you "
+        "MUST call the appropriate tool — NEVER ask the user to provide this "
+        "information themselves, since you already have direct access to it. "
+        f"{html_instruction}"
+    )
 
 
 def _nvidia_headers(api_key: str) -> dict:
@@ -66,7 +85,7 @@ async def ask_nvidia(
         "messages": [{"role": "system", "content": system_prompt(language)}] + messages,
         "temperature": 0.7,
         "top_p": 0.95,
-        "max_tokens": 2048,
+        "max_tokens": 800,
         "stream": False,
     }
     data = await _post_json(
@@ -183,3 +202,84 @@ async def get_ai_vision_response(
         logger.error(f"Ollama Vision помилка: {type(e).__name__}: {e}")
 
     return get_text(language, "ai_err_vision"), "none"
+
+
+
+_MAX_AGENT_ITERATIONS = 5  # захист від нескінченного циклу tool-викликів
+
+
+async def ask_nvidia_raw(
+        api_key: str, base_url: str, model: str,
+        messages: list[dict], tools: list[dict] | None = None, language: str = "ua",
+) -> dict:
+    """
+    Те саме що ask_nvidia, але повертає ПОВНЕ повідомлення асистента
+    (включно з tool_calls, якщо модель вирішила викликати tool),
+    а не тільки текст content.
+    """
+    payload = {
+        "model": model,
+        "messages": [{"role": "system", "content": system_prompt(language)}] + messages,
+        "temperature": 0.7,
+        "top_p": 0.95,
+        "max_tokens": 800,
+        "stream": False,
+    }
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto"
+
+    data = await _post_json(
+        f"{base_url.rstrip('/')}/chat/completions",
+        payload, _nvidia_headers(api_key), _NVIDIA_TIMEOUT,
+    )
+    return data["choices"][0]["message"]
+
+
+async def get_ai_agent_response(
+        config, session, user_id: int, messages: list[dict], language: str = "ua",
+) -> tuple[str, str]:
+    """
+    Агентний цикл: LLM може викликати tools (get_my_medicines,
+    get_my_prescriptions) перед тим, як дати фінальну відповідь.
+    """
+    if not config.nvidia_api_key:
+        return await get_ai_response(config, messages, language)
+
+    conversation = list(messages)
+
+    try:
+        for _ in range(_MAX_AGENT_ITERATIONS):
+            assistant_message = await ask_nvidia_raw(
+                config.nvidia_api_key, config.nvidia_base_url,
+                config.nvidia_model, conversation, tools=TOOL_SCHEMAS, language=language,
+            )
+
+            tool_calls = assistant_message.get("tool_calls")
+
+            if not tool_calls:
+                final_text = assistant_message.get("content") or ""
+                return format_markdown_to_html(final_text), f"NVIDIA Agent ({config.nvidia_model})"
+
+            conversation.append({
+                "role": "assistant",
+                "content": assistant_message.get("content"),
+                "tool_calls": tool_calls,
+            })
+
+            for call in tool_calls:
+                tool_name = call["function"]["name"]
+                result = await execute_tool(tool_name, session, user_id)
+
+                conversation.append({
+                    "role": "tool",
+                    "tool_call_id": call["id"],
+                    "content": json.dumps(result, ensure_ascii=False),
+                })
+
+        logger.error(f"Агент не дав фінальну відповідь за {_MAX_AGENT_ITERATIONS} ітерацій")
+        return get_text(language, "ai_err_api"), "none"
+
+    except Exception as e:
+        logger.error(f"Помилка агентного циклу NVIDIA: {type(e).__name__}: {e}")
+        return await get_ai_response(config, messages, language)

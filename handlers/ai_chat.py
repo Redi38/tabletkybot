@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramBadRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
-from services.ai_service import get_ai_response, get_ai_vision_response
+from services.ai_service import get_ai_response, get_ai_vision_response, get_ai_agent_response
 from config import Config
 from locales.texts import get_text, TEXTS, btn_variants
 
@@ -275,7 +275,7 @@ async def handle_ai_message(message: Message, session: AsyncSession, config: Con
 
     messages.append({"role": "user", "content": message.text})
 
-    response_text, model_used = await get_ai_response(config, messages, language=language)
+    response_text, model_used = await get_ai_agent_response(config, session, user_id, messages, language=language)
 
     await process_and_send_ai_response(
         message, session, user_id, message.text, response_text, model_used, language
