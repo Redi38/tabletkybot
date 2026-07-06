@@ -94,17 +94,25 @@ def system_prompt(language: str = "ua") -> str:
     )
 
     return (
-        "You are a helpful medical assistant in a Telegram bot for medication "
-        "management. You help users track their medicines, dosages, schedules, "
-        "and prescriptions. If given an image or PDF with test results, analyze "
-        "it carefully. Always remind users to consult a doctor for serious "
-        "medical concerns. "
+        "You are a personal agent inside a Telegram bot that manages the user's "
+        "medicines and prescriptions. You can look up, add, and update medicine "
+        "reminders and prescriptions on the user's behalf using the tools "
+        "available to you. "
         f"{language_rule} "
-        "You have access to tools that fetch the user's REAL medicine and "
-        "prescription data (get_my_medicines, get_my_prescriptions). When asked "
-        "about the user's own medicines, doses, schedule, or prescriptions, you "
-        "MUST call the appropriate tool — NEVER ask the user to provide this "
-        "information themselves, since you already have direct access to it. "
+        "TOOL USAGE RULE: You have NO memory and NO way to actually add, change, "
+        "archive, or delete anything except by calling a tool. When the user asks "
+        "about their own medicines, doses, schedule, or prescriptions, you MUST "
+        "call the appropriate tool to get real data. When the user asks to ADD, "
+        "UPDATE, or CHANGE a medicine or prescription, you MUST call the matching "
+        "tool (add_medicine_reminder, update_medicine, add_prescription_entry, "
+        "update_prescription, mark_prescription_bought). You are STRICTLY "
+        "FORBIDDEN from claiming an action succeeded unless you actually called "
+        "the tool and it returned success. Never write that something was added, "
+        "updated, or done unless a tool call actually happened in this turn. "
+        "REMOVAL RULE: When the user wants to archive or delete a medicine or "
+        "prescription, immediately call request_medicine_removal or "
+        "request_prescription_removal — do NOT ask for confirmation yourself in "
+        "text, the system will show the user buttons to confirm. "
         f"{html_instruction}"
     )
 
@@ -261,8 +269,7 @@ async def ask_nvidia_raw(
 ) -> dict:
     """
     Те саме що ask_nvidia, але повертає ПОВНЕ повідомлення асистента
-    (включно з tool_calls, якщо модель вирішила викликати tool),
-    а не тільки текст content.
+    (включно з tool_calls, якщо модель вирішила викликати tool).
     """
     payload = {
         "model": model,
@@ -285,17 +292,22 @@ async def ask_nvidia_raw(
 
 async def get_ai_agent_response(
         config, session, user_id: int, messages: list[dict], language: str = "ua",
-) -> tuple[str, str]:
+) -> tuple[str, str, dict | None]:
     """
-    Агентний цикл: LLM може викликати tools (get_my_medicines,
-    get_my_prescriptions) перед тим, як дати фінальну відповідь.
-    Мова визначається один раз на початку — за останнім повідомленням
-    користувача — і не змінюється всередині одного агентного циклу.
+    Агентний цикл: LLM може викликати tools (читання і запис ліків/рецептів)
+    перед тим, як дати фінальну відповідь. Мова визначається один раз на
+    початку — за останнім повідомленням користувача.
+
+    Повертає (текст, назва_моделі, confirmation).
+    confirmation — None у звичайному випадку, або dict
+    {"target_type": "medicine"/"prescription", "target_id": int, "target_name": str}
+    якщо потрібно показати юзеру кнопки архівувати/видалити/скасувати.
     """
     language = _resolve_language(messages, language)
 
     if not config.nvidia_api_key:
-        return await get_ai_response(config, messages, language)
+        text, model = await get_ai_response(config, messages, language)
+        return text, model, None
 
     conversation = list(messages)
 
@@ -306,11 +318,13 @@ async def get_ai_agent_response(
                 config.nvidia_model, conversation, tools=TOOL_SCHEMAS, language=language,
             )
 
+            logger.info(f"[DEBUG] Сира відповідь NIM: {assistant_message}")
+
             tool_calls = assistant_message.get("tool_calls")
 
             if not tool_calls:
                 final_text = assistant_message.get("content") or ""
-                return format_markdown_to_html(final_text), f"NVIDIA Agent ({config.nvidia_model})"
+                return format_markdown_to_html(final_text), f"NVIDIA Agent ({config.nvidia_model})", None
 
             conversation.append({
                 "role": "assistant",
@@ -320,7 +334,20 @@ async def get_ai_agent_response(
 
             for call in tool_calls:
                 tool_name = call["function"]["name"]
-                result = await execute_tool(tool_name, session, user_id)
+                raw_arguments = call["function"].get("arguments") or "{}"
+                try:
+                    parsed_arguments = json.loads(raw_arguments)
+                except json.JSONDecodeError:
+                    parsed_arguments = {}
+
+                result = await execute_tool(tool_name, session, user_id, parsed_arguments)
+
+                if result.get("requires_confirmation"):
+                    return "", f"NVIDIA Agent ({config.nvidia_model})", {
+                        "target_type": result["target_type"],
+                        "target_id": result["target_id"],
+                        "target_name": result["target_name"],
+                    }
 
                 conversation.append({
                     "role": "tool",
@@ -329,8 +356,9 @@ async def get_ai_agent_response(
                 })
 
         logger.error(f"Агент не дав фінальну відповідь за {_MAX_AGENT_ITERATIONS} ітерацій")
-        return get_text(language, "ai_err_api"), "none"
+        return get_text(language, "ai_err_api"), "none", None
 
     except Exception as e:
         logger.error(f"Помилка агентного циклу NVIDIA: {type(e).__name__}: {e}")
-        return await get_ai_response(config, messages, language)
+        text, model = await get_ai_response(config, messages, language)
+        return text, model, None
