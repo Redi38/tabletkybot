@@ -1,3 +1,3 @@
-from handlers import start, medicines, ai_chat, report
+from handlers import start, medicines, ai_agent, report
 
-__all__ = ["start", "medicines", "ai_chat", "report"]
+__all__ = ["start", "medicines", "ai_agent", "report"]

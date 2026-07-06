@@ -17,22 +17,12 @@ def get_main_keyboard(language: str = "ua") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=get_text(language, "btn_medicines")),
-             KeyboardButton(text=get_text(language, "btn_report"))],
-            [KeyboardButton(text=get_text(language, "btn_lang")),
-             KeyboardButton(text=get_text(language, "btn_settings"))],
-            [KeyboardButton(text=get_text(language, "btn_prescriptions"))],
+             KeyboardButton(text=get_text(language, "btn_prescriptions"))],
+            [KeyboardButton(text=get_text(language, "btn_settings"))],
         ],
         resize_keyboard=True,
         input_field_placeholder=get_text(language, "btn_placeholder"),
     )
-
-
-def language_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="Українська", callback_data="lang_ua", style="primary"),
-        InlineKeyboardButton(text="English", callback_data="lang_en", style="primary"),
-        InlineKeyboardButton(text="Русский", callback_data="lang_ru", style="primary"),
-    ]])
 
 
 @router.message(CommandStart())
@@ -67,14 +57,6 @@ async def cmd_help(message: Message, session: AsyncSession) -> None:
         parse_mode="HTML",
         reply_markup=get_main_keyboard(language),
     )
-
-
-@router.message(F.text.in_(btn_variants("btn_lang")))
-async def choose_language(message: Message, session: AsyncSession) -> None:
-    if not message.from_user:
-        return
-    language = await get_user_language(session, message.from_user.id)
-    await message.answer(get_text(language, "lang_choose"), reply_markup=language_keyboard())
 
 
 @router.callback_query(F.data.startswith("lang_"))

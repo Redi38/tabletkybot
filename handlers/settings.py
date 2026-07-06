@@ -21,6 +21,7 @@ def settings_keyboard(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(language, "btn_change_name"), callback_data="set_name", style="primary")],
         [InlineKeyboardButton(text=get_text(language, "btn_change_tz"), callback_data="set_tz", style="primary")],
+        [InlineKeyboardButton(text=get_text(language, "btn_lang"), callback_data="set_lang", style="primary")],
     ])
 
 
@@ -113,3 +114,21 @@ async def edit_tz_save(message: Message, state: FSMContext, session: AsyncSessio
                                    chat_id=message.from_user.id, language=lang)
     await state.clear()
     await message.answer(get_text(lang, "tz_updated"), parse_mode="HTML")
+
+
+# ── Мова ────────────────────────────────────────────────────
+@router.callback_query(F.data == "set_lang")
+async def edit_lang_start(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+    ctx = await _settings_ctx(call, state, session)
+    if not ctx:
+        return
+    msg, lang = ctx
+    await msg.edit_text(get_text(lang, "lang_choose"), reply_markup=language_keyboard())
+
+
+def language_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="Українська", callback_data="lang_ua", style="primary"),
+        InlineKeyboardButton(text="English", callback_data="lang_en", style="primary"),
+        InlineKeyboardButton(text="Русский", callback_data="lang_ru", style="primary"),
+    ]])

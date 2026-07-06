@@ -97,7 +97,10 @@ def medicine_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=get_text(language, "btn_add"), callback_data="med_add", style="success"),
             InlineKeyboardButton(text=get_text(language, "btn_list"), callback_data="med_list", style="primary"),
         ],
-        [InlineKeyboardButton(text=get_text(language, "btn_stats"), callback_data="med_stats", style="primary")],
+        [
+            InlineKeyboardButton(text=get_text(language, "btn_stats"), callback_data="med_stats", style="primary"),
+            InlineKeyboardButton(text=get_text(language, "btn_report"), callback_data="med_reports", style="primary"),
+        ],
         [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_back")],
     ])
 
@@ -105,6 +108,16 @@ def medicine_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
 def medicine_back_only_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_menu")]
+    ])
+
+
+def med_reports_kb(language: str = "ua") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text=get_text(language, "btn_gen_excel"), callback_data="report_excel", style="primary"),
+            InlineKeyboardButton(text=get_text(language, "btn_gen_csv"), callback_data="report_csv", style="primary"),
+        ],
+        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_menu")],
     ])
 
 
@@ -145,6 +158,17 @@ async def back_to_main_menu(call: CallbackQuery, state: FSMContext, session: Asy
     user = await crud.get_or_create_user(session, call.from_user.id, call.from_user.username, call.from_user.full_name)
     lang = str(user.language) if user.language else "ua"
     await msg.edit_text(get_text(lang, "start_text", name=str(user.full_name)), parse_mode="HTML")
+    await call.answer()
+
+
+# ── Звіти (перенесено сюди з головної клавіатури) ──────────────────────────
+@router.callback_query(F.data == "med_reports")
+async def medicine_reports_menu(call: CallbackQuery, session: AsyncSession) -> None:
+    ctx = await _base_ctx(call, session)
+    if not ctx:
+        return
+    msg, lang = ctx
+    await msg.edit_text(get_text(lang, "report_menu_title"), reply_markup=med_reports_kb(lang), parse_mode="HTML")
     await call.answer()
 
 
