@@ -230,11 +230,37 @@ async def get_medicine_intake_stats(session: AsyncSession, user_id: int) -> dict
     skipped = counts.get("skipped", 0)
     return {"total": taken + skipped, "taken": taken, "skipped": skipped}
 
-async def get_global_intake_stats(session: AsyncSession) -> dict[str, int]:
+async def get_global_intake_stats(session: AsyncSession) -> dict:
     stmt = select(MedicineRecord.status, func.count(MedicineRecord.id)).group_by(MedicineRecord.status)
     result = await session.execute(stmt)
     counts = {str(status): int(count) for status, count in result.all()}
-    return {"taken": counts.get("taken", 0), "skipped": counts.get("skipped", 0)}
+    taken = counts.get("taken", 0)
+    skipped = counts.get("skipped", 0)
+    total = taken + skipped
+    adherence_rate = round((taken / total * 100), 1) if total else 0.0
+
+    total_users = (await session.execute(select(func.count(User.id)))).scalar_one()
+
+    total_active_medicines = (
+        await session.execute(
+            select(func.count(Medicine.id)).where(Medicine.is_active.is_(True))
+        )
+    ).scalar_one()
+
+    active_prescriptions = (
+        await session.execute(
+            select(func.count(Prescription.id)).where(Prescription.is_active.is_(True))
+        )
+    ).scalar_one()
+
+    return {
+        "taken": taken,
+        "skipped": skipped,
+        "adherence_rate": adherence_rate,
+        "total_users": total_users,
+        "total_active_medicines": total_active_medicines,
+        "active_prescriptions": active_prescriptions,
+    }
 
 async def get_dashboard_stats(session: AsyncSession, period: str = "all") -> dict:
     now = datetime.now(timezone.utc).replace(tzinfo=None)

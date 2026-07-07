@@ -117,8 +117,8 @@ async def main() -> None:
     )
     logger.info(f"✅ Webhook встановлено: {config.webhook_url}")
 
+    # ── Публічний HTTPS-сервер для Telegram webhook (порт 8443) ──────────
     app = web.Application()
-    app.router.add_post("/api/sync", build_sync_handler(bot, session_factory))
 
     SimpleRequestHandler(
         dispatcher=dp,
@@ -135,13 +135,25 @@ async def main() -> None:
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", config.webhook_port, ssl_context=ssl_context)
     await site.start()
-    logger.info(f"🌐 Сервер запущено на порту {config.webhook_port}")
+    logger.info(f"🌐 Публічний webhook-сервер запущено на порту {config.webhook_port}")
+
+    # ── Внутрішній HTTP-сервер для /api/sync від admin-панелі (порт 8080) ─
+    internal_app = web.Application()
+    internal_app.router.add_post("/api/sync", build_sync_handler(bot, session_factory))
+
+    internal_runner = web.AppRunner(internal_app)
+    await internal_runner.setup()
+    internal_site = web.TCPSite(internal_runner, "0.0.0.0", 8080)
+    await internal_site.start()
+    logger.info("🔧 Внутрішній sync-сервер запущено на порту 8080")
 
     try:
         await asyncio.Event().wait()
     finally:
         await bot.delete_webhook()
         stop_scheduler()
+        await runner.cleanup()
+        await internal_runner.cleanup()
         if bot.session:
             await bot.session.close()
         logger.info("Бот зупинено")

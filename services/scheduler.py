@@ -6,7 +6,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date as date_type
 from zoneinfo import ZoneInfo
 
 from locales.texts import get_text
@@ -17,6 +17,21 @@ scheduler = AsyncIOScheduler()
 
 _MED_JOB_PREFIX = "med_"
 _pending_reminders: dict[tuple[int, int], int] = {}
+
+# Коли адмін тисне "Надіслати нагадування зараз" — фіксуємо тут дату
+# (у ЛОКАЛЬНОМУ часовому поясі юзера) для цього medicine_id. Наступне
+# спрацювання звичайного cron-job того ж дня перевіряє цю позначку і
+# пропускає повторну відправку, щоб юзер не отримав два нагадування підряд.
+_manual_reminder_today: dict[int, date_type] = {}
+
+
+def _local_today(tz_name: str) -> date_type:
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = ZoneInfo("Europe/Kyiv")
+    return datetime.now(tz).date()
+
 
 def _med_job_id(medicine_id: int, schedule_id: int) -> str:
     return f"{_MED_JOB_PREFIX}{medicine_id}_{schedule_id}"
@@ -32,8 +47,26 @@ def get_reminder_keyboard(medicine_id: int, language: str) -> InlineKeyboardMark
 async def send_reminder(
         bot: Bot, medicine_id: int, medicine_name: str,
         chat_id: int, course_duration: int, language: str,
+        timezone: str = "Europe/Kyiv", is_manual: bool = False,
 ) -> None:
     from datetime import datetime, timedelta
+
+    today = _local_today(timezone)
+
+    if is_manual:
+        # Ручна відправка з Адмін-Панелі — фіксуємо, що сьогодні для цього
+        # препарату вже нагадали, щоб звичайний cron-job не продублював.
+        _manual_reminder_today[medicine_id] = today
+    elif _manual_reminder_today.get(medicine_id) == today:
+        # Це звичайне спрацювання за розкладом, але сьогодні для цього
+        # препарату вже було ручне нагадування — пропускаємо один раз.
+        logger.info(
+            f"Пропускаю звичайне нагадування для med_{medicine_id} — "
+            f"сьогодні вже надіслано вручну через Адмін-Панель"
+        )
+        _manual_reminder_today.pop(medicine_id, None)
+        return
+
     try:
         sent = await bot.send_message(
             chat_id=chat_id,
@@ -108,6 +141,8 @@ def remove_reminders(medicine_id: int) -> None:
     for key in stale_keys:
         _pending_reminders.pop(key, None)
 
+    _manual_reminder_today.pop(medicine_id, None)
+
     if removed:
         logger.info(f"Видалено {removed} розкладів (включно з повторами) для препарату ID {medicine_id}")
 
@@ -145,6 +180,7 @@ def add_reminders_for_medicine(
                     "chat_id": chat_id,
                     "course_duration": medicine.course_duration,
                     "language": language,
+                    "timezone": timezone,
                 },
             )
             count += 1
@@ -204,7 +240,11 @@ async def sync_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
 async def sync_single_reminder(
         bot: Bot, session_factory: async_sessionmaker, medicine_id: int, action: str
 ) -> None:
-    """Точкове оновлення або видалення нагадувань для одного препарату."""
+    """
+    Точкове оновлення, видалення або НЕГАЙНА відправка нагадування для одного
+    препарату. Викликається як з внутрішньої синхронізації БД, так і з
+    Адмін-Панелі (кнопка "Надіслати нагадування зараз" шле action="send_now").
+    """
     if action == "delete":
         remove_reminders(medicine_id)
         return
@@ -219,18 +259,37 @@ async def sync_single_reminder(
         result = await session.execute(query)
         row = result.first()
 
-    if row:
-        med, user = row
-        add_reminders_for_medicine(
-            bot=bot, medicine=med,
-            timezone=user.timezone or "Europe/Kyiv",
-            chat_id=user.id,
-            language=user.language or "ua",
-            is_sync=True,
-        )
-        logger.info(f"Оновлено розклади для med_{medicine_id}")
-    else:
+    if not row:
         remove_reminders(medicine_id)
+        return
+
+    med, user = row
+
+    if action == "send_now":
+        # Негайна відправка нагадування в обхід звичайного розкладу
+        # APScheduler — саме те, чого раніше не вистачало для кнопки
+        # "Надіслати нагадування зараз" в Адмін-Панелі.
+        await send_reminder(
+            bot=bot,
+            medicine_id=med.id,
+            medicine_name=med.name,
+            chat_id=user.id,
+            course_duration=med.course_duration,
+            language=user.language or "ua",
+            timezone=user.timezone or "Europe/Kyiv",
+            is_manual=True,
+        )
+        logger.info(f"Негайне нагадування відправлено для med_{medicine_id} (запит з Адмін-Панелі)")
+        return
+
+    add_reminders_for_medicine(
+        bot=bot, medicine=med,
+        timezone=user.timezone or "Europe/Kyiv",
+        chat_id=user.id,
+        language=user.language or "ua",
+        is_sync=True,
+    )
+    logger.info(f"Оновлено розклади для med_{medicine_id}")
 
 def get_prescription_alert_keyboard(prescription_id: int, language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
@@ -239,8 +298,8 @@ def get_prescription_alert_keyboard(prescription_id: int, language: str) -> Inli
             callback_data=f"presc_buy_ask_{prescription_id}",
         )
     ]])
- 
- 
+
+
 async def check_prescription_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
     """
     Запускається щогодини.
@@ -250,25 +309,25 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
       - зараз (локально) 9-та година
     """
     from database import crud
- 
+
     async with session_factory() as session:
         pending = await crud.get_prescriptions_needing_reminder(session)
- 
+
         for prescription, user in pending:
             try:
                 tz = ZoneInfo(user.timezone or "Europe/Kyiv")
             except Exception:
                 tz = ZoneInfo("Europe/Kyiv")
- 
+
             local_now = datetime.now(tz)
             target_date = prescription.expires_at - timedelta(days=prescription.reminder_days_before)
- 
+
             if local_now.date() != target_date or local_now.hour != 9:
                 continue
- 
+
             days_left = (prescription.expires_at - local_now.date()).days
             language = user.language or "ua"
- 
+
             try:
                 await bot.send_message(
                     chat_id=user.id,
@@ -289,10 +348,10 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
 
 async def archive_expired_prescriptions(bot: Bot, session_factory: async_sessionmaker) -> None:
     from database import crud
- 
+
     async with session_factory() as session:
         expired = await crud.get_expired_active_prescriptions(session)
- 
+
         for prescription, user in expired:
             await crud.archive_prescription(session, prescription.id)
             language = user.language or "ua"

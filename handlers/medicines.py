@@ -97,11 +97,9 @@ def medicine_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=get_text(language, "btn_add"), callback_data="med_add", style="success"),
             InlineKeyboardButton(text=get_text(language, "btn_list"), callback_data="med_list", style="primary"),
         ],
-        [
-            InlineKeyboardButton(text=get_text(language, "btn_stats"), callback_data="med_stats", style="primary"),
-            InlineKeyboardButton(text=get_text(language, "btn_report"), callback_data="med_reports", style="primary"),
-        ],
-        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_back")],
+        [InlineKeyboardButton(text=get_text(language, "btn_stats"), callback_data="med_stats", style="primary")],
+	[InlineKeyboardButton(text=get_text(language, "btn_report"), callback_data="med_reports", style="primary")],
+	[InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_back")],
     ])
 
 

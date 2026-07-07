@@ -13,6 +13,9 @@
     .chart-container { position: relative; width: 100%; }
     .pie-container { height: 300px; }
     .bar-container { height: 300px; }
+    .stat-card { text-align: center; padding: 1.25rem 0.5rem; }
+    .stat-value { font-size: 2rem; font-weight: 700; line-height: 1.2; }
+    .stat-label { color: var(--tblr-secondary, #6c757d); font-size: 0.95rem; }
 </style>
 
 <div class="page-wrapper custom-font">
@@ -51,7 +54,7 @@
                 </div>
             </div>
 
-            <div class="row row-cards align-items-stretch mb-5">
+            <div class="row row-cards align-items-stretch mb-4">
 
                 <div class="col-12 col-lg-5">
                     <div class="card shadow-sm h-100">
@@ -79,6 +82,35 @@
                     </div>
                 </div>
 
+            </div>
+
+            <div class="row row-cards mb-5">
+                <div class="col-6 col-lg-3">
+                    <div class="card shadow-sm stat-card h-100">
+                        <div class="stat-value text-primary">{{ stats.total_users }}</div>
+                        <div class="stat-label">👥 Користувачів</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="card shadow-sm stat-card h-100">
+                        <div class="stat-value text-success">{{ stats.total_active_medicines }}</div>
+                        <div class="stat-label">💊 Активних препаратів</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="card shadow-sm stat-card h-100">
+                        <div class="stat-value" style="color:#f59f00;">{{ stats.active_prescriptions }}</div>
+                        <div class="stat-label">📋 Активних рецептів</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="card shadow-sm stat-card h-100">
+                        <div class="stat-value" style="color:{% if stats.adherence_rate >= 80 %}#2fb344{% elif stats.adherence_rate >= 50 %}#f59f00{% else %}#d63939{% endif %};">
+                            {{ stats.adherence_rate }}%
+                        </div>
+                        <div class="stat-label">✅ Дотримання прийому (за весь час)</div>
+                    </div>
+                </div>
             </div>
 
         </div>

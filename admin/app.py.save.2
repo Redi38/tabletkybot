@@ -45,7 +45,7 @@ async def favicon():
 templates = Jinja2Templates(directory="templates")
 
 
-# ─── Кастомний Admin — перевизначає /admin/ щоб показувати статистику ─────
+# ─── Кастомний Admin ─────
 class DashboardAdmin(BaseAdmin):
     async def index(self, request: StarletteRequest):
         async with SessionLocal() as session:
