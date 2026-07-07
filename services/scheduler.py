@@ -93,16 +93,23 @@ def cancel_repeat_reminder(chat_id: int, medicine_id: int) -> None:
 
 def remove_reminders(medicine_id: int) -> None:
     prefix = f"{_MED_JOB_PREFIX}{medicine_id}_"
+    repeat_prefix = f"repeat_{medicine_id}_"
     removed = 0
+
     for job in scheduler.get_jobs():
-        if job.id.startswith(prefix):
+        if job.id.startswith(prefix) or job.id.startswith(repeat_prefix):
             try:
                 scheduler.remove_job(job.id)
                 removed += 1
             except Exception as e:
                 logger.error(f"Помилка при видаленні нагадування {job.id}: {e}")
+
+    stale_keys = [key for key in _pending_reminders if key[1] == medicine_id]
+    for key in stale_keys:
+        _pending_reminders.pop(key, None)
+
     if removed:
-        logger.info(f"Видалено {removed} розкладів для препарату ID {medicine_id}")
+        logger.info(f"Видалено {removed} розкладів (включно з повторами) для препарату ID {medicine_id}")
 
 
 def add_reminders_for_medicine(
