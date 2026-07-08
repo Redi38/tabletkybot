@@ -1,7 +1,9 @@
 import asyncio
 import logging
+import os
 import ssl
 import sys
+from logging.handlers import RotatingFileHandler
 from aiohttp import web
 
 from aiogram import Bot, Dispatcher, types
@@ -17,11 +19,28 @@ from middleware.db_middleware import DatabaseMiddleware
 from services.scheduler import start_scheduler, stop_scheduler, sync_reminders, sync_single_reminder, scheduler, check_prescription_reminders, init_redis, resume_pending_reminders
 from handlers import start, medicines, ai_agent, report, errors, settings, prescriptions
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+# ─── Логування: одночасно в docker logs і у файл (для Адмін-Панелі) ──
+LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+_log_formatter = logging.Formatter(
+    fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+_stream_handler = logging.StreamHandler()
+_stream_handler.setFormatter(_log_formatter)
+
+# Ротація по розміру — щоб файл логів не ріс нескінченно і не забивав диск
+_file_handler = RotatingFileHandler(
+    filename=os.path.join(LOG_DIR, "bot.log"),
+    maxBytes=5 * 1024 * 1024,  # 5 MB
+    backupCount=3,
+    encoding="utf-8",
+)
+_file_handler.setFormatter(_log_formatter)
+
+logging.basicConfig(level=logging.INFO, handlers=[_stream_handler, _file_handler])
 logger = logging.getLogger(__name__)
 
 logging.getLogger("apscheduler").setLevel(logging.WARNING)

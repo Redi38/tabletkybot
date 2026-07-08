@@ -1,0 +1,156 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block head %}
+    {{ super() }} <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+{% endblock %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+    .custom-font { font-family: 'Nunito', sans-serif !important; }
+    .logs-toolbar { gap: 0.5rem; flex-wrap: wrap; }
+    .logs-box {
+        background: #0f1115;
+        color: #d6d9de;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 0.85rem;
+        line-height: 1.45;
+        border-radius: 8px;
+        padding: 1rem;
+        height: 65vh;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .log-line-error { color: #ff6b6b; }
+    .log-line-warning { color: #ffd166; }
+    .log-line-info { color: #d6d9de; }
+    .logs-empty { color: #6c757d; text-align: center; padding: 2rem; }
+</style>
+
+<div class="page-wrapper custom-font">
+    <div class="page-body">
+        <div class="container-xl mt-4">
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header">
+                    <h2 class="card-title"><b>Логи</b></h2>
+                </div>
+                <div class="card-body">
+
+                    <div class="d-flex logs-toolbar align-items-center mb-3">
+                        <select id="logSource" class="form-select" style="width: auto;">
+                            <option value="bot">Бот</option>
+                            <option value="admin">Адмінка</option>
+                        </select>
+
+                        <select id="logLevel" class="form-select" style="width: auto;">
+                            <option value="">Всі рівні</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+
+                        <select id="logLines" class="form-select" style="width: auto;">
+                            <option value="100">100 рядків</option>
+                            <option value="200" selected>200 рядків</option>
+                            <option value="500">500 рядків</option>
+                        </select>
+
+                        <input id="logSearch" type="text" class="form-control" style="width: 220px;" placeholder="Пошук по тексту...">
+
+                        <button id="refreshBtn" class="btn btn-primary" onclick="refreshLogs()">Оновити</button>
+
+                        <div class="form-check form-switch ms-2">
+                            <input class="form-check-input" type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh()">
+                            <label class="form-check-label" for="autoRefreshToggle">Автооновлення (15с)</label>
+                        </div>
+
+                        <span id="logStatus" class="text-secondary ms-auto"></span>
+                    </div>
+
+                    <div id="logsBox" class="logs-box">
+                        <div class="logs-empty">Завантаження...</div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    let autoRefreshInterval = null;
+
+    function levelClass(line) {
+        if (line.includes("| ERROR |") || line.includes("| CRITICAL |")) return "log-line-error";
+        if (line.includes("| WARNING |")) return "log-line-warning";
+        return "log-line-info";
+    }
+
+    function escapeHtml(str) {
+        return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    }
+
+    async function refreshLogs() {
+        const box = document.getElementById("logsBox");
+        const status = document.getElementById("logStatus");
+        const source = document.getElementById("logSource").value;
+        const level = document.getElementById("logLevel").value;
+        const lines = document.getElementById("logLines").value;
+        const search = document.getElementById("logSearch").value.trim();
+
+        status.textContent = "Завантаження...";
+
+        const params = new URLSearchParams({ source, lines, level, search });
+
+        try {
+            const response = await fetch(`/api/admin/logs?${params.toString()}`);
+            if (!response.ok) throw new Error("Помилка мережі або сервера");
+            const data = await response.json();
+
+            if (!data.lines || data.lines.length === 0) {
+                box.innerHTML = '<div class="logs-empty">Немає записів за обраними фільтрами.</div>';
+            } else {
+                box.innerHTML = data.lines
+                    .map(line => `<div class="${levelClass(line)}">${escapeHtml(line)}</div>`)
+                    .join("");
+                box.scrollTop = box.scrollHeight;
+            }
+
+            const now = new Date().toLocaleTimeString();
+            status.textContent = `Оновлено о ${now} · ${data.lines.length} рядків`;
+        } catch (error) {
+            status.textContent = "Помилка завантаження логів";
+            console.error("Помилка завантаження логів:", error);
+        }
+    }
+
+    function toggleAutoRefresh() {
+        const enabled = document.getElementById("autoRefreshToggle").checked;
+        if (enabled) {
+            // Навмисно рідкий інтервал (15с) і вимкнено за замовчуванням,
+            // щоб постійний polling не навантажував сервер.
+            autoRefreshInterval = setInterval(refreshLogs, 15000);
+        } else if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
+    }
+
+    document.getElementById("logSource").addEventListener("change", refreshLogs);
+    document.getElementById("logLevel").addEventListener("change", refreshLogs);
+    document.getElementById("logLines").addEventListener("change", refreshLogs);
+    document.getElementById("logSearch").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") refreshLogs();
+    });
+
+    document.addEventListener("DOMContentLoaded", refreshLogs);
+</script>
+{% endblock %}

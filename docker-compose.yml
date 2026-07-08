@@ -38,6 +38,8 @@ services:
     command: python main.py
     env_file:
       - .env
+    environment:
+      LOG_DIR: /app/logs
     depends_on:
       db:
         condition: service_healthy
@@ -45,6 +47,8 @@ services:
         condition: service_healthy
     ports:
       - "8443:8443"
+    volumes:
+      - logs_data:/app/logs
 
   admin:
     build: .
@@ -53,6 +57,8 @@ services:
     command: uvicorn admin.app:app --host 0.0.0.0 --port 8000 --reload
     env_file:
       - .env
+    environment:
+      LOG_DIR: /app/logs
     ports:
       - "8000:8000"
     depends_on:
@@ -60,7 +66,10 @@ services:
         condition: service_healthy
       bot:
         condition: service_started
+    volumes:
+      - logs_data:/app/logs
 
 volumes:
   postgres_data:
   redis_data:
+  logs_data:

@@ -1,11 +1,12 @@
 import os
 import logging
+from logging.handlers import RotatingFileHandler
 import aiohttp
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from sqladmin import ModelView, action
+from sqladmin import ModelView, action, BaseView, expose
 from sqladmin.application import Admin as BaseAdmin
 from sqladmin.filters import BooleanFilter, StaticValuesFilter
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -16,6 +17,27 @@ from database.models import User, Medicine, MedicineRecord, ChatHistory, Medicin
 from database import crud
 
 from wtforms.validators import NumberRange, DataRequired, Length, Regexp, AnyOf
+
+# ─── Логування адмінки у файл ──────
+LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+_log_formatter = logging.Formatter(
+    fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+_admin_file_handler = RotatingFileHandler(
+    filename=os.path.join(LOG_DIR, "admin.log"),
+    maxBytes=5 * 1024 * 1024,
+    backupCount=3,
+    encoding="utf-8",
+)
+_admin_file_handler.setFormatter(_log_formatter)
+
+
+for _logger_name in ("", "uvicorn", "uvicorn.error", "uvicorn.access"):
+    logging.getLogger(_logger_name).addHandler(_admin_file_handler)
+logging.getLogger().setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +67,7 @@ async def favicon():
 templates = Jinja2Templates(directory="templates")
 
 
-# ─── Кастомний Admin — перевизначає /admin/ щоб показувати статистику ─────
+# ─── Кастомний Admin ─────
 class DashboardAdmin(BaseAdmin):
     async def index(self, request: StarletteRequest):
         async with SessionLocal() as session:
@@ -243,6 +265,87 @@ admin.add_view(PrescriptionAdmin)
 admin.add_view(ChatHistoryAdmin)
 
 
+# ─── Перегляд логів ─────────────────────────────────────────────────────
+LOG_FILES = {
+    "bot": os.path.join(LOG_DIR, "bot.log"),
+    "admin": os.path.join(LOG_DIR, "admin.log"),
+}
+
+_MAX_LINES = 1000
+
+
+def _tail_lines(path: str, max_lines: int, chunk_size: int = 65536) -> list[str]:
+    """
+    Ефективно читає останні max_lines рядків файлу БЕЗ завантаження всього
+    файлу в пам'ять — читає чанками з кінця файлу, поки не набереться
+    достатньо рядків.
+    """
+    if not os.path.exists(path):
+        return []
+
+    with open(path, "rb") as f:
+        f.seek(0, os.SEEK_END)
+        file_size = f.tell()
+        data = b""
+        read_size = 0
+
+        while read_size < file_size and data.count(b"\n") <= max_lines:
+            read_size = min(read_size + chunk_size, file_size)
+            f.seek(file_size - read_size)
+            data = f.read(read_size)
+
+        lines = data.decode("utf-8", errors="replace").splitlines()
+        return lines[-max_lines:]
+
+
+@app.get("/api/admin/logs")
+async def get_admin_logs(
+        source: str = "bot", lines: int = 200, level: str = "", search: str = ""
+) -> dict:
+    """
+    JSON з останніми рядками логів.
+    source: "bot" | "admin"
+    lines: скільки рядків повернути (жорстко обмежено _MAX_LINES)
+    level: "" | "INFO" | "WARNING" | "ERROR" — фільтр по рівню логування
+    search: довільний текст для пошуку (case-insensitive підрядок)
+    """
+    path = LOG_FILES.get(source)
+    if not path:
+        return {"error": "invalid source", "lines": []}
+
+    lines = max(1, min(lines, _MAX_LINES))
+
+    raw_lines = _tail_lines(path, max_lines=lines * 3 if (level or search) else lines)
+
+    if level:
+        marker = f"| {level.upper()} |"
+        raw_lines = [ln for ln in raw_lines if marker in ln]
+
+    if search:
+        needle = search.lower()
+        raw_lines = [ln for ln in raw_lines if needle in ln.lower()]
+
+    return {"source": source, "lines": raw_lines[-lines:]}
+
+
+class LogsView(BaseView):
+    """
+    Кастомна сторінка в бічному меню Адмін-Панелі. Дані підвантажуються
+    JS-ом через /api/admin/logs — сама сторінка лише рендерить шаблон.
+    """
+    name = "Логи"
+    icon = "fa-solid fa-file-lines"
+
+    @expose("/admin/logs-view", methods=["GET"])
+    async def logs_page(self, request: Request):
+        return await self.templates.TemplateResponse(
+            request, "sqladmin/logs.html", context={"request": request},
+        )
+
+
+admin.add_view(LogsView)
+
+
 # ─── Роути для Дашборду та Статистики ─────────────────────────────────────
 @app.get("/admin/dashboard")
 async def admin_dashboard(request: Request):
@@ -250,10 +353,8 @@ async def admin_dashboard(request: Request):
     async with SessionLocal() as session:
         stats = await crud.get_global_intake_stats(session)
 
-    return templates.TemplateResponse(
-        request=request,
-        name="sqladmin/index.html",
-        context={"request": request, "stats": stats}
+    return await admin.templates.TemplateResponse(
+        request, "sqladmin/index.html", context={"stats": stats},
     )
 
 
