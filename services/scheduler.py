@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -22,14 +23,12 @@ _MED_JOB_PREFIX = "med_"
 
 _manual_reminder_today: dict[int, date_type] = {}
 
-# ── Redis-клієнт для персистентного стану "очікує підтвердження" ───────────
 _redis_client: aioredis.Redis | None = None
 _PENDING_KEY_PREFIX = "pending_reminder:"
 _PENDING_TTL_SECONDS = 60 * 60 * 48
 
 
 def init_redis(redis_url: str) -> None:
-    """Викликається один раз при старті бота (main.py), після завантаження config."""
     global _redis_client
     _redis_client = aioredis.from_url(redis_url, decode_responses=True)
 
@@ -87,6 +86,15 @@ async def _get_all_pending_reminders() -> list[tuple[int, int, dict]]:
         except (ValueError, json.JSONDecodeError):
             continue
     return result
+
+
+async def _delete_pending_reminders_for_medicine(medicine_id: int) -> None:
+    if not _redis_client:
+        return
+    pattern = f"{_PENDING_KEY_PREFIX}*:{medicine_id}"
+    async for key in _redis_client.scan_iter(match=pattern):
+        await _redis_client.delete(key)
+        logger.info(f"Видалено осиротілий pending-запис Redis: {key}")
 
 
 def _local_today(tz_name: str) -> date_type:
@@ -192,15 +200,13 @@ async def send_repeat_reminder(bot: Bot, medicine_id: int, chat_id: int) -> None
         logger.error(f"Помилка повторного нагадування {chat_id}: {e}")
 
 
-def cancel_repeat_reminder(chat_id: int, medicine_id: int) -> None:
-    """Викликається коли користувач натиснув кнопку Прийнято/Пропустити."""
+async def cancel_repeat_reminder(chat_id: int, medicine_id: int) -> None:
     try:
         scheduler.remove_job(f"repeat_{medicine_id}_{chat_id}")
         logger.info(f"Повторне нагадування repeat_{medicine_id}_{chat_id} скасовано")
     except Exception:
         pass
-    import asyncio
-    asyncio.create_task(_delete_pending_reminder(chat_id, medicine_id))
+    await _delete_pending_reminder(chat_id, medicine_id)
 
 
 async def resume_pending_reminders(bot: Bot) -> None:
@@ -242,6 +248,11 @@ def remove_reminders(medicine_id: int) -> None:
                 logger.error(f"Помилка при видаленні нагадування {job.id}: {e}")
 
     _manual_reminder_today.pop(medicine_id, None)
+
+    try:
+        asyncio.create_task(_delete_pending_reminders_for_medicine(medicine_id))
+    except RuntimeError:
+        logger.warning(f"Немає активного event loop для очистки Redis по med_{medicine_id}")
 
     if removed:
         logger.info(f"Видалено {removed} розкладів (включно з повторами) для препарату ID {medicine_id}")

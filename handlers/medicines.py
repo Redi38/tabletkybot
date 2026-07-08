@@ -597,7 +597,7 @@ async def process_medicine_status(call: CallbackQuery, state: FSMContext, sessio
     msg, lang, medicine_id, medicine = ctx
     action = str(call.data).split("_")[0]
 
-    cancel_repeat_reminder(call.from_user.id, medicine_id)
+    await cancel_repeat_reminder(call.from_user.id, medicine_id)
 
     if action == "take" and medicine.stock_amount is not None and medicine.stock_amount <= 0:
         await state.update_data(medicine_id=medicine_id, lang=lang)
