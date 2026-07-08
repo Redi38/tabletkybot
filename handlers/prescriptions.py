@@ -35,6 +35,17 @@ def parse_optional_int(text: str) -> int | None:
         return -1
 
 
+def parse_positive_int(text: str) -> int | None:
+    """Повертає ціле додатне число, або None якщо ввід некоректний. На відміну
+    від parse_optional_int, тут НЕМАЄ опції "-" (пропустити) — розмір
+    упаковки є обов'язковим полем."""
+    try:
+        val = int(text.strip())
+        return val if val > 0 else None
+    except ValueError:
+        return None
+
+
 def parse_optional_text(text: str) -> str | None:
     text = text.strip()
     return None if text == "-" else text
@@ -89,6 +100,15 @@ class RestorePrescription(StatesGroup):
     quantity = State()
 
 
+class AddPurchaseToStock(StatesGroup):
+    """
+    Флоу після відмітки купівлі по рецепту: запитуємо розмір упаковки і
+    до якого препарату (з активних) додати куплену кількість в аптечку.
+    """
+    waiting_pack_size = State()
+    waiting_medicine_choice = State()
+
+
 # ── Клавіатури ───────────────────────────────────────────────────────────
 def prescription_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -140,6 +160,13 @@ def archived_prescription_row(prescription_id: int, language: str = "ua") -> lis
         InlineKeyboardButton(text=get_text(language, "btn_restore_presc"), callback_data=f"presc_restore_{prescription_id}", style="success"),
         InlineKeyboardButton(text=get_text(language, "btn_delete_presc"), callback_data=f"presc_delete_ask_{prescription_id}", style="danger"),
     ]
+
+
+def stock_ask_kb(prescription_id: int, amount: int, language: str = "ua") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=get_text(language, "btn_yes"), callback_data=f"presc_stock_yes_{prescription_id}_{amount}", style="success"),
+        InlineKeyboardButton(text=get_text(language, "btn_no"), callback_data="presc_stock_no"),
+    ]])
 
 
 # ── Навігація ────────────────────────────────────────────────────────────
@@ -486,7 +513,7 @@ async def buy_amount_entered(message: Message, state: FSMContext, session: Async
                 get_text(lang, "err_exceeds_prescription_limit", remaining=remaining),
                 parse_mode="HTML",
             )
-            return  # лишаємось в тому ж стані, чекаємо коректне число
+            return
 
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(
@@ -522,6 +549,12 @@ async def buy_confirm(call: CallbackQuery, session: AsyncSession) -> None:
         parse_mode="HTML",
     )
 
+    await msg.answer(
+        get_text(lang, "presc_ask_add_to_stock"),
+        reply_markup=stock_ask_kb(prescription_id, amount, lang),
+        parse_mode="HTML",
+    )
+
     if result.get("is_fully_purchased"):
         kb = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text=get_text(lang, "btn_presc_archive_now"), callback_data=f"presc_finish_archive_{prescription_id}", style="danger"),
@@ -531,6 +564,88 @@ async def buy_confirm(call: CallbackQuery, session: AsyncSession) -> None:
             get_text(lang, "presc_fully_purchased_ask", name=result["medicine_name"]),
             reply_markup=kb, parse_mode="HTML",
         )
+    await call.answer()
+
+
+# ── Додавання купленої кількості в аптечку препарату ─────────────────────
+@router.callback_query(F.data == "presc_stock_no")
+async def stock_add_declined(call: CallbackQuery) -> None:
+    if isinstance(call.message, Message):
+        try:
+            await call.message.delete()
+        except Exception:
+            pass
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("presc_stock_yes_"))
+async def stock_add_start(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+    ctx = await _base_ctx(call, session)
+    if not ctx or not call.data:
+        return
+    msg, lang = ctx
+    # presc_stock_yes_{prescription_id}_{amount}
+    parts = str(call.data).split("_")
+    amount = int(parts[-1])
+
+    await state.update_data(lang=lang, purchased_amount=amount)
+    await msg.edit_text(get_text(lang, "ask_pack_size"), parse_mode="HTML")
+    await state.set_state(AddPurchaseToStock.waiting_pack_size)
+    await call.answer()
+
+
+@router.message(AddPurchaseToStock.waiting_pack_size)
+async def stock_pack_size_entered(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    if not message.text or not message.from_user:
+        return
+    data = await state.get_data()
+    lang = data.get("lang", "ua")
+
+    pack_size = parse_positive_int(message.text)
+    if pack_size is None:
+        await message.answer(get_text(lang, "err_stock"), parse_mode="HTML")
+        return
+
+    amount = data["purchased_amount"]
+    total = amount * pack_size
+
+    medicines = await crud.get_user_medicines(session, message.from_user.id, active_only=True)
+    if not medicines:
+        await message.answer(get_text(lang, "presc_stock_no_medicines"), parse_mode="HTML")
+        await state.clear()
+        return
+
+    await state.update_data(total=total)
+    buttons = [
+        [InlineKeyboardButton(text=f"💊 {m.name}", callback_data=f"presc_stock_pick_{m.id}")]
+        for m in medicines
+    ]
+    await message.answer(
+        get_text(lang, "presc_stock_choose_medicine", total=total),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+        parse_mode="HTML",
+    )
+    await state.set_state(AddPurchaseToStock.waiting_medicine_choice)
+
+
+@router.callback_query(AddPurchaseToStock.waiting_medicine_choice, F.data.startswith("presc_stock_pick_"))
+async def stock_medicine_picked(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+    if not isinstance(call.message, Message) or not call.data:
+        return
+    data = await state.get_data()
+    lang = data.get("lang", "ua")
+    total = data["total"]
+    medicine_id = int(str(call.data).split("_")[-1])
+
+    new_stock = await crud.add_stock(session, medicine_id, total)
+    medicine = await crud.get_medicine_by_id(session, medicine_id)
+    name = medicine.name if medicine else "?"
+
+    await call.message.edit_text(
+        get_text(lang, "presc_stock_added", total=total, name=name, stock=new_stock),
+        parse_mode="HTML",
+    )
+    await state.clear()
     await call.answer()
 
 
