@@ -125,7 +125,7 @@ class MedicineAdmin(ModelView, model=Medicine):
 
     @action(
         name="send_reminder_now",
-        label="🔔 Надіслати нагадування зараз",
+        label="Надіслати нагадування",
         confirmation_message="Надіслати нагадування про цей препарат користувачу прямо зараз?",
         add_in_detail=True,
         add_in_list=True,

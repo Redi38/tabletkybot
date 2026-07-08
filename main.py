@@ -14,7 +14,7 @@ from config import load_config
 from database.db import init_db
 from middleware.db_middleware import DatabaseMiddleware
 
-from services.scheduler import start_scheduler, stop_scheduler, sync_reminders, sync_single_reminder, scheduler, check_prescription_reminders
+from services.scheduler import start_scheduler, stop_scheduler, sync_reminders, sync_single_reminder, scheduler, check_prescription_reminders, init_redis, resume_pending_reminders
 from handlers import start, medicines, ai_agent, report, errors, settings, prescriptions
 
 logging.basicConfig(
@@ -58,6 +58,8 @@ def build_sync_handler(bot: Bot, session_factory):
 async def main() -> None:
     config = load_config()
 
+    init_redis(config.redis_url)
+
     try:
         session_factory = await init_db(config.database_url)
         logger.info("✅ База даних ініціалізована")
@@ -92,6 +94,8 @@ async def main() -> None:
     logger.info("APScheduler запущено")
 
     await sync_reminders(bot, session_factory)
+
+    await resume_pending_reminders(bot)
 
     scheduler.add_job(
         sync_reminders, trigger='interval', hours=1, id='db_sync_job_hourly',
