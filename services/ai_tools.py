@@ -61,7 +61,7 @@ TOOL_SCHEMAS = [
                 "Отримати список активних ліків користувача з розкладом прийому, "
                 "дозуванням та залишком курсу."
             ),
-            "parameters": {"type": "object", "properties": {}, "required": []},
+            "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
         },
     },
     {
@@ -72,7 +72,7 @@ TOOL_SCHEMAS = [
                 "Отримати список активних рецептів користувача — назва препарату, "
                 "дата закінчення дії, скільки вже куплено з дозволеної кількості."
             ),
-            "parameters": {"type": "object", "properties": {}, "required": []},
+            "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
         },
     },
     {

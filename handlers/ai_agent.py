@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.crud import get_or_create_user, get_user_language
 from database import crud
 from locales.texts import get_text
-from services.ai_service import get_ai_agent_response, get_ai_vision_response
+from services.ai_service import get_ai_agent_response, get_ai_vision_response, format_markdown_to_html, strip_html_tags
 from services.scheduler import remove_reminders
 from handlers.start import get_main_keyboard
 
@@ -57,7 +57,6 @@ async def pdf_to_image(pdf_bytes: bytes) -> bytes | None:
 
 
 async def _send_ai_answer(message: Message, response_text: str, model_used: str, language: str) -> None:
-    formatted = f"{response_text}\n\n<i>🔮 {get_text(language, 'ai_model')}: {model_used}</i>"
     try:
         await message.answer(formatted, parse_mode="HTML", reply_markup=get_main_keyboard(language))
     except TelegramBadRequest as e:
@@ -172,25 +171,32 @@ async def fallback_handler(
     await bot.send_chat_action(message.chat.id, "typing")
 
     history = await crud.get_chat_history(session, message.from_user.id, limit=10)
+
     if history and not isinstance(history[0], dict):
-        conv_messages = [{"role": m.role, "content": m.content} for m in history]
+        conv_messages = [{"role": m.role, "content": strip_html_tags(m.content)} for m in history]
     else:
-        conv_messages = list(history)
+        conv_messages = [{"role": m["role"], "content": strip_html_tags(m["content"])} for m in history]
     conv_messages.append({"role": "user", "content": message.text})
 
-    response_text, model_used, confirmation = await get_ai_agent_response(
+    raw_text, model_used, confirmation = await get_ai_agent_response(
         config, session, message.from_user.id, conv_messages, language=language,
     )
 
     if confirmation:
+        await crud.add_chat_message(session, message.from_user.id, "user", message.text)
+        await crud.add_chat_message(
+            session, message.from_user.id, "assistant",
+            f"[Запитано підтвердження видалення: {confirmation['target_name']}]",
+        )
         text = get_text(language, "ai_confirm_removal_prompt", name=confirmation["target_name"])
         await message.answer(text, reply_markup=build_removal_confirm_kb(confirmation, language))
         return
 
     await crud.add_chat_message(session, message.from_user.id, "user", message.text)
-    await crud.add_chat_message(session, message.from_user.id, "assistant", response_text)
+    await crud.add_chat_message(session, message.from_user.id, "assistant", raw_text)
 
-    await _send_ai_answer(message, response_text, model_used, language)
+    formatted_text = format_markdown_to_html(raw_text)
+    await _send_ai_answer(message, formatted_text, model_used, language)
 
 
 @router.callback_query(F.data.startswith("ai_act_"))
