@@ -35,18 +35,18 @@
 
             <div class="card shadow-sm mb-3">
                 <div class="card-header">
-                    <h2 class="card-title"><b>Логи</b></h2>
+                    <h2 class="card-title"><b>Logs</b></h2>
                 </div>
                 <div class="card-body">
 
                     <div class="d-flex logs-toolbar align-items-center mb-3">
                         <select id="logSource" class="form-select" style="width: auto;">
-                            <option value="bot">Бот</option>
-                            <option value="admin">Адмінка</option>
+                            <option value="bot">Bot</option>
+                            <option value="admin">Admin panel</option>
                         </select>
 
                         <select id="logLevel" class="form-select" style="width: auto;">
-                            <option value="">Всі рівні</option>
+                            <option value="">All levels</option>
                             <option value="INFO">INFO</option>
                             <option value="WARNING">WARNING</option>
                             <option value="ERROR">ERROR</option>
@@ -54,25 +54,25 @@
                         </select>
 
                         <select id="logLines" class="form-select" style="width: auto;">
-                            <option value="100">100 рядків</option>
-                            <option value="200" selected>200 рядків</option>
-                            <option value="500">500 рядків</option>
+                            <option value="100">100 lines</option>
+                            <option value="200" selected>200 lines</option>
+                            <option value="500">500 lines</option>
                         </select>
 
-                        <input id="logSearch" type="text" class="form-control" style="width: 220px;" placeholder="Пошук по тексту...">
+                        <input id="logSearch" type="text" class="form-control" style="width: 220px;" placeholder="Search text...">
 
-                        <button id="refreshBtn" class="btn btn-primary" onclick="refreshLogs()">Оновити</button>
+                        <button id="refreshBtn" class="btn btn-primary" onclick="refreshLogs()">Refresh</button>
 
                         <div class="form-check form-switch ms-2">
                             <input class="form-check-input" type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh()">
-                            <label class="form-check-label" for="autoRefreshToggle">Автооновлення (15с)</label>
+                            <label class="form-check-label" for="autoRefreshToggle">Auto-refresh (15s)</label>
                         </div>
 
                         <span id="logStatus" class="text-secondary ms-auto"></span>
                     </div>
 
                     <div id="logsBox" class="logs-box">
-                        <div class="logs-empty">Завантаження...</div>
+                        <div class="logs-empty">Loading...</div>
                     </div>
 
                 </div>
@@ -106,17 +106,17 @@
         const lines = document.getElementById("logLines").value;
         const search = document.getElementById("logSearch").value.trim();
 
-        status.textContent = "Завантаження...";
+        status.textContent = "Loading...";
 
         const params = new URLSearchParams({ source, lines, level, search });
 
         try {
             const response = await fetch(`/api/admin/logs?${params.toString()}`);
-            if (!response.ok) throw new Error("Помилка мережі або сервера");
+            if (!response.ok) throw new Error("Network or server error");
             const data = await response.json();
 
             if (!data.lines || data.lines.length === 0) {
-                box.innerHTML = '<div class="logs-empty">Немає записів за обраними фільтрами.</div>';
+                box.innerHTML = '<div class="logs-empty">No entries match the selected filters.</div>';
             } else {
                 box.innerHTML = data.lines
                     .map(line => `<div class="${levelClass(line)}">${escapeHtml(line)}</div>`)
@@ -125,18 +125,18 @@
             }
 
             const now = new Date().toLocaleTimeString();
-            status.textContent = `Оновлено о ${now} · ${data.lines.length} рядків`;
+            status.textContent = `Updated at ${now} · ${data.lines.length} lines`;
         } catch (error) {
-            status.textContent = "Помилка завантаження логів";
-            console.error("Помилка завантаження логів:", error);
+            status.textContent = "Error loading logs";
+            console.error("Error loading logs:", error);
         }
     }
 
     function toggleAutoRefresh() {
         const enabled = document.getElementById("autoRefreshToggle").checked;
         if (enabled) {
-            // Навмисно рідкий інтервал (15с) і вимкнено за замовчуванням,
-            // щоб постійний polling не навантажував сервер.
+            // Deliberately infrequent (15s) and off by default, so
+            // continuous polling doesn't add unnecessary server load.
             autoRefreshInterval = setInterval(refreshLogs, 15000);
         } else if (autoRefreshInterval) {
             clearInterval(autoRefreshInterval);

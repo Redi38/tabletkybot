@@ -25,20 +25,23 @@
             <div class="d-flex justify-content-center mb-4">
                 <div class="card shadow-sm" style="width: 100%; max-width: 900px;">
                     <div class="card-header justify-content-center">
-                        <h2 class="card-title fs-2"><b>Вітаємо в панелі адміністратора MedBot!</b></h2>
+                        <h2 class="card-title fs-2"><b>Welcome to the MedBot Admin Panel!</b></h2>
                     </div>
                     <div class="card-body p-4 d-flex flex-column align-items-center">
-                        <p class="text-secondary mb-2 fs-3 text-center">Тут ви маєте повний контроль над базою даних Telegram-бота.</p>
+                        <p class="text-secondary mb-2 fs-3 text-center">Full control over the Telegram bot's database, right from here.</p>
                         <hr class="w-100 mt-2 mb-3">
-                        <h2 class="mt-2 mb-3 text-center">Можливості системи:</h2>
+                        <h2 class="mt-2 mb-3 text-center">What you can do:</h2>
 
                         <div style="display: inline-block; text-align: left;">
                             <ul style="line-height: 1.8; font-size: 1.15rem; list-style-type: none; padding-left: 0; margin-bottom: 0;">
-                                <li>👥 <b>Користувачі:</b> Перегляд та управління профілями пацієнтів.</li>
-                                <li>💊 <b>Препарати та Аптечка:</b> Управління курсами лікування та автоматичний облік залишків препаратів.</li>
-                                <li>⏰ <b>Розклади прийомів:</b> Налаштування гнучких графіків (декілька прийомів на день для одного препарату).</li>
-                                <li>📋 <b>Історія прийомів:</b> Статистика прийнятих та пропущених ліків.</li>
-                                <li>🤖 <b>Історія діалогів ШІ:</b> Моніторинг запитів до медичного асистента.</li>
+                                <li>👥 <b>Users:</b> View and manage patient profiles, filter by language.</li>
+                                <li>💊 <b>Medicines &amp; Stock:</b> Manage treatment courses, track remaining doses, filter by active status.</li>
+                                <li>⏰ <b>Intake Schedules:</b> Configure flexible schedules (multiple doses per day for one medicine).</li>
+                                <li>🔔 <b>Instant Reminders:</b> Trigger a reminder for a medicine right now, straight from the Medicines list.</li>
+                                <li>📋 <b>Intake History:</b> Statistics on taken and skipped doses, filterable by status.</li>
+                                <li>📝 <b>Prescriptions:</b> Track validity periods, purchased quantities, and refill limits.</li>
+                                <li>🤖 <b>AI Chat History:</b> Monitor the medical assistant's conversations and tool calls.</li>
+                                <li>📜 <b>Logs:</b> Live viewer for bot and admin panel logs, with level and text filters.</li>
                             </ul>
                         </div>
                     </div>
@@ -47,10 +50,10 @@
 
             <div class="d-flex justify-content-center mb-4">
                 <div class="btn-group shadow-sm" role="group">
-                    <button type="button" class="btn btn-outline-primary active" onclick="loadDashboard('all', this)">За весь час</button>
-                    <button type="button" class="btn btn-outline-primary" onclick="loadDashboard('30d', this)">Останні 30 днів</button>
-                    <button type="button" class="btn btn-outline-primary" onclick="loadDashboard('7d', this)">Останні 7 днів</button>
-                    <button type="button" class="btn btn-outline-primary" onclick="loadDashboard('24h', this)">Останні 24 години</button>
+                    <button type="button" class="btn btn-outline-primary active" onclick="loadDashboard('all', this)">All time</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="loadDashboard('30d', this)">Last 30 days</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="loadDashboard('7d', this)">Last 7 days</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="loadDashboard('24h', this)">Last 24 hours</button>
                 </div>
             </div>
 
@@ -59,7 +62,7 @@
                 <div class="col-12 col-lg-5">
                     <div class="card shadow-sm h-100">
                         <div class="card-header justify-content-center">
-                            <h2 class="card-title"><b>Співвідношення прийомів ліків</b></h2>
+                            <h2 class="card-title"><b>Medicine Intake Ratio</b></h2>
                         </div>
                         <div class="card-body d-flex flex-column justify-content-center">
                             <div class="chart-container pie-container">
@@ -72,7 +75,7 @@
                 <div class="col-12 col-lg-7">
                     <div class="card shadow-sm h-100">
                         <div class="card-header justify-content-center">
-                            <h2 class="card-title"><b>Активність приймання ліків по годинах </b></h2>
+                            <h2 class="card-title"><b>Intake Activity by Hour</b></h2>
                         </div>
                         <div class="card-body d-flex flex-column justify-content-center">
                             <div class="chart-container bar-container">
@@ -88,19 +91,19 @@
                 <div class="col-6 col-lg-3">
                     <div class="card shadow-sm stat-card h-100">
                         <div class="stat-value text-primary">{{ stats.total_users }}</div>
-                        <div class="stat-label">👥 Користувачів</div>
+                        <div class="stat-label">👥 Users</div>
                     </div>
                 </div>
                 <div class="col-6 col-lg-3">
                     <div class="card shadow-sm stat-card h-100">
                         <div class="stat-value text-success">{{ stats.total_active_medicines }}</div>
-                        <div class="stat-label">💊 Активних препаратів</div>
+                        <div class="stat-label">💊 Active Medicines</div>
                     </div>
                 </div>
                 <div class="col-6 col-lg-3">
                     <div class="card shadow-sm stat-card h-100">
                         <div class="stat-value" style="color:#f59f00;">{{ stats.active_prescriptions }}</div>
-                        <div class="stat-label">📋 Активних рецептів</div>
+                        <div class="stat-label">📋 Active Prescriptions</div>
                     </div>
                 </div>
                 <div class="col-6 col-lg-3">
@@ -108,7 +111,7 @@
                         <div class="stat-value" style="color:{% if stats.adherence_rate >= 80 %}#2fb344{% elif stats.adherence_rate >= 50 %}#f59f00{% else %}#d63939{% endif %};">
                             {{ stats.adherence_rate }}%
                         </div>
-                        <div class="stat-label">✅ Дотримання прийому (за весь час)</div>
+                        <div class="stat-label">✅ Adherence Rate (all time)</div>
                     </div>
                 </div>
             </div>
@@ -134,13 +137,13 @@
 
         try {
             const response = await fetch(`/api/admin/stats?period=${period}`);
-            if (!response.ok) throw new Error("Помилка мережі або сервера");
+            if (!response.ok) throw new Error("Network or server error");
 
             const data = await response.json();
             renderPieChart(data.pie);
             renderHourlyChart(data.hourly);
         } catch (error) {
-            console.error("Помилка завантаження статистики:", error);
+            console.error("Error loading statistics:", error);
         }
     }
 
@@ -156,7 +159,7 @@
         pieChartInstance = new window.Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Прийнято', 'Пропущено'],
+                labels: ['Taken', 'Skipped'],
                 datasets: [{
                     data: chartData,
                     backgroundColor: colors,
@@ -182,7 +185,7 @@
             data: {
                 labels: hourLabels,
                 datasets: [{
-                    label: 'Кількість прийомів ліків',
+                    label: 'Number of doses taken',
                     data: hourlyData,
                     backgroundColor: 'rgba(47, 179, 68, 0.7)',
                     borderColor: '#2fb344',
