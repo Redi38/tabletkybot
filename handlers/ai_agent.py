@@ -1,4 +1,7 @@
 import logging
+import os
+import tempfile
+
 import aiohttp
 from config import Config
 from aiogram import Router, F, Bot
@@ -12,6 +15,7 @@ from database.crud import get_or_create_user, get_user_language
 from database import crud
 from locales.texts import get_text
 from services.ai_service import get_ai_agent_response, get_ai_vision_response, format_markdown_to_html, strip_html_tags
+from services.voice_service import transcribe_voice
 from services.scheduler import remove_reminders
 from handlers.start import get_main_keyboard
 
@@ -65,6 +69,45 @@ async def _send_ai_answer(message: Message, response_text: str, model_used: str,
             await message.answer(response_text, parse_mode=None, reply_markup=get_main_keyboard(language))
         else:
             raise
+
+
+async def _process_ai_text(
+        message: Message, text: str, session: AsyncSession,
+        config: Config, bot: Bot, language: str,
+) -> None:
+    """Core AI-agent flow shared by text and voice messages."""
+    if not message.from_user:
+        return
+
+    await bot.send_chat_action(message.chat.id, "typing")
+
+    history = await crud.get_chat_history(session, message.from_user.id, limit=10)
+
+    if history and not isinstance(history[0], dict):
+        conv_messages = [{"role": m.role, "content": strip_html_tags(m.content)} for m in history]
+    else:
+        conv_messages = [{"role": m["role"], "content": strip_html_tags(m["content"])} for m in history]
+    conv_messages.append({"role": "user", "content": text})
+
+    raw_text, model_used, confirmation = await get_ai_agent_response(
+        config, session, message.from_user.id, conv_messages, language=language,
+    )
+
+    if confirmation:
+        await crud.add_chat_message(session, message.from_user.id, "user", text)
+        await crud.add_chat_message(
+            session, message.from_user.id, "assistant",
+            f"[Removal confirmation requested: {confirmation['target_name']}]",
+        )
+        confirm_text = get_text(language, "ai_confirm_removal_prompt", name=confirmation["target_name"])
+        await message.answer(confirm_text, reply_markup=build_removal_confirm_kb(confirmation, language))
+        return
+
+    await crud.add_chat_message(session, message.from_user.id, "user", text)
+    await crud.add_chat_message(session, message.from_user.id, "assistant", raw_text)
+
+    formatted_text = format_markdown_to_html(raw_text)
+    await _send_ai_answer(message, formatted_text, model_used, language)
 
 
 @router.message(F.photo)
@@ -151,6 +194,45 @@ async def handle_document(message: Message, session: AsyncSession, config: Confi
         await message.answer(get_text(language, "ai_err_pdf"), reply_markup=get_main_keyboard(language))
 
 
+@router.message(F.voice)
+async def handle_voice(
+        message: Message, state: FSMContext, session: AsyncSession,
+        config: Config, bot: Bot,
+) -> None:
+    """Handles voice messages: transcribes them and feeds the text into the AI agent."""
+    if not message.from_user or not message.voice:
+        return
+    if await state.get_state() is not None:
+        return
+
+    user = await get_or_create_user(
+        session, message.from_user.id,
+        message.from_user.username, message.from_user.full_name,
+    )
+    language = user.language or "ua"
+
+    await bot.send_chat_action(message.chat.id, "typing")
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        ogg_path = os.path.join(tmp_dir, "voice.ogg")
+        try:
+            audio_bytes = await download_telegram_file(bot, message.voice.file_id)
+            with open(ogg_path, "wb") as f:
+                f.write(audio_bytes)
+
+            transcript = await transcribe_voice(config, ogg_path)
+        except Exception as e:
+            logger.error(f"Voice download/transcription error: {e}")
+            await message.answer(get_text(language, "ai_err_voice"), reply_markup=get_main_keyboard(language))
+            return
+
+    if not transcript:
+        await message.answer(get_text(language, "ai_err_voice_empty"), reply_markup=get_main_keyboard(language))
+        return
+
+    await _process_ai_text(message, transcript, session, config, bot, language)
+
+
 @router.message(F.text.startswith("/") == False)
 async def fallback_handler(
         message: Message, state: FSMContext, session: AsyncSession,
@@ -168,35 +250,7 @@ async def fallback_handler(
     )
     language = user.language or "ua"
 
-    await bot.send_chat_action(message.chat.id, "typing")
-
-    history = await crud.get_chat_history(session, message.from_user.id, limit=10)
-
-    if history and not isinstance(history[0], dict):
-        conv_messages = [{"role": m.role, "content": strip_html_tags(m.content)} for m in history]
-    else:
-        conv_messages = [{"role": m["role"], "content": strip_html_tags(m["content"])} for m in history]
-    conv_messages.append({"role": "user", "content": message.text})
-
-    raw_text, model_used, confirmation = await get_ai_agent_response(
-        config, session, message.from_user.id, conv_messages, language=language,
-    )
-
-    if confirmation:
-        await crud.add_chat_message(session, message.from_user.id, "user", message.text)
-        await crud.add_chat_message(
-            session, message.from_user.id, "assistant",
-            f"[Removal confirmation requested: {confirmation['target_name']}]",
-        )
-        text = get_text(language, "ai_confirm_removal_prompt", name=confirmation["target_name"])
-        await message.answer(text, reply_markup=build_removal_confirm_kb(confirmation, language))
-        return
-
-    await crud.add_chat_message(session, message.from_user.id, "user", message.text)
-    await crud.add_chat_message(session, message.from_user.id, "assistant", raw_text)
-
-    formatted_text = format_markdown_to_html(raw_text)
-    await _send_ai_answer(message, formatted_text, model_used, language)
+    await _process_ai_text(message, message.text, session, config, bot, language)
 
 
 @router.callback_query(F.data.startswith("ai_act_"))

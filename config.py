@@ -43,6 +43,8 @@ class Config:
     backup_s3_secret_key: str | None = None
     backup_s3_region: str = "eu-frankfurt-1"
     backup_retention_days: int = 14
+    # Voice
+    nvidia_riva_function_id: str = "b702f636-f60c-4a3d-a6f4-f3568c13bd7d"
 
     @property
     def database_url(self) -> str:
@@ -104,4 +106,5 @@ def load_config() -> Config:
         backup_s3_secret_key=os.getenv("BACKUP_S3_SECRET_KEY"),
         backup_s3_region=os.getenv("BACKUP_S3_REGION", "eu-frankfurt-1"),
         backup_retention_days=int(os.getenv("BACKUP_RETENTION_DAYS", "14")),
+        nvidia_riva_function_id=os.getenv("NVIDIA_RIVA_FUNCTION_ID", "b702f636-f60c-4a3d-a6f4-f3568c13bd7d"),
     )

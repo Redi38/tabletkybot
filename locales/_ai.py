@@ -21,6 +21,8 @@ TEXTS = {
         'ai_medicine_deleted': '🗑 «{name}» видалено.',
         'ai_prescription_archived': '🗄 Рецепт на «{name}» архівовано.',
         'ai_prescription_deleted': '🗑 Рецепт на «{name}» видалено.',
+        'ai_err_voice': '❌ Не вдалося обробити голосове повідомлення.',
+        'ai_err_voice_empty': '😔 Не вдалося розпізнати голосове повідомлення. Спробуйте ще раз або напишіть текстом.',
     },
     "en": {
         'ai_analyze_pdf': 'Analyze this PDF. If these are medical lab results, explain them.',
@@ -42,6 +44,8 @@ TEXTS = {
         'ai_medicine_deleted': '🗑 «{name}» deleted.',
         'ai_prescription_archived': '🗄 Prescription for «{name}» archived.',
         'ai_prescription_deleted': '🗑 Prescription for «{name}» deleted.',
+        'ai_err_voice': '❌ Could not process the voice message.',
+        'ai_err_voice_empty': '😔 Could not recognize the voice message. Try again or type your message.',
     },
     "ru": {
         'ai_analyze_pdf': 'Проанализируй этот PDF. Если это медицинские анализы – растолкуй результаты.',
@@ -63,5 +67,7 @@ TEXTS = {
         'ai_medicine_deleted': '🗑 «{name}» удалено.',
         'ai_prescription_archived': '🗄 Рецепт на «{name}» архивирован.',
         'ai_prescription_deleted': '🗑 Рецепт на «{name}» удалён.',
+        'ai_err_voice': '❌ Не удалось обработать голосовое сообщение.',
+        'ai_err_voice_empty': '😔 Не удалось распознать голосовое сообщение. Попробуйте ещё раз или напишите текстом.',
     },
 }
