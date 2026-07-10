@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramBadRequest
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from datetime import datetime, timedelta, date as date_type
+from datetime import datetime, timedelta, timezone as dt_timezone, date as date_type
 from zoneinfo import ZoneInfo
 import redis.asyncio as aioredis
 
@@ -49,6 +49,7 @@ async def _save_pending_reminder(
         "course_duration": course_duration,
         "language": language,
         "timezone": timezone,
+        "sent_at": datetime.now(dt_timezone.utc).isoformat(),
     }
     await _redis_client.set(_pending_key(chat_id, medicine_id), json.dumps(data), ex=_PENDING_TTL_SECONDS)
 
@@ -211,25 +212,46 @@ async def cancel_repeat_reminder(chat_id: int, medicine_id: int) -> None:
 
 async def resume_pending_reminders(bot: Bot) -> None:
     """
-    Called ONCE at bot startup (after sync_reminders). Restores
-    hourly repeat jobs for all reminders the user hasn't confirmed yet —
-    otherwise they'd be lost every time the container restarts.
+    Called ONCE at bot startup (after sync_reminders). Restores hourly
+    repeat jobs for all reminders the user hasn't confirmed yet, preserving
+    the original hourly cadence based on when the reminder/repeat was last
+    sent (via the "sent_at" timestamp stored in Redis) — instead of
+    resetting the 1-hour countdown to "now + 1 hour" on every restart, which
+    causes the repeat to drift later and later with each restart.
     """
     pending_list = await _get_all_pending_reminders()
     restored = 0
-    for chat_id, medicine_id, _data in pending_list:
+    now = datetime.now(dt_timezone.utc)
+
+    for chat_id, medicine_id, data in pending_list:
         job_id = f"repeat_{medicine_id}_{chat_id}"
         if scheduler.get_job(job_id):
             continue
+
+        next_run_time = None
+        sent_at_str = data.get("sent_at")
+        if sent_at_str:
+            try:
+                sent_at = datetime.fromisoformat(sent_at_str)
+                if sent_at.tzinfo is None:
+                    sent_at = sent_at.replace(tzinfo=dt_timezone.utc)
+                next_run_time = sent_at + timedelta(hours=1)
+                if next_run_time < now:
+                    next_run_time = now
+            except ValueError:
+                next_run_time = None
+
         scheduler.add_job(
             send_repeat_reminder,
             trigger="interval",
             hours=1,
             id=job_id,
             replace_existing=True,
+            next_run_time=next_run_time,
             kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": chat_id},
         )
         restored += 1
+
     if restored:
         logger.info(f"Restored {restored} unfinished hourly reminders after restart")
 
