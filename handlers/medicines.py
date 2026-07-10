@@ -13,7 +13,7 @@ from services.scheduler import add_reminders_for_medicine, remove_reminders, can
 router = Router()
 
 
-# ── Допоміжні функції ───────────────────────────────────────────────────────
+# ── Helper functions ───────────────────────────────────────────────────────
 def is_valid_time(time_str: str) -> bool:
     try:
         parts = time_str.split(":")
@@ -90,7 +90,7 @@ class RestockMedicine(StatesGroup):
     waiting_for_amount = State()
 
 
-# ── Клавіатури ─────────────────────────────────────────────────────────────
+# ── Keyboards ─────────────────────────────────────────────────────────────
 def medicine_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -98,8 +98,8 @@ def medicine_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=get_text(language, "btn_list"), callback_data="med_list", style="primary"),
         ],
         [InlineKeyboardButton(text=get_text(language, "btn_stats"), callback_data="med_stats", style="primary")],
-	[InlineKeyboardButton(text=get_text(language, "btn_report"), callback_data="med_reports", style="primary")],
-	[InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_back")],
+        [InlineKeyboardButton(text=get_text(language, "btn_report"), callback_data="med_reports", style="primary")],
+        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_back")],
     ])
 
 
@@ -126,7 +126,7 @@ def track_stock_kb(language: str = "ua") -> InlineKeyboardMarkup:
     ]])
 
 
-# ── Навігація ─────────────────────────────────────────────────────────────
+# ── Navigation ─────────────────────────────────────────────────────────────
 @router.message(F.text.in_(btn_variants("btn_medicines")))
 async def medicines_menu(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
@@ -159,7 +159,7 @@ async def back_to_main_menu(call: CallbackQuery, state: FSMContext, session: Asy
     await call.answer()
 
 
-# ── Звіти (перенесено сюди з головної клавіатури) ──────────────────────────
+# ── Reports (moved here from the main keyboard) ──────────────────────────
 @router.callback_query(F.data == "med_reports")
 async def medicine_reports_menu(call: CallbackQuery, session: AsyncSession) -> None:
     ctx = await _base_ctx(call, session)
@@ -170,7 +170,7 @@ async def medicine_reports_menu(call: CallbackQuery, session: AsyncSession) -> N
     await call.answer()
 
 
-# ── Додавання ліків ──────────────────────────────────────────────────────
+# ── Adding a medicine ──────────────────────────────────────────────────────
 @router.callback_query(F.data == "med_add")
 async def add_start(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     ctx = await _base_ctx(call, session)
@@ -331,7 +331,7 @@ async def _save_new_medicine(
     )
 
 
-# ── Список та статистика ──────────────────────────────────────────────────
+# ── List and statistics ──────────────────────────────────────────────────
 @router.callback_query(F.data == "med_list")
 async def list_medicines(call: CallbackQuery, session: AsyncSession) -> None:
     ctx = await _base_ctx(call, session)
@@ -390,7 +390,7 @@ async def medicine_stats(call: CallbackQuery, session: AsyncSession) -> None:
     await msg.edit_text(text, reply_markup=medicine_back_only_kb(lang), parse_mode="HTML")
 
 
-# ── Архів та Видалення ─────────────────────────────────────────────────────
+# ── Archive and Removal ─────────────────────────────────────────────────────
 @router.callback_query(F.data == "med_archive_list")
 async def list_archived_medicines(call: CallbackQuery, session: AsyncSession) -> None:
     ctx = await _base_ctx(call, session)
@@ -469,7 +469,7 @@ async def confirm_delete_medicine(call: CallbackQuery, session: AsyncSession) ->
     await list_medicines(call, session)
 
 
-# ── Продовження курсу ─────────────────────────────────────────────────────
+# ── Course extension ─────────────────────────────────────────────────────
 @router.callback_query(F.data.startswith("med_restore_ask_") | F.data.startswith("med_extend_ask_"))
 async def extend_course_start(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     ctx = await _valid_medicine_ctx(call, session)
@@ -505,7 +505,7 @@ async def extend_course_save(message: Message, state: FSMContext, session: Async
     await message.answer(get_text(lang, "med_restored", name=str(medicine.name), days=days), parse_mode="HTML")
 
 
-# ── Редагування ───────────────────────────────────────────────────────────
+# ── Editing ───────────────────────────────────────────────────────────────
 @router.callback_query(F.data.startswith("edit_med_"))
 async def edit_medicine_menu(call: CallbackQuery, session: AsyncSession) -> None:
     ctx = await _valid_medicine_ctx(call, session)
@@ -586,7 +586,7 @@ async def edit_field_save(message: Message, state: FSMContext, session: AsyncSes
     await message.answer(get_text(lang, "edit_success"), reply_markup=medicine_menu_kb(lang))
 
 
-# ── Прийом / Пропуск ──────────────────────────────────────────────────────
+# ── Take / Skip ──────────────────────────────────────────────────────
 @router.callback_query(F.data.startswith("take_") | F.data.startswith("skip_"))
 async def process_medicine_status(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     await call.answer()
@@ -644,7 +644,7 @@ async def delete_alert_message(call: CallbackQuery) -> None:
         await call.message.delete()
 
 
-# ── Поповнення Аптечки ────────────────────────────────────────────────────
+# ── Restocking ────────────────────────────────────────────────────
 @router.callback_query(F.data.startswith("restock_yes_") | F.data.startswith("restock_ask_"))
 async def restock_ask_amount(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     ctx = await _valid_medicine_ctx(call, session)

@@ -12,7 +12,7 @@ from locales.texts import get_text, btn_variants
 router = Router()
 
 
-# ── Допоміжні функції ───────────────────────────────────────────────────────
+# ── Helper functions ───────────────────────────────────────────────────────
 def parse_date(text: str) -> date | None:
     text = text.strip()
     for fmt in ("%d.%m.%y", "%d.%m.%Y"):
@@ -24,7 +24,7 @@ def parse_date(text: str) -> date | None:
 
 
 def parse_optional_int(text: str) -> int | None:
-    """Повертає None якщо юзер надіслав '-' (пропустити), або число, або -1 при помилці."""
+    """Returns None if the user sent '-' (skip), a number, or -1 on error."""
     text = text.strip()
     if text == "-":
         return None
@@ -36,9 +36,9 @@ def parse_optional_int(text: str) -> int | None:
 
 
 def parse_positive_int(text: str) -> int | None:
-    """Повертає ціле додатне число, або None якщо ввід некоректний. На відміну
-    від parse_optional_int, тут НЕМАЄ опції "-" (пропустити) — розмір
-    упаковки є обов'язковим полем."""
+    """Returns a positive integer, or None if the input is invalid. Unlike
+    parse_optional_int, there is NO "-" (skip) option here — the pack
+    size is a required field."""
     try:
         val = int(text.strip())
         return val if val > 0 else None
@@ -102,14 +102,14 @@ class RestorePrescription(StatesGroup):
 
 class AddPurchaseToStock(StatesGroup):
     """
-    Флоу після відмітки купівлі по рецепту: запитуємо розмір упаковки і
-    до якого препарату (з активних) додати куплену кількість в аптечку.
+    Flow after marking a prescription purchase: we ask for the pack size and
+    which (active) medicine to add the purchased quantity to in stock.
     """
     waiting_pack_size = State()
     waiting_medicine_choice = State()
 
 
-# ── Клавіатури ───────────────────────────────────────────────────────────
+# ── Keyboards ───────────────────────────────────────────────────────────
 def prescription_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -169,7 +169,7 @@ def stock_ask_kb(prescription_id: int, amount: int, language: str = "ua") -> Inl
     ]])
 
 
-# ── Навігація ────────────────────────────────────────────────────────────
+# ── Navigation ────────────────────────────────────────────────────────────
 @router.message(F.text.in_(btn_variants("btn_prescriptions")))
 async def prescriptions_menu(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
@@ -206,7 +206,7 @@ async def back_to_main_menu(call: CallbackQuery, state: FSMContext, session: Asy
     await call.answer()
 
 
-# ── Додавання рецепту ────────────────────────────────────────────────────
+# ── Adding a prescription ────────────────────────────────────────────────
 @router.callback_query(F.data == "presc_add")
 async def add_start(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     ctx = await _base_ctx(call, session)
@@ -316,7 +316,7 @@ async def add_reminder(message: Message, state: FSMContext, session: AsyncSessio
     )
 
 
-# ── Список рецептів ──────────────────────────────────────────────────────
+# ── Prescription list ──────────────────────────────────────────────────────
 @router.callback_query(F.data == "presc_list")
 async def list_prescriptions(call: CallbackQuery, session: AsyncSession) -> None:
     ctx = await _base_ctx(call, session)
@@ -354,7 +354,7 @@ async def list_prescriptions(call: CallbackQuery, session: AsyncSession) -> None
     await msg.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
 
 
-# ── Редагування рецепту ──────────────────────────────────────────────────
+# ── Editing a prescription ──────────────────────────────────────────────
 @router.callback_query(F.data.startswith("presc_edit_"))
 async def edit_menu(call: CallbackQuery, session: AsyncSession) -> None:
     ctx = await _valid_prescription_ctx(call, session)
@@ -397,7 +397,7 @@ async def edit_valid_from_save(message: Message, state: FSMContext, session: Asy
         await state.clear()
         return
 
-    # ── Зберігаємо попередню тривалість і переносимо дату закінчення ────
+    # ── Keep the previous duration and shift the expiration date ────
     duration_days = (prescription.expires_at - prescription.valid_from).days
     new_expires = new_date + timedelta(days=duration_days)
 
@@ -467,7 +467,7 @@ async def edit_quantity_save(message: Message, state: FSMContext, session: Async
     await message.answer(get_text(lang, "presc_updated"), reply_markup=prescription_menu_kb(lang), parse_mode="HTML")
 
 
-# ── Відмітка купівлі ─────────────────────────────────────────────────────
+# ── Marking a purchase ─────────────────────────────────────────────────────
 @router.callback_query(F.data.startswith("presc_buy_ask_"))
 async def buy_ask_amount(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     ctx = await _valid_prescription_ctx(call, session)
@@ -505,7 +505,7 @@ async def buy_amount_entered(message: Message, state: FSMContext, session: Async
         await state.clear()
         return
 
-    # ── Валідація проти ліміту рецепту ──────────────────────────────────
+    # ── Validate against the prescription limit ──────────────────────────
     if prescription.max_quantity is not None:
         remaining = prescription.max_quantity - prescription.purchased_quantity
         if amount > remaining:
@@ -567,7 +567,7 @@ async def buy_confirm(call: CallbackQuery, session: AsyncSession) -> None:
     await call.answer()
 
 
-# ── Додавання купленої кількості в аптечку препарату ─────────────────────
+# ── Adding the purchased quantity to a medicine's stock ─────────────────
 @router.callback_query(F.data == "presc_stock_no")
 async def stock_add_declined(call: CallbackQuery) -> None:
     if isinstance(call.message, Message):
@@ -670,7 +670,7 @@ async def finish_keep(call: CallbackQuery, session: AsyncSession) -> None:
     await call.answer()
 
 
-# ── Архівування (вручну, зі списку, з підтвердженням) ─────────────────────
+# ── Archiving (manual, from the list, with confirmation) ─────────────────
 @router.callback_query(F.data.startswith("presc_archive_ask_"))
 async def archive_ask(call: CallbackQuery, session: AsyncSession) -> None:
     ctx = await _valid_prescription_ctx(call, session)
@@ -702,7 +702,7 @@ async def archive_confirm(call: CallbackQuery, session: AsyncSession) -> None:
     await call.answer()
 
 
-# ── Архів рецептів ────────────────────────────────────────────────────────
+# ── Prescription archive ────────────────────────────────────────────────────
 @router.callback_query(F.data == "presc_archive_list")
 async def archive_list(call: CallbackQuery, session: AsyncSession) -> None:
     ctx = await _base_ctx(call, session)
@@ -725,7 +725,7 @@ async def archive_list(call: CallbackQuery, session: AsyncSession) -> None:
     await msg.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
 
 
-# ── Видалення (з підтвердженням) ─────────────────────────────────────────
+# ── Deletion (with confirmation) ─────────────────────────────────────────
 @router.callback_query(F.data.startswith("presc_delete_ask_"))
 async def delete_ask(call: CallbackQuery, session: AsyncSession) -> None:
     ctx = await _valid_prescription_ctx(call, session)
@@ -755,7 +755,7 @@ async def delete_confirm(call: CallbackQuery, session: AsyncSession) -> None:
     await call.answer()
 
 
-# ── Відновлення (з новими датами/кількістю) ──────────────────────────────
+# ── Restoring (with new dates/quantity) ──────────────────────────────
 @router.callback_query(F.data.startswith("presc_restore_"))
 async def restore_start(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     ctx = await _valid_prescription_ctx(call, session)

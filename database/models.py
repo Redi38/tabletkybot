@@ -13,7 +13,7 @@ _cipher: Fernet | None = Fernet(_ENCRYPTION_KEY.encode()) if _ENCRYPTION_KEY els
 
 
 class EncryptedString(TypeDecorator):
-    """Прозоре шифрування/розшифрування рядкових даних у БД."""
+    """Transparent encryption/decryption of string data in the DB."""
     impl = Text
     cache_ok = True
 
@@ -129,7 +129,7 @@ class ChatHistory(Base):
 
 class Prescription(Base):
     __tablename__ = "prescriptions"
- 
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
     medicine_name: Mapped[str] = mapped_column(EncryptedString)
@@ -142,8 +142,8 @@ class Prescription(Base):
     reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
- 
+
     user: Mapped["User"] = relationship(back_populates="prescriptions")
 
     def __str__(self) -> str:
-        return f"{self.medicine_name} (до {self.expires_at.strftime('%d.%m.%Y')})"
+        return f"{self.medicine_name} (until {self.expires_at.strftime('%d.%m.%Y')})"

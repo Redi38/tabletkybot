@@ -5,12 +5,12 @@ from sqlalchemy.orm import selectinload
 from database.models import User, Medicine, MedicineSchedule, MedicineRecord, ChatHistory, Prescription
 
 
-# ─── Допоміжні функції ──────────────────────────────────────────────────────
+# ─── Helper functions ──────────────────────────────────────────────────────
 def _medicine_with_schedules():
-    """Базовий запит для Medicine із завантаженими розкладами."""
+    """Base query for Medicine with schedules eagerly loaded."""
     return select(Medicine).options(selectinload(Medicine.schedules))
 
-# ─── Користувачі ────────────────────────────────────────────────────────────
+# ─── Users ────────────────────────────────────────────────────────────
 async def get_or_create_user(
         session: AsyncSession,
         user_id: int,
@@ -58,15 +58,15 @@ async def get_user_timezone(session: AsyncSession, user_id: int) -> str:
     user = await _get_user(session, user_id)
     return str(user.timezone) if user and user.timezone else "Europe/Kyiv"
 
-# ─── Ліки ──────────────────────────────────────────────────────────────────
+# ─── Medicines ──────────────────────────────────────────────────────────────
 async def add_medicine(
         session: AsyncSession, user_id: int, name: str, form: str,
         dosage: str, schedules_list: list[str], course_duration: int,
         stock_amount: int | None = None, low_stock_threshold: int | None = 5
 ) -> Medicine:
     """
-    Додає ліки та створює кілька записів розкладу.
-    schedules_list: список часу, наприклад ["08:00", "20:00"]
+    Adds a medicine and creates several schedule records.
+    schedules_list: list of times, e.g. ["08:00", "20:00"]
     """
     medicine = Medicine(
         user_id=user_id, name=name, form=form, dosage=dosage,
@@ -146,9 +146,9 @@ async def record_medicine_taken(
         session: AsyncSession, medicine_id: int, status: str = "taken"
 ) -> dict:
     """
-    Записує факт прийому/пропуску.
-    Віднімає 1 день курсу і віднімає 1 з аптечки (якщо статус taken).
-    Повертає словник з інформацією про залишки.
+    Records the fact that a dose was taken/skipped.
+    Subtracts 1 day from the course and 1 unit from stock (if status is taken).
+    Returns a dict with information about the remaining amounts.
     """
     result = await session.execute(select(Medicine).where(Medicine.id == medicine_id))
     medicine: Medicine | None = result.scalar_one_or_none()
@@ -201,7 +201,7 @@ async def get_archived_medicines(session: AsyncSession, user_id: int) -> list[Me
     )
     return list(result.scalars().all())
 
-# ─── Звіти та Статистика ────────────────────────────────────────────────────
+# ─── Reports & Statistics ────────────────────────────────────────────────────
 async def get_medicine_records_for_report(
         session: AsyncSession, user_id: int
 ) -> list[tuple]:
@@ -293,7 +293,7 @@ async def get_dashboard_stats(session: AsyncSession, period: str = "all") -> dic
         "hourly": hourly_data,
     }
 
-# ─── Історія діалогу з ШІ ───────────────────────────────────────────────────
+# ─── AI conversation history ───────────────────────────────────────────────
 async def add_chat_message(
         session: AsyncSession, user_id: int, role: str, content: str,
         keep_last: int = 20,
@@ -336,7 +336,7 @@ async def clear_chat_history(session: AsyncSession, user_id: int) -> None:
     await session.execute(delete(ChatHistory).where(ChatHistory.user_id == user_id))
     await session.flush()
 
-# ─── Рецепти ─────────────────────────────────────────────────────────────────
+# ─── Prescriptions ─────────────────────────────────────────────────────────────
 async def add_prescription(
         session: AsyncSession, user_id: int, medicine_name: str,
         valid_from: date, expires_at: date,
@@ -379,7 +379,7 @@ async def update_prescription_field(session: AsyncSession, prescription_id: int,
 
 
 async def mark_prescription_purchased(session: AsyncSession, prescription_id: int, amount: int) -> dict:
-    """Додає amount до purchased_quantity. Повертає стан для показу юзеру."""
+    """Adds amount to purchased_quantity. Returns the state to show to the user."""
     prescription = await get_prescription_by_id(session, prescription_id)
     if not prescription:
         return {"success": False}
@@ -414,10 +414,10 @@ async def delete_prescription(session: AsyncSession, prescription_id: int) -> bo
 
 async def get_prescriptions_needing_reminder(session: AsyncSession) -> list[tuple[Prescription, User]]:
     """
-    Повертає всі активні, ще не повністю викуплені рецепти без надісланого
-    нагадування, разом з юзером (для timezone/language). Точну перевірку
-    "чи саме сьогодні той день" робить scheduler, бо вона залежить від
-    часового поясу конкретного юзера.
+    Returns all active, not-yet-fully-purchased prescriptions that haven't had
+    a reminder sent, together with the user (for timezone/language). The exact
+    check of "whether today is the day" is done by the scheduler, since it
+    depends on the specific user's timezone.
     """
     stmt = (
         select(Prescription, User)
@@ -437,8 +437,8 @@ async def mark_prescription_reminder_sent(session: AsyncSession, prescription_id
 
 async def get_expired_active_prescriptions(session: AsyncSession) -> list[tuple[Prescription, User]]:
     """
-    Повертає всі активні рецепти, термін дії яких вже минув (expires_at < сьогодні),
-    разом з юзером — для автоархівації та сповіщення.
+    Returns all active prescriptions whose validity period has already expired
+    (expires_at < today), together with the user — for auto-archiving and notification.
     """
     today = date.today()
     stmt = (

@@ -28,7 +28,7 @@ _BOLD_CONTENT = re.compile(r'<b>(.*?)</b>')
 
 
 def format_markdown_to_html(text: str) -> str:
-    """Конвертує Markdown від ШІ у Telegram-сумісний HTML."""
+    """Converts Markdown from the AI into Telegram-compatible HTML."""
     if not text:
         return text
     text = _MD_BOLD.sub(r'<b>\1</b>', text)
@@ -40,13 +40,13 @@ def format_markdown_to_html(text: str) -> str:
 
 
 def strip_html_tags(text: str) -> str:
-    """Прибирає HTML-теги (<b>, <i>, <code> тощо) з тексту."""
+    """Removes HTML tags (<b>, <i>, <code>, etc.) from the text."""
     if not text:
         return text
     return _HTML_TAG.sub('', text)
 
 
-# ─── Визначення мови останнього повідомлення користувача ───────────────────
+# ─── Detecting the language of the user's latest message ───────────────────
 _UA_ONLY_CHARS = set("іїєґІЇЄҐ")
 _RU_ONLY_CHARS = set("ёъыэЁЪЫЭ")
 
@@ -75,7 +75,7 @@ def detect_message_language(text: str) -> str | None:
 
 
 def _resolve_language(messages: list[dict], fallback: str) -> str:
-    """Визначає мову за останнім повідомленням user; якщо не вдалося — fallback (мова профілю)."""
+    """Determines the language from the last user message; falls back to the profile language if it can't."""
     for msg in reversed(messages):
         if msg.get("role") == "user":
             detected = detect_message_language(msg.get("content", "") or "")
@@ -83,7 +83,7 @@ def _resolve_language(messages: list[dict], fallback: str) -> str:
     return fallback
 
 
-# ─── Ключові слова, що явно вказують на намір щось зробити з даними ────────
+# ─── Keywords that explicitly indicate an intent to do something with data ────────
 _ACTION_KEYWORDS = (
     # UA
     "додай", "додати", "видали", "видалити", "архівуй", "архівувати",
@@ -276,7 +276,7 @@ async def ask_ollama_vision(
 async def get_ai_response(
         config: Config, messages: list[dict], language: str = "ua"
 ) -> tuple[str, str]:
-    """Текстовий запит: NVIDIA → Ollama fallback."""
+    """Text request: NVIDIA → Ollama fallback."""
     language = _resolve_language(messages, language)
 
     if config.nvidia_api_key:
@@ -287,20 +287,20 @@ async def get_ai_response(
             )
             return format_markdown_to_html(response), f"NVIDIA ({config.nvidia_model})"
         except Exception as e:
-            logger.error(f"NVIDIA API помилка: {type(e).__name__}: {e}")
+            logger.error(f"NVIDIA API error: {type(e).__name__}: {e}")
 
     try:
         response = await ask_ollama(config.ollama_url, config.ollama_model, messages, language)
-        return format_markdown_to_html(response), "Ollama (локальна)"
+        return format_markdown_to_html(response), "Ollama (local)"
     except Exception as e:
-        logger.error(f"Ollama помилка: {type(e).__name__}: {e}")
+        logger.error(f"Ollama error: {type(e).__name__}: {e}")
         return get_text(language, "ai_err_api"), "none"
 
 
 async def get_ai_vision_response(
         config: Config, image_bytes: bytes, user_text: str, language: str = "ua"
 ) -> tuple[str, str]:
-    """Vision запит: NVIDIA Vision → Ollama Vision fallback."""
+    """Vision request: NVIDIA Vision → Ollama Vision fallback."""
     language = detect_message_language(user_text) or language
 
     if config.nvidia_api_key:
@@ -311,7 +311,7 @@ async def get_ai_vision_response(
             )
             return format_markdown_to_html(response), f"NVIDIA Vision ({config.nvidia_vision_model})"
         except Exception as e:
-            logger.error(f"NVIDIA Vision помилка: {type(e).__name__}: {e}")
+            logger.error(f"NVIDIA Vision error: {type(e).__name__}: {e}")
 
     try:
         response = await ask_ollama_vision(
@@ -319,12 +319,12 @@ async def get_ai_vision_response(
         )
         return format_markdown_to_html(response), f"Ollama Vision ({config.ollama_vision_model})"
     except Exception as e:
-        logger.error(f"Ollama Vision помилка: {type(e).__name__}: {e}")
+        logger.error(f"Ollama Vision error: {type(e).__name__}: {e}")
 
     return get_text(language, "ai_err_vision"), "none"
 
 
-_MAX_AGENT_ITERATIONS = 5  # захист від нескінченного циклу tool-викликів
+_MAX_AGENT_ITERATIONS = 5  # protection against an infinite loop of tool calls
 
 
 async def ask_nvidia_raw(
@@ -363,7 +363,7 @@ def _dedupe_tool_calls(tool_calls: list[dict]) -> list[dict]:
             normalized_args = raw_args
         key = f"{name}:{normalized_args}"
         if key in seen:
-            logger.warning(f"[DEDUPE] Пропускаю дублікат tool_call: {name} {raw_args}")
+            logger.warning(f"[DEDUPE] Skipping duplicate tool_call: {name} {raw_args}")
             continue
         seen.add(key)
         deduped.append(call)
@@ -372,9 +372,9 @@ def _dedupe_tool_calls(tool_calls: list[dict]) -> list[dict]:
 
 def _extract_known_names(tool_name: str, result: dict) -> set[str]:
     """
-    Дістає множину РЕАЛЬНИХ назв препаратів/рецептів з результату read-тула —
-    використовується для перевірки, чи фінальна відповідь моделі не
-    "галюцинує" назву, якої не було в даних з БД.
+    Extracts the set of ACTUAL medicine/prescription names from a read-tool
+    result — used to check whether the model's final answer is not
+    "hallucinating" a name that wasn't in the DB data.
     """
     names: set[str] = set()
     if tool_name == "get_my_medicines":
@@ -414,8 +414,8 @@ async def get_ai_agent_response(
         )
     except asyncio.TimeoutError:
         logger.error(
-            f"Агентний цикл перевищив загальний ліміт часу "
-            f"({_AGENT_TOTAL_TIMEOUT_SECONDS}s) для user_id={user_id}"
+            f"Agent loop exceeded the overall time limit "
+            f"({_AGENT_TOTAL_TIMEOUT_SECONDS}s) for user_id={user_id}"
         )
         return get_text(language, "ai_err_api"), "none", None
 
@@ -443,19 +443,19 @@ async def _run_agent_loop(
                 language=language, tool_choice=tool_choice,
             )
 
-            logger.info(f"[DEBUG] Сира відповідь NIM: {assistant_message}")
+            logger.info(f"[DEBUG] Raw NIM response: {assistant_message}")
 
             tool_calls = assistant_message.get("tool_calls")
 
             if not tool_calls:
                 final_text = (assistant_message.get("content") or "").strip()
 
-                # ── Перевірка на "галюцинацію" даних ────────────────────
+                # ── Check for data "hallucination" ────────────────────
                 ungrounded = _find_ungrounded_names(final_text, known_names)
                 if ungrounded and not retried_for_grounding:
                     logger.warning(
-                        f"[GROUNDING] Модель згадала дані, відсутні в tool-"
-                        f"результаті: {ungrounded}. Роблю одну повторну спробу."
+                        f"[GROUNDING] The model mentioned data not present in "
+                        f"the tool result: {ungrounded}. Making one retry."
                     )
                     conversation.append({"role": "assistant", "content": final_text})
                     conversation.append({
@@ -506,10 +506,10 @@ async def _run_agent_loop(
                     "content": json.dumps(result, ensure_ascii=False),
                 })
 
-        logger.error(f"Агент не дав фінальну відповідь за {_MAX_AGENT_ITERATIONS} ітерацій")
+        logger.error(f"The agent did not produce a final answer within {_MAX_AGENT_ITERATIONS} iterations")
         return get_text(language, "ai_err_api"), "none", None
 
     except Exception as e:
-        logger.error(f"Помилка агентного циклу NVIDIA: {type(e).__name__}: {e}")
+        logger.error(f"NVIDIA agent loop error: {type(e).__name__}: {e}")
         text, model = await get_ai_response(config, messages, language)
         return strip_html_tags(text), model, None

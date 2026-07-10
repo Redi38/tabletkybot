@@ -116,7 +116,7 @@ async def edit_tz_save(message: Message, state: FSMContext, session: AsyncSessio
     await message.answer(get_text(lang, "tz_updated"), parse_mode="HTML")
 
 
-# ── Мова ────────────────────────────────────────────────────
+# ── Language ────────────────────────────────────────────────
 @router.callback_query(F.data == "set_lang")
 async def edit_lang_start(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     ctx = await _settings_ctx(call, state, session)

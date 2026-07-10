@@ -1,4 +1,4 @@
-import asyncio
+Wimport asyncio
 import json
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -72,7 +72,7 @@ async def _delete_pending_reminder(chat_id: int, medicine_id: int) -> None:
 
 
 async def _get_all_pending_reminders() -> list[tuple[int, int, dict]]:
-    """Returns [(chat_id, medicine_id, data), ...] — used to restore state on bot startup."""
+    """Повертає [(chat_id, medicine_id, data), ...] — для відновлення при старті бота."""
     if not _redis_client:
         return []
     result = []
@@ -94,7 +94,7 @@ async def _delete_pending_reminders_for_medicine(medicine_id: int) -> None:
     pattern = f"{_PENDING_KEY_PREFIX}*:{medicine_id}"
     async for key in _redis_client.scan_iter(match=pattern):
         await _redis_client.delete(key)
-        logger.info(f"Deleted an orphaned pending Redis record: {key}")
+        logger.info(f"Видалено осиротілий pending-запис Redis: {key}")
 
 
 def _local_today(tz_name: str) -> date_type:
@@ -127,8 +127,8 @@ async def send_reminder(
         _manual_reminder_today[medicine_id] = today
     elif _manual_reminder_today.get(medicine_id) == today:
         logger.info(
-            f"Skipping the regular reminder for med_{medicine_id} — "
-            f"already sent manually today via the Admin Panel"
+            f"Пропускаю звичайне нагадування для med_{medicine_id} — "
+            f"сьогодні вже надіслано вручну через Адмін-Панель"
         )
         _manual_reminder_today.pop(medicine_id, None)
         return
@@ -140,7 +140,7 @@ async def send_reminder(
             reply_markup=get_reminder_keyboard(medicine_id, language),
             parse_mode="HTML",
         )
-        logger.info(f"Reminder sent to user {chat_id} for {medicine_name}")
+        logger.info(f"Нагадування відправлено користувачу {chat_id} для {medicine_name}")
 
         await _save_pending_reminder(
             chat_id, medicine_id, sent.message_id,
@@ -156,15 +156,15 @@ async def send_reminder(
             kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": chat_id},
         )
     except Exception as e:
-        logger.error(f"Error sending reminder to user {chat_id}: {e}")
+        logger.error(f"Помилка відправки нагадування користувачу {chat_id}: {e}")
 
 
 async def send_repeat_reminder(bot: Bot, medicine_id: int, chat_id: int) -> None:
     """
-    Repeat reminder every hour until the button is pressed.
-    Each time it deletes the PREVIOUS message and sends a NEW one instead
-    of it — so the reminder always pops up at the bottom of the chat instead of
-    getting lost among old repeats.
+    Повторне нагадування кожну годину поки не натиснута кнопка.
+    Кожного разу видаляє ПОПЕРЕДНЄ повідомлення і надсилає НОВЕ замість
+    нього — щоб нагадування завжди спливало внизу чату, а не губилось
+    серед старих повторів.
     """
     pending = await _get_pending_reminder(chat_id, medicine_id)
     if not pending:
@@ -182,7 +182,7 @@ async def send_repeat_reminder(bot: Bot, medicine_id: int, chat_id: int) -> None
     except TelegramBadRequest:
         pass
     except Exception as e:
-        logger.warning(f"Failed to delete the previous reminder {pending['message_id']}: {e}")
+        logger.warning(f"Не вдалося видалити попереднє нагадування {pending['message_id']}: {e}")
 
     try:
         sent = await bot.send_message(
@@ -195,15 +195,15 @@ async def send_repeat_reminder(bot: Bot, medicine_id: int, chat_id: int) -> None
             chat_id, medicine_id, sent.message_id,
             medicine_name, pending["course_duration"], language, pending["timezone"],
         )
-        logger.info(f"Repeat reminder sent to {chat_id} for {medicine_name}")
+        logger.info(f"Повторне нагадування відправлено {chat_id} для {medicine_name}")
     except Exception as e:
-        logger.error(f"Repeat reminder error for {chat_id}: {e}")
+        logger.error(f"Помилка повторного нагадування {chat_id}: {e}")
 
 
 async def cancel_repeat_reminder(chat_id: int, medicine_id: int) -> None:
     try:
         scheduler.remove_job(f"repeat_{medicine_id}_{chat_id}")
-        logger.info(f"Repeat reminder repeat_{medicine_id}_{chat_id} cancelled")
+        logger.info(f"Повторне нагадування repeat_{medicine_id}_{chat_id} скасовано")
     except Exception:
         pass
     await _delete_pending_reminder(chat_id, medicine_id)
@@ -211,9 +211,9 @@ async def cancel_repeat_reminder(chat_id: int, medicine_id: int) -> None:
 
 async def resume_pending_reminders(bot: Bot) -> None:
     """
-    Called ONCE at bot startup (after sync_reminders). Restores
-    hourly repeat jobs for all reminders the user hasn't confirmed yet —
-    otherwise they'd be lost every time the container restarts.
+    Викликається ОДИН РАЗ при старті бота (після sync_reminders). Відновлює
+    погодинні repeat-job'и для всіх нагадувань, які юзер ще не підтвердив —
+    інакше вони губляться щоразу при рестарті контейнера.
     """
     pending_list = await _get_all_pending_reminders()
     restored = 0
@@ -231,7 +231,7 @@ async def resume_pending_reminders(bot: Bot) -> None:
         )
         restored += 1
     if restored:
-        logger.info(f"Restored {restored} unfinished hourly reminders after restart")
+        logger.info(f"Відновлено {restored} незавершених погодинних нагадувань після рестарту")
 
 
 def remove_reminders(medicine_id: int) -> None:
@@ -245,17 +245,17 @@ def remove_reminders(medicine_id: int) -> None:
                 scheduler.remove_job(job.id)
                 removed += 1
             except Exception as e:
-                logger.error(f"Error removing reminder {job.id}: {e}")
+                logger.error(f"Помилка при видаленні нагадування {job.id}: {e}")
 
     _manual_reminder_today.pop(medicine_id, None)
 
     try:
         asyncio.create_task(_delete_pending_reminders_for_medicine(medicine_id))
     except RuntimeError:
-        logger.warning(f"No active event loop to clean up Redis for med_{medicine_id}")
+        logger.warning(f"Немає активного event loop для очистки Redis по med_{medicine_id}")
 
     if removed:
-        logger.info(f"Removed {removed} schedules (including repeats) for medicine ID {medicine_id}")
+        logger.info(f"Видалено {removed} розкладів (включно з повторами) для препарату ID {medicine_id}")
 
 
 def add_reminders_for_medicine(
@@ -296,12 +296,12 @@ def add_reminders_for_medicine(
             )
             count += 1
             if not is_sync:
-                logger.info(f"Reminder {job_id} set for {sched.scheduled_time} ({timezone})")
+                logger.info(f"Нагадування {job_id} встановлено на {sched.scheduled_time} ({timezone})")
         except Exception as e:
-            logger.error(f"Error adding reminder {sched.scheduled_time}: {e}")
+            logger.error(f"Помилка при додаванні нагадування {sched.scheduled_time}: {e}")
 
     if not is_sync and count:
-        logger.info(f"Set {count} reminders for {medicine.name}")
+        logger.info(f"Встановлено {count} нагадувань для {medicine.name}")
 
 
 def start_scheduler() -> None:
@@ -315,7 +315,7 @@ def stop_scheduler() -> None:
 
 
 async def sync_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
-    """Full synchronization of the DB and the scheduler's in-memory state."""
+    """Повна синхронізація БД та пам'яті планувальника."""
     from database import crud
 
     expected_ids: set[str] = set()
@@ -343,7 +343,7 @@ async def sync_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
             is_sync=True,
         )
 
-    logger.info(f"Successfully restored {len(expected_ids)} reminders from the database!")
+    logger.info(f"Успішно відновлено {len(expected_ids)} нагадувань з бази даних!")
 
 
 async def sync_single_reminder(
@@ -380,7 +380,7 @@ async def sync_single_reminder(
             timezone=user.timezone or "Europe/Kyiv",
             is_manual=True,
         )
-        logger.info(f"Immediate reminder sent for med_{medicine_id} (requested from the Admin Panel)")
+        logger.info(f"Негайне нагадування відправлено для med_{medicine_id} (запит з Адмін-Панелі)")
         return
 
     add_reminders_for_medicine(
@@ -390,7 +390,7 @@ async def sync_single_reminder(
         language=user.language or "ua",
         is_sync=True,
     )
-    logger.info(f"Schedules updated for med_{medicine_id}")
+    logger.info(f"Оновлено розклади для med_{medicine_id}")
 
 
 def get_prescription_alert_keyboard(prescription_id: int, language: str) -> InlineKeyboardMarkup:
@@ -436,9 +436,9 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
                     parse_mode="HTML",
                 )
                 await crud.mark_prescription_reminder_sent(session, prescription.id)
-                logger.info(f"Prescription reminder {prescription.id} sent to {user.id}")
+                logger.info(f"Нагадування про рецепт {prescription.id} відправлено {user.id}")
             except Exception as e:
-                logger.error(f"Prescription reminder error {prescription.id}: {e}")
+                logger.error(f"Помилка нагадування про рецепт {prescription.id}: {e}")
 
 
 async def archive_expired_prescriptions(bot: Bot, session_factory: async_sessionmaker) -> None:
@@ -456,6 +456,6 @@ async def archive_expired_prescriptions(bot: Bot, session_factory: async_session
                     text=get_text(language, "presc_expired_auto_archived", name=prescription.medicine_name),
                     parse_mode="HTML",
                 )
-                logger.info(f"Prescription {prescription.id} auto-archived (expired)")
+                logger.info(f"Рецепт {prescription.id} автоархівовано (термін минув)")
             except Exception as e:
-                logger.error(f"Error notifying about auto-archiving prescription {prescription.id}: {e}")
+                logger.error(f"Помилка сповіщення про автоархівацію рецепту {prescription.id}: {e}")

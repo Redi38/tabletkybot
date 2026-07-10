@@ -34,6 +34,7 @@ TEXTS = {
         'settings_title': '👤 <b>Ваш профіль</b>\n\n📝 ПІБ: <b>{name}</b>\n🌍 Часовий пояс: <b>{tz}</b>\n',
         'start_text': '👋 Привіт, <b>{name}</b>!\n\nЯ твій медичний асистент. Ось що я вмію:\n\n💊 <b>Ліки</b> – додавати, переглядати, редагувати та видаляти нагадування\n📤 <b>Звіти та Експорт</b> – отримати звіт про прийом препаратів\n🌐 <b>Мова</b> – перемикати українську, англійську та російську\n👤 <b>Налаштування</b> – змінити ПІБ та налаштувати часовий пояс\n\n💬 Просто напишіть мені будь-яке питання про ліки, симптоми чи здоров\'я – я відповім як AI-асистент прямо тут, у чаті.\n\n⚠️ <i>Важливо: перед додаванням першого препарату зайдіть у <b>Налаштування</b> та вкажіть ваш часовий пояс, щоб нагадування приходили точно вчасно!</i>\n\nОберіть дію з меню нижче 👇',
         'tz_updated': '✅ Часовий пояс успішно оновлено!\n⏰ <i>Усі ваші нагадування автоматично переведені на новий час.</i>',
+        'generic_error': '⚠️ Сталася помилка під час обробки вашого запиту.'
     },
     "en": {
         'ask_extend_days': 'How many days to extend the course?',
@@ -68,6 +69,7 @@ TEXTS = {
         'settings_title': '👤 <b>Your Profile</b>\n\n📝 Name: <b>{name}</b>\n🌍 Timezone: <b>{tz}</b>',
         'start_text': '👋 Hi, <b>{name}</b>!\n\nI am your medical assistant. I can help with:\n\n💊 <b>Medicines</b> – add, view, edit and delete reminders\n📤 <b>Reports &amp; Export</b> – get a report about medicine intake\n🌐 <b>Language</b> – switch between Ukrainian, English and Russian\n👤 <b>Settings</b> – change your name and set your timezone\n\n💬 Just send me any question about your medicines, symptoms, or health – I will answer as an AI assistant right here in the chat.\n\n⚠️ <i>Important: before adding your first medicine, go to <b>Settings</b> and set your timezone so reminders arrive exactly on time!</i>\n\nChoose an action from the menu below 👇',
         'tz_updated': '✅ Timezone successfully updated!\n⏰ <i>All your reminders have been automatically adjusted to the new time.</i>',
+        'generic_error': '⚠️ An error occurred while processing your request.'
     },
     "ru": {
         'ask_extend_days': 'На сколько дней продлить курс?',
@@ -102,5 +104,6 @@ TEXTS = {
         'settings_title': '👤 <b>Ваш профиль</b>\n\n📝 ФИО: <b>{name}</b>\n🌍 Часовой пояс: <b>{tz}</b>\n',
         'start_text': '👋 Привет, <b>{name}</b>!\n\nЯ твой медицинский ассистент. Вот что я умею:\n\n💊 <b>Лекарства</b> – добавлять, просматривать, редактировать и удалять напоминания\n📤 <b>Отчёты и Экспорт</b> – получить отчёт о приёме препаратов\n🌐 <b>Язык</b> – переключать украинский, английский и русский\n👤 <b>Настройки</b> – изменить ФИО и настроить часовой пояс\n\n💬 Просто напишите мне любой вопрос о ваших лекарствах, симптомах или здоровье – я отвечу как AI-ассистент прямо здесь, в чате.\n\n⚠️ <i>Важно: перед добавлением первого препарата зайдите в <b>Настройки</b> и укажите ваш часовой пояс, чтобы напоминания приходили точно вовремя!</i>\n\nВыберите действие из меню ниже 👇',
         'tz_updated': '✅ Часовой пояс успешно обновлён!\n⏰ <i>Все ваши напоминания автоматически переведены на новое время.</i>',
+        'generic_error': '⚠️ Произошла ошибка при обработке вашего запроса.'
     },
 }

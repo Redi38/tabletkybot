@@ -15,9 +15,9 @@ def _parse_date_flexible(text: str) -> date | None:
 
 def _to_int(value, min_value: int | None = None, max_value: int | None = None) -> int | None:
     """
-    Безпечне приведення до int з перевіркою меж. Повертає None якщо не вдалось
-    привести або значення виходить за межі — щоб НІКОЛИ не пропустити рядок
-    чи екстремальне число в БД (як сталось з course_duration).
+    Safe conversion to int with bounds checking. Returns None if the value
+    can't be converted or is out of range — so we NEVER let a string
+    or an extreme number through into the DB (as happened with course_duration).
     """
     try:
         result = int(value)
@@ -58,8 +58,8 @@ TOOL_SCHEMAS = [
         "function": {
             "name": "get_my_medicines",
             "description": (
-                "Отримати список активних ліків користувача з розкладом прийому, "
-                "дозуванням та залишком курсу."
+                "Get the list of the user's active medicines with their intake "
+                "schedule, dosage, and remaining course."
             ),
             "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
         },
@@ -69,8 +69,8 @@ TOOL_SCHEMAS = [
         "function": {
             "name": "get_my_prescriptions",
             "description": (
-                "Отримати список активних рецептів користувача — назва препарату, "
-                "дата закінчення дії, скільки вже куплено з дозволеної кількості."
+                "Get the list of the user's active prescriptions — medicine name, "
+                "expiration date, how much has already been purchased out of the allowed amount."
             ),
             "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
         },
@@ -79,15 +79,15 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "add_medicine_reminder",
-            "description": "Додати новий препарат з нагадуваннями. duration_days — реалістична кількість днів курсу (1-365).",
+            "description": "Add a new medicine with reminders. duration_days — a realistic course length in days (1-365).",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
                     "form": {"type": "string"},
                     "dosage": {"type": "string"},
-                    "times": {"type": "array", "items": {"type": "string"}, "description": "Час у форматі ГГ:ХХ"},
-                    "duration_days": {"type": "integer", "description": "Від 1 до 365 днів"},
+                    "times": {"type": "array", "items": {"type": "string"}, "description": "Time in HH:MM format"},
+                    "duration_days": {"type": "integer", "description": "From 1 to 365 days"},
                     "stock_amount": {"type": "integer"},
                 },
                 "required": ["name", "form", "dosage", "times", "duration_days"],
@@ -98,7 +98,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "update_medicine",
-            "description": "Змінити параметр вже доданого препарату.",
+            "description": "Change a parameter of an already added medicine.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -118,8 +118,8 @@ TOOL_SCHEMAS = [
         "function": {
             "name": "request_medicine_removal",
             "description": (
-                "Викликай це, коли юзер хоче архівувати АБО видалити препарат. "
-                "Це НЕ виконує дію одразу — юзеру прийде повідомлення з кнопками."
+                "Call this when the user wants to archive OR delete a medicine. "
+                "This does NOT perform the action immediately — the user will receive a message with buttons."
             ),
             "parameters": {
                 "type": "object",
@@ -132,13 +132,13 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "add_prescription_entry",
-            "description": "Додати новий рецепт на препарат.",
+            "description": "Add a new prescription for a medicine.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "medicine_name": {"type": "string"},
-                    "issued_date": {"type": "string", "description": "Дата виписки, ДД.ММ.РР"},
-                    "valid_from_date": {"type": "string", "description": "Дата початку дії, ДД.ММ.РР"},
+                    "issued_date": {"type": "string", "description": "Issue date, DD.MM.YY"},
+                    "valid_from_date": {"type": "string", "description": "Start date of validity, DD.MM.YY"},
                     "duration_days": {"type": "integer", "enum": [30, 60]},
                     "max_quantity": {"type": "integer"},
                     "reminder_days_before": {"type": "integer"},
@@ -151,7 +151,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "update_prescription",
-            "description": "Змінити параметр вже доданого рецепту.",
+            "description": "Change a parameter of an already added prescription.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -167,7 +167,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "mark_prescription_bought",
-            "description": "Відмітити купівлю певної кількості одиниць по рецепту.",
+            "description": "Mark the purchase of a certain quantity of units under a prescription.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -183,8 +183,8 @@ TOOL_SCHEMAS = [
         "function": {
             "name": "request_prescription_removal",
             "description": (
-                "Викликай це, коли юзер хоче архівувати АБО видалити рецепт. "
-                "Це НЕ виконує дію одразу — юзеру прийде повідомлення з кнопками."
+                "Call this when the user wants to archive OR delete a prescription. "
+                "This does NOT perform the action immediately — the user will receive a message with buttons."
             ),
             "parameters": {
                 "type": "object",
@@ -196,7 +196,7 @@ TOOL_SCHEMAS = [
 ]
 
 
-# ─── Читання ─────────────────────────────────────────────────────────────
+# ─── Reads ─────────────────────────────────────────────────────────────
 
 async def execute_get_my_medicines(session: AsyncSession, user_id: int, args: dict) -> dict:
     medicines = await crud.get_user_medicines(session, user_id, active_only=True)
@@ -227,22 +227,22 @@ async def execute_get_my_prescriptions(session: AsyncSession, user_id: int, args
     ]}
 
 
-# ─── Запис (виконується одразу) ─────────────────────────────────────────
+# ─── Writes (executed immediately) ─────────────────────────────────────
 
 async def execute_add_medicine_reminder(session: AsyncSession, user_id: int, args: dict) -> dict:
     times = args.get("times") or []
     if not times or not isinstance(times, list):
-        return {"error": "Потрібен непорожній список часу (times)."}
+        return {"error": "A non-empty list of times (times) is required."}
 
     duration_days = _to_int(args.get("duration_days"), min_value=1, max_value=365)
     if duration_days is None:
-        return {"error": "duration_days має бути цілим числом від 1 до 365."}
+        return {"error": "duration_days must be an integer between 1 and 365."}
 
     stock_amount = None
     if args.get("stock_amount") is not None:
         stock_amount = _to_int(args.get("stock_amount"), min_value=0, max_value=100000)
         if stock_amount is None:
-            return {"error": "stock_amount має бути цілим числом від 0 до 100000."}
+            return {"error": "stock_amount must be an integer between 0 and 100000."}
 
     course_duration = duration_days * len(times)
 
@@ -261,7 +261,7 @@ async def execute_add_medicine_reminder(session: AsyncSession, user_id: int, arg
 async def execute_update_medicine(session: AsyncSession, user_id: int, args: dict) -> dict:
     medicine = await _find_medicine(session, user_id, args.get("medicine_name", ""))
     if not medicine:
-        return {"error": f"Препарат '{args.get('medicine_name')}' не знайдено або назва неоднозначна."}
+        return {"error": f"Medicine '{args.get('medicine_name')}' not found or the name is ambiguous."}
 
     field = args.get("field")
     value = args.get("value")
@@ -269,7 +269,7 @@ async def execute_update_medicine(session: AsyncSession, user_id: int, args: dic
     if field in ("stock_amount", "low_stock_threshold"):
         value = _to_int(value, min_value=0, max_value=100000)
         if value is None:
-            return {"error": f"Поле {field} має бути цілим числом від 0 до 100000."}
+            return {"error": f"Field {field} must be an integer between 0 and 100000."}
     elif field in ("name", "form", "dosage"):
         value = str(value)[:150]
 
@@ -282,17 +282,17 @@ async def execute_add_prescription_entry(session: AsyncSession, user_id: int, ar
     valid_from = _parse_date_flexible(args.get("valid_from_date", ""))
 
     if not issued or not valid_from:
-        return {"error": "Не вдалось розпізнати дати. Формат: ДД.ММ.РР."}
+        return {"error": "Could not parse the dates. Format: DD.MM.YY."}
 
     duration_days = _to_int(args.get("duration_days"))
     if duration_days not in (30, 60):
-        return {"error": "duration_days має бути рівно 30 або 60."}
+        return {"error": "duration_days must be exactly 30 or 60."}
 
     max_quantity = None
     if args.get("max_quantity") is not None:
         max_quantity = _to_int(args.get("max_quantity"), min_value=1, max_value=100000)
         if max_quantity is None:
-            return {"error": "max_quantity має бути цілим числом від 1 до 100000."}
+            return {"error": "max_quantity must be an integer between 1 and 100000."}
 
     reminder_days_before = _to_int(args.get("reminder_days_before", 3), min_value=0, max_value=90)
     if reminder_days_before is None:
@@ -316,7 +316,7 @@ async def execute_add_prescription_entry(session: AsyncSession, user_id: int, ar
 async def execute_update_prescription(session: AsyncSession, user_id: int, args: dict) -> dict:
     prescription = await _find_prescription(session, user_id, args.get("medicine_name", ""))
     if not prescription:
-        return {"error": f"Рецепт на '{args.get('medicine_name')}' не знайдено або назва неоднозначна."}
+        return {"error": f"Prescription for '{args.get('medicine_name')}' not found or the name is ambiguous."}
 
     field = args.get("field")
     value = args.get("value")
@@ -324,11 +324,11 @@ async def execute_update_prescription(session: AsyncSession, user_id: int, args:
     if field == "max_quantity":
         value = _to_int(value, min_value=1, max_value=100000)
         if value is None:
-            return {"error": "max_quantity має бути цілим числом від 1 до 100000."}
+            return {"error": "max_quantity must be an integer between 1 and 100000."}
     elif field == "reminder_days_before":
         value = _to_int(value, min_value=0, max_value=90)
         if value is None:
-            return {"error": "reminder_days_before має бути цілим числом від 0 до 90."}
+            return {"error": "reminder_days_before must be an integer between 0 and 90."}
     elif field == "notes":
         value = str(value)[:500]
 
@@ -339,27 +339,27 @@ async def execute_update_prescription(session: AsyncSession, user_id: int, args:
 async def execute_mark_prescription_bought(session: AsyncSession, user_id: int, args: dict) -> dict:
     prescription = await _find_prescription(session, user_id, args.get("medicine_name", ""))
     if not prescription:
-        return {"error": f"Рецепт на '{args.get('medicine_name')}' не знайдено або назва неоднозначна."}
+        return {"error": f"Prescription for '{args.get('medicine_name')}' not found or the name is ambiguous."}
 
     amount = _to_int(args.get("amount"), min_value=1, max_value=100000)
     if amount is None:
-        return {"error": "amount має бути цілим числом від 1 до 100000."}
+        return {"error": "amount must be an integer between 1 and 100000."}
 
     if prescription.max_quantity is not None:
         remaining = prescription.max_quantity - prescription.purchased_quantity
         if amount > remaining:
-            return {"error": f"Перевищено ліміт рецепту. Залишилось лише {remaining} од."}
+            return {"error": f"Prescription limit exceeded. Only {remaining} unit(s) remaining."}
 
     result = await crud.mark_prescription_purchased(session, prescription.id, amount)
     return {"success": True, **result}
 
 
-# ─── Запит підтвердження (нічого не видаляють, лише знаходять ціль) ─────
+# ─── Confirmation requests (nothing is deleted, only the target is found) ─────
 
 async def execute_request_medicine_removal(session: AsyncSession, user_id: int, args: dict) -> dict:
     medicine = await _find_medicine(session, user_id, args.get("medicine_name", ""))
     if not medicine:
-        return {"error": f"Препарат '{args.get('medicine_name')}' не знайдено або назва неоднозначна."}
+        return {"error": f"Medicine '{args.get('medicine_name')}' not found or the name is ambiguous."}
     return {
         "requires_confirmation": True,
         "target_type": "medicine",
@@ -371,7 +371,7 @@ async def execute_request_medicine_removal(session: AsyncSession, user_id: int, 
 async def execute_request_prescription_removal(session: AsyncSession, user_id: int, args: dict) -> dict:
     prescription = await _find_prescription(session, user_id, args.get("medicine_name", ""))
     if not prescription:
-        return {"error": f"Рецепт на '{args.get('medicine_name')}' не знайдено або назва неоднозначна."}
+        return {"error": f"Prescription for '{args.get('medicine_name')}' not found or the name is ambiguous."}
     return {
         "requires_confirmation": True,
         "target_type": "prescription",
@@ -380,7 +380,7 @@ async def execute_request_prescription_removal(session: AsyncSession, user_id: i
     }
 
 
-# ─── Диспетчер ────────────────────────────────────────────────────────────
+# ─── Dispatcher ────────────────────────────────────────────────────────────
 
 TOOL_EXECUTORS = {
     "get_my_medicines": execute_get_my_medicines,

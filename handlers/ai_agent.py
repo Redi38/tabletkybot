@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 def build_removal_confirm_kb(confirmation: dict, language: str = "ua") -> InlineKeyboardMarkup:
-    """Кнопки Архівувати / Видалити / Назад для AI-агента."""
-    target_type = confirmation["target_type"]  # "medicine" або "prescription"
+    """Archive / Delete / Back buttons for the AI agent."""
+    target_type = confirmation["target_type"]  # "medicine" or "prescription"
     target_id = confirmation["target_id"]
     prefix = "med" if target_type == "medicine" else "presc"
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -43,7 +43,7 @@ async def download_telegram_file(bot: Bot, file_id: str) -> bytes:
 
 
 async def pdf_to_image(pdf_bytes: bytes) -> bytes | None:
-    """Конвертувати першу сторінку PDF у зображення."""
+    """Convert the first page of a PDF into an image."""
     try:
         import fitz
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -52,24 +52,24 @@ async def pdf_to_image(pdf_bytes: bytes) -> bytes | None:
         pix = page.get_pixmap(matrix=mat)
         return pix.tobytes("jpeg")
     except Exception as e:
-        logger.error(f"Помилка конвертації PDF: {e}")
+        logger.error(f"PDF conversion error: {e}")
         return None
 
 
 async def _send_ai_answer(message: Message, response_text: str, model_used: str, language: str) -> None:
     try:
-        await message.answer(formatted, parse_mode="HTML", reply_markup=get_main_keyboard(language))
+        await message.answer(response_text, parse_mode="HTML", reply_markup=get_main_keyboard(language))
     except TelegramBadRequest as e:
         if "can't parse entities" in str(e).lower():
-            logger.warning(f"Згенеровано невалідний HTML. Відправляємо сирий текст. Помилка: {e}")
-            await message.answer(formatted, parse_mode=None, reply_markup=get_main_keyboard(language))
+            logger.warning(f"Invalid HTML was generated. Sending raw text. Error: {e}")
+            await message.answer(response_text, parse_mode=None, reply_markup=get_main_keyboard(language))
         else:
             raise
 
 
 @router.message(F.photo)
 async def handle_photo(message: Message, session: AsyncSession, config: Config, bot: Bot, state: FSMContext) -> None:
-    """Обробка фото через Vision модель — працює в звичайному чаті, без окремого AI-режиму."""
+    """Handles photos via the Vision model — works in a regular chat, no separate AI mode."""
     if not message.from_user or not message.photo:
         return
     if await state.get_state() is not None:
@@ -92,18 +92,18 @@ async def handle_photo(message: Message, session: AsyncSession, config: Config, 
         image_bytes = await download_telegram_file(bot, photo.file_id)
         response_text, model_used = await get_ai_vision_response(config, image_bytes, caption, language)
 
-        await crud.add_chat_message(session, message.from_user.id, "user", f"[Фото] {caption}")
+        await crud.add_chat_message(session, message.from_user.id, "user", f"[Photo] {caption}")
         await crud.add_chat_message(session, message.from_user.id, "assistant", response_text)
         await _send_ai_answer(message, response_text, model_used, language)
 
     except Exception as e:
-        logger.error(f"Помилка обробки фото AI: {e}")
+        logger.error(f"AI photo processing error: {e}")
         await message.answer(get_text(language, "ai_err_photo"), reply_markup=get_main_keyboard(language))
 
 
 @router.message(F.document)
 async def handle_document(message: Message, session: AsyncSession, config: Config, bot: Bot, state: FSMContext) -> None:
-    """Обробка PDF документів — працює в звичайному чаті, без окремого AI-режиму."""
+    """Handles PDF documents — works in a regular chat, no separate AI mode."""
     doc = message.document
     if not message.from_user or not doc:
         return
@@ -147,7 +147,7 @@ async def handle_document(message: Message, session: AsyncSession, config: Confi
         await _send_ai_answer(message, response_text, model_used, language)
 
     except Exception as e:
-        logger.error(f"Помилка обробки PDF документа: {e}")
+        logger.error(f"PDF document processing error: {e}")
         await message.answer(get_text(language, "ai_err_pdf"), reply_markup=get_main_keyboard(language))
 
 
@@ -156,7 +156,7 @@ async def fallback_handler(
         message: Message, state: FSMContext, session: AsyncSession,
         config: Config, bot: Bot,
 ) -> None:
-    """Будь-яке звичайне текстове повідомлення (не команда, не в FSM) обробляється AI-агентом."""
+    """Any regular text message (not a command, not inside an FSM) is handled by the AI agent."""
     if not message.from_user or not message.text:
         return
     if await state.get_state() is not None:
@@ -186,7 +186,7 @@ async def fallback_handler(
         await crud.add_chat_message(session, message.from_user.id, "user", message.text)
         await crud.add_chat_message(
             session, message.from_user.id, "assistant",
-            f"[Запитано підтвердження видалення: {confirmation['target_name']}]",
+            f"[Removal confirmation requested: {confirmation['target_name']}]",
         )
         text = get_text(language, "ai_confirm_removal_prompt", name=confirmation["target_name"])
         await message.answer(text, reply_markup=build_removal_confirm_kb(confirmation, language))
@@ -201,7 +201,7 @@ async def fallback_handler(
 
 @router.callback_query(F.data.startswith("ai_act_"))
 async def handle_ai_action_confirm(call: CallbackQuery, session: AsyncSession) -> None:
-    """Обробка кнопок Архівувати/Видалити/Назад після запиту від AI-агента."""
+    """Handles the Archive/Delete/Back buttons after a request from the AI agent."""
     if not call.data or not isinstance(call.message, Message) or not call.from_user:
         return
 

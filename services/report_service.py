@@ -11,9 +11,9 @@ from openpyxl.utils import get_column_letter
 from locales.texts import get_text
 
 
-# ── Допоміжні функції ─────────────────────────────────────────────────────
+# ── Helper functions ─────────────────────────────────────────────────────
 def _prepare_and_sort_records(records: list[tuple], user_tz_str: str) -> list[tuple]:
-    """Допоміжна функція для парсингу дат, конвертації в локальний час та сортування записів."""
+    """Helper function for parsing dates, converting to local time, and sorting records."""
     parsed_records = []
 
     try:
@@ -33,12 +33,12 @@ def _prepare_and_sort_records(records: list[tuple], user_tz_str: str) -> list[tu
 
         parsed_records.append((name, dosage, remaining_days, local_dt, status))
 
-    # Сортування за датою за спаданням (найновіші зверху)
+    # Sort by date descending (newest on top)
     return sorted(parsed_records, key=lambda x: x[3], reverse=True)
 
 
 def _get_clean_status_text(status: str, lang: str) -> str:
-    """Отримує текст статусу та очищає його від емодзі."""
+    """Gets the status text and strips emojis from it."""
     raw_status_text = get_text(lang, "excel_status_taken") if status == "taken" else get_text(lang,
                                                                                               "excel_status_skipped")
 
@@ -48,10 +48,10 @@ def _get_clean_status_text(status: str, lang: str) -> str:
 def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
                                  header_font: Font, center: Alignment,
                                  border: Border) -> None:
-    """Зведена таблиця: один рядок на препарат + % прийому + автофільтр."""
+    """Summary table: one row per medicine + intake % + autofilter."""
     ws = wb.create_sheet(title=get_text(lang, "excel_med_stats_sheet"))
 
-    # ── Рядок 1: заголовок аркуша ─────────────────────────────────────────
+    # ── Row 1: sheet title ─────────────────────────────────────────
     ws.merge_cells("A1:G1")
     c: Any = ws.cell(row=1, column=1)
     c.value = get_text(lang, "excel_med_stats_title")
@@ -59,7 +59,7 @@ def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
     c.alignment = center
     ws.row_dimensions[1].height = 24
 
-    # ── Рядок 2: заголовки стовпців ───────────────────────────────────────
+    # ── Row 2: column headers ───────────────────────────────────────
     med_headers = [
         get_text(lang, "excel_h_med_name"),
         get_text(lang, "excel_h_med_dose"),
@@ -83,7 +83,7 @@ def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
 
     ws.row_dimensions[2].height = 20
 
-    # ── Агрегація по препаратах ───────────────────────────────────────────
+    # ── Aggregation by medicine ───────────────────────────────────────
     med_stats: dict[tuple, dict] = {}  # (name, dosage) → {taken, missed, last_dt}
 
     for name, dosage, _, taken_dt, status in sorted_records:
@@ -97,7 +97,7 @@ def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
         elif status in ["missed", "skipped"]:
             med_stats[key]["missed"] += 1
 
-    # ── Дані: один рядок на препарат ──────────────────────────────────────
+    # ── Data: one row per medicine ──────────────────────────────────────
     pct_good = PatternFill("solid", fgColor="C6EFCE")
     pct_mid  = PatternFill("solid", fgColor="FFEB9C")
     pct_bad  = PatternFill("solid", fgColor="FFC7CE")
@@ -116,7 +116,7 @@ def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
             c.value = value
             c.alignment = center
             c.border = border
-            if col_idx == 6:  # % прийому — кольорова індикація
+            if col_idx == 6:  # intake % — color indicator
                 if pct >= 80:
                     c.fill = pct_good
                     c.font = Font(name="Calibri", bold=True, color="375623")
@@ -127,13 +127,13 @@ def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
                     c.fill = pct_bad
                     c.font = Font(name="Calibri", bold=True, color="9C0006")
 
-    # ── Закріплення рядка ──────────────────────────────────────────────────
+    # ── Freeze pane ──────────────────────────────────────────────────────
     ws.freeze_panes = "A3"
 
-# ── Основні генератори звітів ──────────────────────────────────────────────
+# ── Main report generators ──────────────────────────────────────────────
 def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str = "",
                         user_tz: str = "Europe/Kyiv") -> io.BytesIO:
-    """Генерація Excel-звіту про прийом препаратів (Історія + Статистика)."""
+    """Generates an Excel report of medicine intake (History + Statistics)."""
     wb = openpyxl.Workbook()
     ws = wb.active
 
@@ -142,7 +142,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
 
     ws.title = get_text(lang, "excel_title")
 
-    # ── Стилі ──────────────────────────────────────────────────────────────
+    # ── Styles ──────────────────────────────────────────────────────────────
     header_font = Font(name="Calibri", bold=True, size=11, color="FFFFFF")
     header_fill = PatternFill("solid", fgColor="2E75B6")
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -150,14 +150,14 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
     thin = Side(style="thin", color="BFBFBF")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    status_fill_taken = PatternFill("solid", fgColor="E2EFDA")  # зелений
-    status_fill_skipped = PatternFill("solid", fgColor="FCE4D6")  # червоний
+    status_fill_taken = PatternFill("solid", fgColor="E2EFDA")  # green
+    status_fill_skipped = PatternFill("solid", fgColor="FCE4D6")  # red
 
-    stat_header_fill = PatternFill("solid", fgColor="B0E0E6")  # блакитний для статистики
+    stat_header_fill = PatternFill("solid", fgColor="B0E0E6")  # light blue for statistics
 
     sorted_records = _prepare_and_sort_records(records, user_tz)
 
-    # ── Заголовок аркуша (Лист 1) ──────────────────────────────────────────
+    # ── Sheet title (Sheet 1) ──────────────────────────────────────────
     ws.merge_cells("A1:F1")
     title_cell: Any = ws.cell(row=1, column=1)
     title_cell.value = f"{get_text(lang, 'excel_title')} – {datetime.now().strftime('%d.%m.%Y')}"
@@ -165,7 +165,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
     title_cell.alignment = center
     ws.row_dimensions[1].height = 24
 
-    # ── Ім'я пацієнта ──────────────────────────────────────────────────────
+    # ── Patient name ──────────────────────────────────────────────────────
     ws.merge_cells("A2:F2")
     patient_cell: Any = ws.cell(row=2, column=1)
     patient_cell.value = f"{get_text(lang, 'excel_patient')} {user_name}"
@@ -173,7 +173,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
     patient_cell.alignment = left_bold
     ws.row_dimensions[2].height = 20
 
-    # ── Заголовки стовпців ─────────────────────────────────────────────────
+    # ── Column headers ─────────────────────────────────────────────────────
     headers = [
         get_text(lang, "excel_h_num"),
         get_text(lang, "excel_h_name"),
@@ -195,7 +195,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
 
     ws.row_dimensions[3].height = 20
 
-    # ── Дані (Лист 1) ──────────────────────────────────────────────────────
+    # ── Data (Sheet 1) ──────────────────────────────────────────────────────
     for row_idx, record in enumerate(sorted_records, start=4):
         name, dosage, remaining_days, taken_dt, status = record
 
@@ -219,18 +219,18 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
             if col_idx == 6:
                 cell.fill = fill
 
-    # ── AutoFilter на журналі ──────────────────────────────────────────────
+    # ── AutoFilter on the log ──────────────────────────────────────────────
     last_data_row = 3 + len(sorted_records)
     ws.auto_filter.ref = f"A3:F{last_data_row}"
 
-    for col_idx in range(6): # Прибрати автофільтр від А до F (0 до 5)
-        if col_idx != 1:    # Індекс столбця B
+    for col_idx in range(6):  # Remove autofilter buttons from A to F (0 to 5)
+        if col_idx != 1:    # Column B index
             col_filter = FilterColumn(colId=col_idx, hiddenButton=True, blank=False)
             ws.auto_filter.filterColumn.append(col_filter)
 
     ws.freeze_panes = "A4"
 
-    # ── Статистика (Лист 2) ────────────────────────────────────────────────
+    # ── Statistics (Sheet 2) ────────────────────────────────────────────────
     ws_stats = wb.create_sheet(title=get_text(lang, "excel_stats_sheet"))
 
     stats_data = {
@@ -307,7 +307,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
             if row_idx == 3 and col_idx > 1 and isinstance(value, int) and value > 0:
                 cell.font = Font(color="FF0000", bold=True)
 
-    # ── По препаратах (Лист 3) ────────────────────────────────────────────
+    # ── By medicine (Sheet 3) ────────────────────────────────────────────
     _build_medicine_stats_sheet(wb, sorted_records, lang, header_font, center, border)
 
     buffer = io.BytesIO()
@@ -318,15 +318,15 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
 
 def create_csv_report(records: list[tuple], lang: str = "ua", user_name: str = "",
                       user_tz: str = "Europe/Kyiv") -> io.BytesIO:
-    """Генерація легкого CSV-звіту про прийом препаратів."""
+    """Generates a lightweight CSV report of medicine intake."""
     output = io.StringIO()
     writer = csv.writer(output)
 
-    # Інформація про пацієнта
+    # Patient information
     writer.writerow([f"{get_text(lang, 'excel_patient')} {user_name}"])
     writer.writerow([])
 
-    # Заголовки стовпців
+    # Column headers
     headers = [
         get_text(lang, "excel_h_num"), get_text(lang, "excel_h_name"),
         get_text(lang, "excel_h_dose"), get_text(lang, "excel_h_date"),
@@ -334,10 +334,10 @@ def create_csv_report(records: list[tuple], lang: str = "ua", user_name: str = "
     ]
     writer.writerow(headers)
 
-    # Використовуємо функцію для підготовки даних з урахуванням таймзони
+    # Use the helper function to prepare the data, accounting for timezone
     sorted_records = _prepare_and_sort_records(records, user_tz)
 
-    # Дані
+    # Data
     for row_idx, record in enumerate(sorted_records, start=1):
         name, dosage, remaining_days, taken_dt, status = record
 

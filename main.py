@@ -19,7 +19,7 @@ from middleware.db_middleware import DatabaseMiddleware
 from services.scheduler import start_scheduler, stop_scheduler, sync_reminders, sync_single_reminder, scheduler, check_prescription_reminders, init_redis, resume_pending_reminders
 from handlers import start, medicines, ai_agent, report, errors, settings, prescriptions
 
-# ─── Логування: одночасно в docker logs і у файл (для Адмін-Панелі) ──
+# ─── Logging: simultaneously to docker logs and to a file (for the Admin Panel) ──
 LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
@@ -31,7 +31,7 @@ _log_formatter = logging.Formatter(
 _stream_handler = logging.StreamHandler()
 _stream_handler.setFormatter(_log_formatter)
 
-# Ротація по розміру — щоб файл логів не ріс нескінченно і не забивав диск
+# Size-based rotation — so the log file doesn't grow endlessly and fill up the disk
 _file_handler = RotatingFileHandler(
     filename=os.path.join(LOG_DIR, "bot.log"),
     maxBytes=5 * 1024 * 1024,  # 5 MB
@@ -54,21 +54,21 @@ def build_sync_handler(bot: Bot, session_factory):
             medicine_id = data.get("medicine_id")
 
             if action and medicine_id:
-                logger.info(f"Отримано точковий сигнал від Адмін-Панелі {action} для med_{medicine_id}")
+                logger.info(f"Received a point signal from the Admin Panel: {action} for med_{medicine_id}")
                 await sync_single_reminder(bot, session_factory, medicine_id, action)
             else:
-                logger.info("⚠️ Сигнал без ID. Виконую повну синхронізацію...")
+                logger.info("⚠️ Signal without an ID. Running a full synchronization...")
                 await sync_reminders(bot, session_factory)
 
-            return web.json_response({"status": "success", "message": "Синхронізовано"})
+            return web.json_response({"status": "success", "message": "Synchronized"})
 
         except (web.HTTPBadRequest, asyncio.exceptions.TimeoutError, ValueError):
-            logger.info("⚡ Отримано не-JSON сигнал. Виконую повну синхронізацію...")
+            logger.info("⚡ Received a non-JSON signal. Running a full synchronization...")
             await sync_reminders(bot, session_factory)
-            return web.json_response({"status": "success", "message": "Повна синхронізація виконана"})
+            return web.json_response({"status": "success", "message": "Full synchronization completed"})
 
         except Exception as e:
-            logger.error(f"❌ Критична помилка обробника вебхука: {e}", exc_info=True)
+            logger.error(f"❌ Critical error in the webhook handler: {e}", exc_info=True)
             return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     return handle_sync
@@ -81,12 +81,12 @@ async def main() -> None:
 
     try:
         session_factory = await init_db(config.database_url)
-        logger.info("✅ База даних ініціалізована")
+        logger.info("✅ Database initialized")
     except ConnectionRefusedError:
-        logger.critical("❌ ПОМИЛКА: Не вдалося підключитися до бази даних!")
+        logger.critical("❌ ERROR: Failed to connect to the database!")
         sys.exit(1)
     except Exception as e:
-        logger.critical(f"❌ Критична помилка підключення до БД: {e}")
+        logger.critical(f"❌ Critical error connecting to the DB: {e}")
         sys.exit(1)
 
     bot = Bot(
@@ -110,7 +110,7 @@ async def main() -> None:
     dp.include_router(ai_agent.router)
 
     start_scheduler()
-    logger.info("APScheduler запущено")
+    logger.info("APScheduler started")
 
     await sync_reminders(bot, session_factory)
 
@@ -127,7 +127,7 @@ async def main() -> None:
         kwargs={'bot': bot, 'session_factory': session_factory}
     )
 
-    # Читаємо сертифікат для Telegram
+    # Read the certificate for Telegram
     with open(config.webhook_cert, "rb") as f:
         cert_data = f.read()
 
@@ -138,9 +138,9 @@ async def main() -> None:
         drop_pending_updates=True,
         allowed_updates=dp.resolve_used_update_types(),
     )
-    logger.info(f"✅ Webhook встановлено: {config.webhook_url}")
+    logger.info(f"✅ Webhook set: {config.webhook_url}")
 
-    # ── Публічний HTTPS-сервер для Telegram webhook (порт 8443) ──────────
+    # ── Public HTTPS server for the Telegram webhook (port 8443) ──────────
     app = web.Application()
 
     SimpleRequestHandler(
@@ -158,9 +158,9 @@ async def main() -> None:
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", config.webhook_port, ssl_context=ssl_context)
     await site.start()
-    logger.info(f"🌐 Публічний webhook-сервер запущено на порту {config.webhook_port}")
+    logger.info(f"🌐 Public webhook server started on port {config.webhook_port}")
 
-    # ── Внутрішній HTTP-сервер для /api/sync від admin-панелі (порт 8080) ─
+    # ── Internal HTTP server for /api/sync from the admin panel (port 8080) ─
     internal_app = web.Application()
     internal_app.router.add_post("/api/sync", build_sync_handler(bot, session_factory))
 
@@ -168,7 +168,7 @@ async def main() -> None:
     await internal_runner.setup()
     internal_site = web.TCPSite(internal_runner, "0.0.0.0", 8080)
     await internal_site.start()
-    logger.info("🔧 Внутрішній sync-сервер запущено на порту 8080")
+    logger.info("🔧 Internal sync server started on port 8080")
 
     try:
         await asyncio.Event().wait()
@@ -179,11 +179,11 @@ async def main() -> None:
         await internal_runner.cleanup()
         if bot.session:
             await bot.session.close()
-        logger.info("Бот зупинено")
+        logger.info("Bot stopped")
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Бот зупинено користувачем")
+        logger.info("Bot stopped by user")
