@@ -1,4 +1,4 @@
-# Рецепти: додавання, редагування, купівля, архів
+# Prescriptions: add, edit, buying, archive
 
 TEXTS = {
     "ua": {

@@ -1,4 +1,4 @@
-# Звіти та Excel/CSV-експорт
+# Reports: Excel/CSV-export
 
 TEXTS = {
     "ua": {

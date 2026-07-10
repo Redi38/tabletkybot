@@ -1,4 +1,4 @@
-# Ліки: додавання, редагування, нагадування, аптечка
+# Medicines: add, edit, reminder, stock
 
 TEXTS = {
     "ua": {

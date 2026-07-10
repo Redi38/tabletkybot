@@ -1,4 +1,4 @@
-# AI-чат та системні промпти
+# AI-chat and system prompts
 
 TEXTS = {
     "ua": {

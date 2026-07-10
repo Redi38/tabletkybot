@@ -1,4 +1,4 @@
-# Загальне: навігація, налаштування, головне меню
+# Common: navigation, settings, main menu
 
 TEXTS = {
     "ua": {
@@ -25,14 +25,43 @@ TEXTS = {
         'err_invalid_number': '❌ Будь ласка, введіть коректне число.',
         'err_stock': '❌ Введіть ціле додатне число (наприклад: 20):',
         'fallback_text': '👋 Натисніть /start щоб розпочати або оберіть дію з меню.',
-        'help_text': '<b>📖 Доступні команди:</b>\n\n/start – перезапустити бота\n/help – ця довідка\n\n<b>💊 Функції:</b>\n• Додавання препаратів з нагадуваннями\n• Підтвердження або пропуск прийому\n• Редагування та видалення ліків\n• Генерація Excel/CSV-звітів\n• Просто напишіть мені будь-яке питання про ваші ліки, симптоми чи здоров\'я – я відповім як AI-асистент\n\n<i>⚠️ Бот не замінює лікаря. При серйозних симптомах – зверніться до фахівця.</i>',
+        'help_text': (
+            '<b>📖 Доступні команди:</b>\n\n'
+            '/start – перезапустити бота\n'
+            '/help – ця довідка\n\n'
+            '<b>💊 Ліки:</b>\n'
+            '• Додавання препаратів з нагадуваннями (розклад, дозування, залишок в аптечці)\n'
+            '• Підтвердження або пропуск прийому прямо з нагадування\n'
+            '• Редагування, продовження курсу та видалення ліків\n\n'
+            '<b>📝 Рецепти:</b>\n'
+            '• Облік рецептів з терміном дії та дозволеною кількістю\n'
+            '• Нагадування про закінчення терміну дії рецепту\n'
+            '• Відмітка купівлі з автоматичним поповненням аптечки\n\n'
+            '<b>🤖 AI-асистент:</b>\n'
+            '• Можу сам додати, змінити чи видалити препарат або рецепт прямо з розмови – просто попросіть\n'
+            '• Розумію фото упаковок ліків та PDF-інструкції\n'
+            '• Можна навіть надіслати голосове повідомлення замість тексту\n\n'
+            '<b>📤 Звіти:</b> Excel/CSV з повною історією прийому препаратів\n'
+            '<b>🌐 Мова:</b> Українська, English, Русский\n\n'
+        ),
         'lang_changed': '✅ Мову змінено на українську.',
         'lang_choose': '🌐 Оберіть мову / Choose language:',
         'med_not_found': '❌ Препарат не знайдено',
         'name_updated': '✅ ПІБ успішно оновлено!',
         'not_set': 'Не вказано',
         'settings_title': '👤 <b>Ваш профіль</b>\n\n📝 ПІБ: <b>{name}</b>\n🌍 Часовий пояс: <b>{tz}</b>\n',
-        'start_text': '👋 Привіт, <b>{name}</b>!\n\nЯ твій медичний асистент. Ось що я вмію:\n\n💊 <b>Ліки</b> – додавати, переглядати, редагувати та видаляти нагадування\n📤 <b>Звіти та Експорт</b> – отримати звіт про прийом препаратів\n🌐 <b>Мова</b> – перемикати українську, англійську та російську\n👤 <b>Налаштування</b> – змінити ПІБ та налаштувати часовий пояс\n\n💬 Просто напишіть мені будь-яке питання про ліки, симптоми чи здоров\'я – я відповім як AI-асистент прямо тут, у чаті.\n\n⚠️ <i>Важливо: перед додаванням першого препарату зайдіть у <b>Налаштування</b> та вкажіть ваш часовий пояс, щоб нагадування приходили точно вчасно!</i>\n\nОберіть дію з меню нижче 👇',
+        'start_text': (
+            '👋 Привіт, <b>{name}</b>!\n\n'
+            'Я твій медичний асистент. Ось що я вмію:\n\n'
+            '💊 <b>Ліки</b> – додавати, переглядати, редагувати та видаляти нагадування, стежити за залишком в аптечці\n'
+            '📝 <b>Рецепти</b> – зберігати рецепти, термін дії та кількість, яку ще можна купити\n'
+            '📤 <b>Звіти та Експорт</b> – отримати Excel/CSV-звіт про прийом препаратів\n'
+            '🌐 <b>Мова</b> – перемикати українську, english та русский\n'
+            '👤 <b>Налаштування</b> – змінити ПІБ та налаштувати часовий пояс\n\n'
+            '💬 Просто напишіть (або надішліть голосове) з метою щось додати/змінити/видалити – я відповім та зроблю це як AI-асистент прямо тут, у чаті.\n\n'
+            '⚠️ <i>Важливо: перед додаванням першого препарату зайдіть у <b>Налаштування</b> та вкажіть ваш часовий пояс, щоб нагадування приходили точно вчасно!</i>\n\n'
+            'Оберіть дію з меню нижче 👇'
+        ),
         'tz_updated': '✅ Часовий пояс успішно оновлено!\n⏰ <i>Усі ваші нагадування автоматично переведені на новий час.</i>',
         'generic_error': '⚠️ Сталася помилка під час обробки вашого запиту.'
     },
@@ -60,14 +89,43 @@ TEXTS = {
         'err_invalid_number': '❌ Please enter a valid number.',
         'err_stock': '❌ Enter a positive integer (e.g., 20):',
         'fallback_text': '👋 Press /start or choose an action from the menu.',
-        'help_text': '<b>📖 Available commands:</b>\n\n/start – restart the bot\n/help – show this help\n\n<b>💊 Features:</b>\n• Medicine reminders\n• Confirming or skipping doses\n• Editing and deleting medicines\n• Excel/CSV reports\n• Just send me any question about your medicines, symptoms, or health – I will answer as an AI assistant\n\n<i>⚠️ The bot does not replace a doctor. For serious symptoms, contact a specialist.</i>',
+        'help_text': (
+            '<b>📖 Available commands:</b>\n\n'
+            '/start – restart the bot\n'
+            '/help – show this help\n\n'
+            '<b>💊 Medicines:</b>\n'
+            '• Add medicines with reminders (schedule, dosage, remaining stock)\n'
+            '• Confirm or skip a dose right from the reminder\n'
+            '• Edit, extend the course, or delete medicines\n\n'
+            '<b>📝 Prescriptions:</b>\n'
+            '• Track prescriptions with expiration date and allowed quantity\n'
+            '• Get reminded before a prescription expires\n'
+            '• Mark purchases with automatic stock top-up\n\n'
+            '<b>🤖 AI Assistant:</b>\n'
+            '• I can add, update, or remove a medicine or prescription for you right from the conversation – just ask\n'
+            '• I understand photos of medicine packaging and PDF instructions\n'
+            '• You can even send a voice message instead of typing\n\n'
+            '<b>📤 Reports:</b> Excel/CSV with your full medication history\n'
+            '<b>🌐 Language:</b> Ukrainian, English, Russian\n\n'
+        ),
         'lang_changed': '✅ Language changed to English.',
         'lang_choose': '🌐 Choose language / Оберіть мову:',
         'med_not_found': '❌ Medicine not found',
         'name_updated': '✅ Name successfully updated!',
         'not_set': 'Not set',
         'settings_title': '👤 <b>Your Profile</b>\n\n📝 Name: <b>{name}</b>\n🌍 Timezone: <b>{tz}</b>',
-        'start_text': '👋 Hi, <b>{name}</b>!\n\nI am your medical assistant. I can help with:\n\n💊 <b>Medicines</b> – add, view, edit and delete reminders\n📤 <b>Reports &amp; Export</b> – get a report about medicine intake\n🌐 <b>Language</b> – switch between Ukrainian, English and Russian\n👤 <b>Settings</b> – change your name and set your timezone\n\n💬 Just send me any question about your medicines, symptoms, or health – I will answer as an AI assistant right here in the chat.\n\n⚠️ <i>Important: before adding your first medicine, go to <b>Settings</b> and set your timezone so reminders arrive exactly on time!</i>\n\nChoose an action from the menu below 👇',
+        'start_text': (
+            '👋 Hi, <b>{name}</b>!\n\n'
+            'I am your medical assistant. I can help with:\n\n'
+            '💊 <b>Medicines</b> – add, view, edit and delete reminders, track remaining stock\n'
+            '📝 <b>Prescriptions</b> – keep track of prescriptions, expiration dates, and remaining allowed quantity\n'
+            '📤 <b>Reports &amp; Export</b> – get an Excel/CSV report about your medication intake\n'
+            '🌐 <b>Language</b> – switch between Ukrainian, English and Russian\n'
+            '👤 <b>Settings</b> – change your name and set your timezone\n\n'
+            '💬 Just send me (typed or as a voice message) with aim to add/change/remove something – I will answer and take care of it as an AI assistant right here in the chat.\n\n'
+            '⚠️ <i>Important: before adding your first medicine, go to <b>Settings</b> and set your timezone so reminders arrive exactly on time!</i>\n\n'
+            'Choose an action from the menu below 👇'
+        ),
         'tz_updated': '✅ Timezone successfully updated!\n⏰ <i>All your reminders have been automatically adjusted to the new time.</i>',
         'generic_error': '⚠️ An error occurred while processing your request.'
     },
@@ -95,14 +153,43 @@ TEXTS = {
         'err_invalid_number': '❌ Пожалуйста, введите корректное число.',
         'err_stock': '❌ Введите целое положительное число (например: 20):',
         'fallback_text': '👋 Нажмите /start чтобы начать или выберите действие из меню.',
-        'help_text': '<b>📖 Доступные команды:</b>\n\n/start – перезапустить бота\n/help – эта справка\n\n<b>💊 Функции:</b>\n• Добавление препаратов с напоминаниями\n• Подтверждение или пропуск приёма\n• Редактирование и удаление лекарств\n• Генерация Excel/CSV-отчётов\n• Просто напишите мне любой вопрос о ваших лекарствах, симптомах или здоровье – я отвечу как AI-ассистент\n\n<i>⚠️ Бот не заменяет врача. При серьёзных симптомах – обратитесь к специалисту.</i>',
+        'help_text': (
+            '<b>📖 Доступные команды:</b>\n\n'
+            '/start – перезапустить бота\n'
+            '/help – эта справка\n\n'
+            '<b>💊 Лекарства:</b>\n'
+            '• Добавление препаратов с напоминаниями (расписание, дозировка, остаток в аптечке)\n'
+            '• Подтверждение или пропуск приёма прямо из напоминания\n'
+            '• Редактирование, продление курса и удаление лекарств\n\n'
+            '<b>📝 Рецепты:</b>\n'
+            '• Учёт рецептов со сроком действия и разрешённым количеством\n'
+            '• Напоминание об истечении срока действия рецепта\n'
+            '• Отметка покупки с автоматическим пополнением аптечки\n\n'
+            '<b>🤖 AI-ассистент:</b>\n'
+            '• Могу сам добавить, изменить или удалить препарат либо рецепт прямо из разговора – просто попросите\n'
+            '• Понимаю фото упаковок лекарств и PDF-инструкции\n'
+            '• Можно даже отправить голосовое сообщение вместо текста\n\n'
+            '<b>📤 Отчёты:</b> Excel/CSV с полной историей приёма препаратов\n'
+            '<b>🌐 Язык:</b> Украинский, English, Русский\n\n'
+        ),
         'lang_changed': '✅ Язык изменён на русский.',
         'lang_choose': '🌐 Оберіть мову / Choose language / Выберите язык:',
         'med_not_found': '❌ Препарат не найден',
         'name_updated': '✅ ФИО успешно обновлено!',
         'not_set': 'Не указано',
         'settings_title': '👤 <b>Ваш профиль</b>\n\n📝 ФИО: <b>{name}</b>\n🌍 Часовой пояс: <b>{tz}</b>\n',
-        'start_text': '👋 Привет, <b>{name}</b>!\n\nЯ твой медицинский ассистент. Вот что я умею:\n\n💊 <b>Лекарства</b> – добавлять, просматривать, редактировать и удалять напоминания\n📤 <b>Отчёты и Экспорт</b> – получить отчёт о приёме препаратов\n🌐 <b>Язык</b> – переключать украинский, английский и русский\n👤 <b>Настройки</b> – изменить ФИО и настроить часовой пояс\n\n💬 Просто напишите мне любой вопрос о ваших лекарствах, симптомах или здоровье – я отвечу как AI-ассистент прямо здесь, в чате.\n\n⚠️ <i>Важно: перед добавлением первого препарата зайдите в <b>Настройки</b> и укажите ваш часовой пояс, чтобы напоминания приходили точно вовремя!</i>\n\nВыберите действие из меню ниже 👇',
+        'start_text': (
+            '👋 Привет, <b>{name}</b>!\n\n'
+            'Я твой медицинский ассистент. Вот что я умею:\n\n'
+            '💊 <b>Лекарства</b> – добавлять, просматривать, редактировать и удалять напоминания, следить за остатком в аптечке\n'
+            '📝 <b>Рецепты</b> – хранить рецепты, срок действия и оставшееся разрешённое количество\n'
+            '📤 <b>Отчёты и Экспорт</b> – получить Excel/CSV-отчёт о приёме препаратов\n'
+            '🌐 <b>Язык</b> – переключать украинский, английский и русский\n'
+            '👤 <b>Настройки</b> – изменить ФИО и настроить часовой пояс\n\n'
+            '💬 Просто напишите (или отправьте голосовое) с целью что-то добавить/изменить/удалить – я отвечу и сделаю это как AI-ассистент прямо здесь, в чате.\n\n'
+            '⚠️ <i>Важно: перед добавлением первого препарата зайдите в <b>Настройки</b> и укажите ваш часовой пояс, чтобы напоминания приходили точно вовремя!</i>\n\n'
+            'Выберите действие из меню ниже 👇'
+        ),
         'tz_updated': '✅ Часовой пояс успешно обновлён!\n⏰ <i>Все ваши напоминания автоматически переведены на новое время.</i>',
         'generic_error': '⚠️ Произошла ошибка при обработке вашего запроса.'
     },
