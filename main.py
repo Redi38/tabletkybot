@@ -17,6 +17,7 @@ from database.db import init_db
 from middleware.db_middleware import DatabaseMiddleware
 
 from services.scheduler import start_scheduler, stop_scheduler, sync_reminders, sync_single_reminder, scheduler, check_prescription_reminders, init_redis, resume_pending_reminders
+from services.backup_service import run_database_backup
 from handlers import start, medicines, ai_agent, report, errors, settings, prescriptions
 
 # ─── Logging: simultaneously to docker logs and to a file (for the Admin Panel) ──
@@ -34,7 +35,7 @@ _stream_handler.setFormatter(_log_formatter)
 # Size-based rotation — so the log file doesn't grow endlessly and fill up the disk
 _file_handler = RotatingFileHandler(
     filename=os.path.join(LOG_DIR, "bot.log"),
-    maxBytes=5 * 1024 * 1024,  # 5 MB
+    maxBytes=5 * 1024 * 1024,
     backupCount=3,
     encoding="utf-8",
 )
@@ -125,6 +126,12 @@ async def main() -> None:
         check_prescription_reminders, trigger='cron', minute=0, timezone='UTC',
         id='presc_reminder_check_hourly', replace_existing=True,
         kwargs={'bot': bot, 'session_factory': session_factory}
+    )
+
+    scheduler.add_job(
+        run_database_backup, trigger='cron', hour=3, minute=0, timezone='Europe/Kyiv',
+        id='db_backup_daily', replace_existing=True,
+        kwargs={'config': config}
     )
 
     # Read the certificate for Telegram

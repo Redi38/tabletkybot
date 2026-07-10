@@ -14,3 +14,4 @@ SQLAlchemy
 uvicorn
 cryptography
 wtforms<3.2
+boto3

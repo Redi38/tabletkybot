@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 @dataclass
 class Config:
     # Telegram
@@ -35,6 +36,13 @@ class Config:
     redis_port: int = 6379
     redis_db: int = 0
     redis_password: str | None = None
+    # Backup (Oracle Object Storage, S3-compatible)
+    backup_s3_bucket: str | None = None
+    backup_s3_endpoint_url: str | None = None
+    backup_s3_access_key: str | None = None
+    backup_s3_secret_key: str | None = None
+    backup_s3_region: str = "eu-frankfurt-1"
+    backup_retention_days: int = 14
 
     @property
     def database_url(self) -> str:
@@ -90,4 +98,10 @@ def load_config() -> Config:
         redis_port=int(os.getenv("REDIS_PORT", "6379")),
         redis_db=int(os.getenv("REDIS_DB", "0")),
         redis_password=os.getenv("REDIS_PASSWORD"),
+        backup_s3_bucket=os.getenv("BACKUP_S3_BUCKET"),
+        backup_s3_endpoint_url=os.getenv("BACKUP_S3_ENDPOINT_URL"),
+        backup_s3_access_key=os.getenv("BACKUP_S3_ACCESS_KEY"),
+        backup_s3_secret_key=os.getenv("BACKUP_S3_SECRET_KEY"),
+        backup_s3_region=os.getenv("BACKUP_S3_REGION", "eu-frankfurt-1"),
+        backup_retention_days=int(os.getenv("BACKUP_RETENTION_DAYS", "14")),
     )
