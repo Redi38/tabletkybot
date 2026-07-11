@@ -106,6 +106,7 @@ async def main() -> None:
 
     dp["config"] = config
     dp["bot"] = bot
+    dp["session_factory"] = session_factory
 
     dp.update.middleware(CorrelationIdMiddleware())
     dp.update.middleware(DatabaseMiddleware(session_factory))

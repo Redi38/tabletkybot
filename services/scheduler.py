@@ -27,6 +27,9 @@ _redis_client: aioredis.Redis | None = None
 _PENDING_KEY_PREFIX = "pending_reminder:"
 _PENDING_TTL_SECONDS = 60 * 60 * 48
 
+_STOCK_ALERT_KEY_PREFIX = "stock_alert_pending:"
+_STOCK_ALERT_TTL_SECONDS = 60 * 60 * 24 * 30  # 30 дней
+
 
 def init_redis(redis_url: str) -> None:
     global _redis_client
@@ -98,6 +101,46 @@ async def _delete_pending_reminders_for_medicine(medicine_id: int) -> None:
         logger.info(f"Deleted an orphaned pending Redis record: {key}")
 
 
+def _stock_alert_key(chat_id: int, medicine_id: int) -> str:
+    return f"{_STOCK_ALERT_KEY_PREFIX}{chat_id}:{medicine_id}"
+
+
+async def save_stock_alert_pending(chat_id: int, medicine_id: int, medicine_name: str, language: str) -> None:
+    """Marks that an 'empty stock' alert was sent and is awaiting a user action
+    (restock or archive). If no action is taken before the next scheduled dose,
+    the medicine will be auto-archived."""
+    if not _redis_client:
+        return
+    data = {"medicine_name": medicine_name, "language": language}
+    await _redis_client.set(_stock_alert_key(chat_id, medicine_id), json.dumps(data), ex=_STOCK_ALERT_TTL_SECONDS)
+
+
+async def get_stock_alert_pending(chat_id: int, medicine_id: int) -> dict | None:
+    if not _redis_client:
+        return None
+    raw = await _redis_client.get(_stock_alert_key(chat_id, medicine_id))
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+
+
+async def clear_stock_alert_pending(chat_id: int, medicine_id: int) -> None:
+    if not _redis_client:
+        return
+    await _redis_client.delete(_stock_alert_key(chat_id, medicine_id))
+
+
+async def _delete_stock_alerts_for_medicine(medicine_id: int) -> None:
+    if not _redis_client:
+        return
+    pattern = f"{_STOCK_ALERT_KEY_PREFIX}*:{medicine_id}"
+    async for key in _redis_client.scan_iter(match=pattern):
+        await _redis_client.delete(key)
+
+
 def _local_today(tz_name: str) -> date_type:
     try:
         tz = ZoneInfo(tz_name)
@@ -121,7 +164,36 @@ async def send_reminder(
         bot: Bot, medicine_id: int, medicine_name: str,
         chat_id: int, course_duration: int, language: str,
         timezone: str = "Europe/Kyiv", is_manual: bool = False,
+        session_factory: async_sessionmaker | None = None,
 ) -> None:
+    # ── Auto-archive check ──────────────────────────────────────────────
+    # If the empty-stock alert from the previous dose is still unacknowledged
+    # (user never pressed "Restock" or "Archive"), archive the medicine now
+    # instead of sending a regular reminder for a medicine with no stock left.
+    if session_factory is not None and not is_manual:
+        stock_alert = await get_stock_alert_pending(chat_id, medicine_id)
+        if stock_alert:
+            from database import crud
+            async with session_factory() as session:
+                await crud.update_medicine_field(session, medicine_id, "is_active", False)
+            remove_reminders(medicine_id)
+            await clear_stock_alert_pending(chat_id, medicine_id)
+            lang = stock_alert.get("language", language)
+            name = stock_alert.get("medicine_name", medicine_name)
+            try:
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=get_text(lang, "med_auto_archived_no_action", name=name),
+                    parse_mode="HTML",
+                )
+                logger.info(
+                    f"Medicine '{name}' (id={medicine_id}) auto-archived for user {chat_id} "
+                    f"— no action taken on the empty-stock alert before the next dose"
+                )
+            except Exception as e:
+                logger.error(f"Error sending auto-archive notification to {chat_id}: {e}")
+            return
+
     today = _local_today(timezone)
 
     if is_manual:
@@ -273,6 +345,7 @@ def remove_reminders(medicine_id: int) -> None:
 
     try:
         asyncio.create_task(_delete_pending_reminders_for_medicine(medicine_id))
+        asyncio.create_task(_delete_stock_alerts_for_medicine(medicine_id))
     except RuntimeError:
         logger.warning(f"No active event loop to clean up Redis for med_{medicine_id}")
 
@@ -283,6 +356,7 @@ def remove_reminders(medicine_id: int) -> None:
 def add_reminders_for_medicine(
         bot: Bot, medicine: Medicine, timezone: str,
         chat_id: int, language: str = "ua", is_sync: bool = False,
+        session_factory: async_sessionmaker | None = None,
 ) -> None:
     if not medicine.is_active:
         remove_reminders(medicine.id)
@@ -314,6 +388,7 @@ def add_reminders_for_medicine(
                     "course_duration": medicine.course_duration,
                     "language": language,
                     "timezone": timezone,
+                    "session_factory": session_factory,
                 },
             )
             count += 1
@@ -363,6 +438,7 @@ async def sync_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
             chat_id=user.id,
             language=user.language or "ua",
             is_sync=True,
+            session_factory=session_factory,
         )
 
     logger.info(f"Successfully restored {len(expected_ids)} reminders from the database!")
@@ -411,6 +487,7 @@ async def sync_single_reminder(
         chat_id=user.id,
         language=user.language or "ua",
         is_sync=True,
+        session_factory=session_factory,
     )
     logger.info(f"Schedules updated for med_{medicine_id}")
 

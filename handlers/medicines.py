@@ -4,12 +4,15 @@ from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from database import crud
 from database.models import Medicine
 from locales.texts import get_text, TEXTS, btn_variants
-from services.scheduler import add_reminders_for_medicine, remove_reminders, cancel_repeat_reminder
+from services.scheduler import (
+    add_reminders_for_medicine, remove_reminders, cancel_repeat_reminder,
+    save_stock_alert_pending, clear_stock_alert_pending,
+)
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -268,7 +271,10 @@ async def add_timezone(message: Message, state: FSMContext, session: AsyncSessio
 
 
 @router.callback_query(F.data.startswith("track_stock_"))
-async def add_track_stock(call: CallbackQuery, state: FSMContext, session: AsyncSession, bot: Bot) -> None:
+async def add_track_stock(
+        call: CallbackQuery, state: FSMContext, session: AsyncSession, bot: Bot,
+        session_factory: async_sessionmaker,
+) -> None:
     ctx = await _base_ctx(call, session)
     if not ctx or not call.data:
         return
@@ -277,7 +283,7 @@ async def add_track_stock(call: CallbackQuery, state: FSMContext, session: Async
         await msg.edit_text(get_text(lang, "add_stock_amount"), parse_mode="HTML")
         await state.set_state(AddMedicine.stock_amount)
     else:
-        await _save_new_medicine(msg, state, session, bot, lang, None, None)
+        await _save_new_medicine(msg, state, session, bot, lang, None, None, session_factory)
 
 
 @router.message(AddMedicine.stock_amount)
@@ -295,7 +301,10 @@ async def add_stock_amount(message: Message, state: FSMContext) -> None:
 
 
 @router.message(AddMedicine.stock_threshold)
-async def add_stock_threshold(message: Message, state: FSMContext, session: AsyncSession, bot: Bot) -> None:
+async def add_stock_threshold(
+        message: Message, state: FSMContext, session: AsyncSession, bot: Bot,
+        session_factory: async_sessionmaker,
+) -> None:
     if not message.text:
         return
     data = await state.get_data()
@@ -304,12 +313,13 @@ async def add_stock_threshold(message: Message, state: FSMContext, session: Asyn
     if threshold is None:
         await message.answer(get_text(lang, "err_invalid_number"))
         return
-    await _save_new_medicine(message, state, session, bot, lang, data["stock_amount"], threshold)
+    await _save_new_medicine(message, state, session, bot, lang, data["stock_amount"], threshold, session_factory)
 
 
 async def _save_new_medicine(
         message: Message, state: FSMContext, session: AsyncSession, bot: Bot,
         lang: str, stock_amount: int | None, threshold: int | None,
+        session_factory: async_sessionmaker,
 ) -> None:
     data = await state.get_data()
     user_id = message.chat.id
@@ -324,7 +334,7 @@ async def _save_new_medicine(
     if not medicine:
         return
 
-    add_reminders_for_medicine(bot, medicine, data["timezone"], user_id, lang)
+    add_reminders_for_medicine(bot, medicine, data["timezone"], user_id, lang, session_factory=session_factory)
     await state.clear()
     times_str = ", ".join(data["time"])
     username = message.from_user.username if message.from_user else None
@@ -444,6 +454,7 @@ async def archive_medicine_exec(call: CallbackQuery, session: AsyncSession) -> N
     _, lang, medicine_id, medicine = ctx
     await crud.update_medicine_field(session, medicine_id, "is_active", False)
     remove_reminders(medicine_id)
+    await clear_stock_alert_pending(call.from_user.id, medicine_id)
     logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived medicine '{medicine.name}' (id={medicine_id})")
     await call.answer(get_text(lang, "edit_success"))
     await list_medicines(call, session)
@@ -488,7 +499,10 @@ async def extend_course_start(call: CallbackQuery, state: FSMContext, session: A
 
 
 @router.message(ExtendMedicine.waiting_for_days)
-async def extend_course_save(message: Message, state: FSMContext, session: AsyncSession, bot: Bot) -> None:
+async def extend_course_save(
+        message: Message, state: FSMContext, session: AsyncSession, bot: Bot,
+        session_factory: async_sessionmaker,
+) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ua")
     days = parse_int(message.text.strip()) if message.text else None
@@ -506,7 +520,7 @@ async def extend_course_save(message: Message, state: FSMContext, session: Async
     await crud.update_medicine_field(session, medicine_id, "is_active", True)
 
     tz = await crud.get_user_timezone(session, message.from_user.id)
-    add_reminders_for_medicine(bot, medicine, str(tz), message.from_user.id, lang)
+    add_reminders_for_medicine(bot, medicine, str(tz), message.from_user.id, lang, session_factory=session_factory)
     await state.clear()
     await message.answer(get_text(lang, "med_restored", name=str(medicine.name), days=days), parse_mode="HTML")
 
@@ -547,7 +561,10 @@ async def edit_field_start(call: CallbackQuery, state: FSMContext, session: Asyn
 
 
 @router.message(EditMedicine.waiting_value)
-async def edit_field_save(message: Message, state: FSMContext, session: AsyncSession, bot: Bot) -> None:
+async def edit_field_save(
+        message: Message, state: FSMContext, session: AsyncSession, bot: Bot,
+        session_factory: async_sessionmaker,
+) -> None:
     if not message.from_user or not message.text:
         return
     data = await state.get_data()
@@ -586,7 +603,7 @@ async def edit_field_save(message: Message, state: FSMContext, session: AsyncSes
     medicine = await crud.get_medicine_by_id(session, medicine_id)
     if medicine:
         tz = await crud.get_user_timezone(session, message.from_user.id)
-        add_reminders_for_medicine(bot, medicine, str(tz), message.from_user.id, lang)
+        add_reminders_for_medicine(bot, medicine, str(tz), message.from_user.id, lang, session_factory=session_factory)
 
     logger.info(f"User {message.from_user.id} (@{message.from_user.username}) edited field '{field}' of medicine (id={medicine_id})")
 
@@ -639,10 +656,12 @@ async def process_medicine_status(call: CallbackQuery, state: FSMContext, sessio
 
         if action == "take" and stock is not None:
             if stock == 0:
-                kb = InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(text=get_text(lang, "btn_add_stock"), callback_data=f"restock_ask_{medicine_id}")
-                ]])
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text=get_text(lang, "btn_add_stock"), callback_data=f"restock_ask_{medicine_id}", style="success")],
+                    [InlineKeyboardButton(text=get_text(lang, "btn_archive"), callback_data=f"med_archive_confirm_{medicine_id}", style="danger")],
+                ])
                 await msg.answer(get_text(lang, "alert_empty_stock", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML")
+                await save_stock_alert_pending(call.from_user.id, medicine_id, str(medicine.name), lang)
             elif threshold is not None and stock <= threshold:
                 kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text=get_text(lang, "btn_add_stock"), callback_data=f"restock_ask_{medicine_id}")],
@@ -664,6 +683,7 @@ async def restock_ask_amount(call: CallbackQuery, state: FSMContext, session: As
     if not ctx or not call.data:
         return
     msg, lang, medicine_id, _ = ctx
+    await clear_stock_alert_pending(call.from_user.id, medicine_id)
     needs_take = "restock_yes" in str(call.data)
     await state.update_data(medicine_id=medicine_id, lang=lang, needs_take=needs_take)
     await msg.edit_text(get_text(lang, "ask_restock_amount"), parse_mode="HTML")
