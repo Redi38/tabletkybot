@@ -287,13 +287,13 @@ async def get_ai_response(
             )
             return format_markdown_to_html(response), f"NVIDIA ({config.nvidia_model})"
         except Exception as e:
-            logger.error(f"NVIDIA API error: {type(e).__name__}: {e}")
+            logger.warning(f"NVIDIA API unavailable, falling back to Ollama: {type(e).__name__}: {e}")
 
     try:
         response = await ask_ollama(config.ollama_url, config.ollama_model, messages, language)
         return format_markdown_to_html(response), "Ollama (local)"
     except Exception as e:
-        logger.error(f"Ollama error: {type(e).__name__}: {e}")
+        logger.error(f"Ollama fallback also failed, returning error to user: {type(e).__name__}: {e}")
         return get_text(language, "ai_err_api"), "none"
 
 
@@ -311,7 +311,7 @@ async def get_ai_vision_response(
             )
             return format_markdown_to_html(response), f"NVIDIA Vision ({config.nvidia_vision_model})"
         except Exception as e:
-            logger.error(f"NVIDIA Vision error: {type(e).__name__}: {e}")
+            logger.warning(f"NVIDIA Vision unavailable, falling back to Ollama Vision: {type(e).__name__}: {e}")
 
     try:
         response = await ask_ollama_vision(
@@ -319,7 +319,7 @@ async def get_ai_vision_response(
         )
         return format_markdown_to_html(response), f"Ollama Vision ({config.ollama_vision_model})"
     except Exception as e:
-        logger.error(f"Ollama Vision error: {type(e).__name__}: {e}")
+        logger.error(f"Ollama Vision fallback also failed, returning error to user: {type(e).__name__}: {e}")
 
     return get_text(language, "ai_err_vision"), "none"
 
@@ -443,7 +443,7 @@ async def _run_agent_loop(
                 language=language, tool_choice=tool_choice,
             )
 
-            logger.info(f"[DEBUG] Raw NIM response: {assistant_message}")
+            logger.debug(f"Raw NIM response (user_id={user_id}, iteration={iteration}): {assistant_message}")
 
             tool_calls = assistant_message.get("tool_calls")
 
@@ -487,6 +487,8 @@ async def _run_agent_loop(
                     parsed_arguments = json.loads(raw_arguments)
                 except json.JSONDecodeError:
                     parsed_arguments = {}
+
+                logger.info(f"Agent calling tool '{tool_name}' for user_id={user_id} with args={parsed_arguments}")
 
                 result = await execute_tool(tool_name, session, user_id, parsed_arguments)
 

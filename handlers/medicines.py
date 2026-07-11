@@ -1,3 +1,4 @@
+import logging
 import pytz
 from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
@@ -11,6 +12,7 @@ from locales.texts import get_text, TEXTS, btn_variants
 from services.scheduler import add_reminders_for_medicine, remove_reminders, cancel_repeat_reminder
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 
 # ── Helper functions ───────────────────────────────────────────────────────
@@ -159,7 +161,7 @@ async def back_to_main_menu(call: CallbackQuery, state: FSMContext, session: Asy
     await call.answer()
 
 
-# ── Reports (moved here from the main keyboard) ──────────────────────────
+# ── Reports ────────────────────────────────────────────────────────────────
 @router.callback_query(F.data == "med_reports")
 async def medicine_reports_menu(call: CallbackQuery, session: AsyncSession) -> None:
     ctx = await _base_ctx(call, session)
@@ -325,6 +327,8 @@ async def _save_new_medicine(
     add_reminders_for_medicine(bot, medicine, data["timezone"], user_id, lang)
     await state.clear()
     times_str = ", ".join(data["time"])
+    username = message.from_user.username if message.from_user else None
+    logger.info(f"User {user_id} (@{username}) added medicine '{medicine.name}' (id={medicine.id}), schedule={times_str}")
     await message.answer(
         get_text(lang, "med_added", name=str(medicine.name), time=times_str, duration=str(data["duration"])),
         parse_mode="HTML", reply_markup=medicine_menu_kb(lang),
@@ -437,9 +441,10 @@ async def archive_medicine_exec(call: CallbackQuery, session: AsyncSession) -> N
     ctx = await _valid_medicine_ctx(call, session)
     if not ctx:
         return
-    _, lang, medicine_id, _ = ctx
+    _, lang, medicine_id, medicine = ctx
     await crud.update_medicine_field(session, medicine_id, "is_active", False)
     remove_reminders(medicine_id)
+    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived medicine '{medicine.name}' (id={medicine_id})")
     await call.answer(get_text(lang, "edit_success"))
     await list_medicines(call, session)
 
@@ -465,6 +470,7 @@ async def confirm_delete_medicine(call: CallbackQuery, session: AsyncSession) ->
     _, lang, medicine_id, medicine = ctx
     await crud.delete_medicine(session, medicine_id)
     remove_reminders(medicine_id)
+    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) deleted medicine '{medicine.name}' (id={medicine_id})")
     await call.answer(get_text(lang, "med_deleted", name=str(medicine.name)))
     await list_medicines(call, session)
 
@@ -582,6 +588,8 @@ async def edit_field_save(message: Message, state: FSMContext, session: AsyncSes
         tz = await crud.get_user_timezone(session, message.from_user.id)
         add_reminders_for_medicine(bot, medicine, str(tz), message.from_user.id, lang)
 
+    logger.info(f"User {message.from_user.id} (@{message.from_user.username}) edited field '{field}' of medicine (id={medicine_id})")
+
     await state.clear()
     await message.answer(get_text(lang, "edit_success"), reply_markup=medicine_menu_kb(lang))
 
@@ -596,6 +604,11 @@ async def process_medicine_status(call: CallbackQuery, state: FSMContext, sessio
         return
     msg, lang, medicine_id, medicine = ctx
     action = str(call.data).split("_")[0]
+
+    logger.info(
+        f"User {call.from_user.id} (@{call.from_user.username}) pressed '{action}' "
+        f"for medicine '{medicine.name}' (id={medicine_id}) on message_id={msg.message_id}"
+    )
 
     await cancel_repeat_reminder(call.from_user.id, medicine_id)
 
@@ -686,6 +699,9 @@ async def restock_save(message: Message, state: FSMContext, session: AsyncSessio
     if needs_take:
         result = await crud.record_medicine_taken(session, medicine_id, status="taken")
         new_stock = result.get("stock_amount", new_stock)
+
+    if message.from_user:
+        logger.info(f"User {message.from_user.id} (@{message.from_user.username}) restocked medicine (id={medicine_id}) by {amount}, new stock={new_stock}")
 
     await state.clear()
     await message.answer(get_text(lang, "restock_success", amount=new_stock), parse_mode="HTML")

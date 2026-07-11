@@ -15,6 +15,7 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 from config import load_config
 from database.db import init_db
 from middleware.db_middleware import DatabaseMiddleware
+from middleware.logging_context import CorrelationIdFilter, CorrelationIdMiddleware, correlation_scope
 
 from services.scheduler import start_scheduler, stop_scheduler, sync_reminders, sync_single_reminder, scheduler, check_prescription_reminders, init_redis, resume_pending_reminders
 from services.backup_service import run_database_backup
@@ -25,12 +26,15 @@ LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 _log_formatter = logging.Formatter(
-    fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    fmt="%(asctime)s | %(levelname)s | [%(cid)s] | %(name)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+_correlation_filter = CorrelationIdFilter()
+
 _stream_handler = logging.StreamHandler()
 _stream_handler.setFormatter(_log_formatter)
+_stream_handler.addFilter(_correlation_filter)
 
 # Size-based rotation — so the log file doesn't grow endlessly and fill up the disk
 _file_handler = RotatingFileHandler(
@@ -40,6 +44,7 @@ _file_handler = RotatingFileHandler(
     encoding="utf-8",
 )
 _file_handler.setFormatter(_log_formatter)
+_file_handler.addFilter(_correlation_filter)
 
 logging.basicConfig(level=logging.INFO, handlers=[_stream_handler, _file_handler])
 logger = logging.getLogger(__name__)
@@ -54,18 +59,20 @@ def build_sync_handler(bot: Bot, session_factory):
             action = data.get("action")
             medicine_id = data.get("medicine_id")
 
-            if action and medicine_id:
-                logger.info(f"Received a point signal from the Admin Panel: {action} for med_{medicine_id}")
-                await sync_single_reminder(bot, session_factory, medicine_id, action)
-            else:
-                logger.info("⚠️ Signal without an ID. Running a full synchronization...")
-                await sync_reminders(bot, session_factory)
+            with correlation_scope(f"adminsync:{action or 'full'}:{medicine_id or '-'}"):
+                if action and medicine_id:
+                    logger.info(f"Received a point signal from the Admin Panel: {action} for med_{medicine_id}")
+                    await sync_single_reminder(bot, session_factory, medicine_id, action)
+                else:
+                    logger.info("⚠️ Signal without an ID. Running a full synchronization...")
+                    await sync_reminders(bot, session_factory)
 
             return web.json_response({"status": "success", "message": "Synchronized"})
 
         except (web.HTTPBadRequest, asyncio.exceptions.TimeoutError, ValueError):
-            logger.info("⚡ Received a non-JSON signal. Running a full synchronization...")
-            await sync_reminders(bot, session_factory)
+            with correlation_scope("adminsync:fallback-full"):
+                logger.info("⚡ Received a non-JSON signal. Running a full synchronization...")
+                await sync_reminders(bot, session_factory)
             return web.json_response({"status": "success", "message": "Full synchronization completed"})
 
         except Exception as e:
@@ -100,6 +107,7 @@ async def main() -> None:
     dp["config"] = config
     dp["bot"] = bot
 
+    dp.update.middleware(CorrelationIdMiddleware())
     dp.update.middleware(DatabaseMiddleware(session_factory))
 
     dp.include_router(errors.router)
@@ -113,23 +121,35 @@ async def main() -> None:
     start_scheduler()
     logger.info("APScheduler started")
 
-    await sync_reminders(bot, session_factory)
+    with correlation_scope("job:startup_sync"):
+        await sync_reminders(bot, session_factory)
+        await resume_pending_reminders(bot)
 
-    await resume_pending_reminders(bot)
+    async def _tagged_sync_reminders(bot, session_factory):
+        with correlation_scope("job:sync_reminders_hourly"):
+            await sync_reminders(bot, session_factory)
+
+    async def _tagged_check_prescriptions(bot, session_factory):
+        with correlation_scope("job:check_prescription_reminders"):
+            await check_prescription_reminders(bot, session_factory)
+
+    async def _tagged_backup(config):
+        with correlation_scope("job:db_backup_daily"):
+            await run_database_backup(config)
 
     scheduler.add_job(
-        sync_reminders, trigger='interval', hours=1, id='db_sync_job_hourly',
+        _tagged_sync_reminders, trigger='interval', hours=1, id='db_sync_job_hourly',
         replace_existing=True, kwargs={'bot': bot, 'session_factory': session_factory}
     )
 
     scheduler.add_job(
-        check_prescription_reminders, trigger='cron', minute=0, timezone='UTC',
+        _tagged_check_prescriptions, trigger='cron', minute=0, timezone='UTC',
         id='presc_reminder_check_hourly', replace_existing=True,
         kwargs={'bot': bot, 'session_factory': session_factory}
     )
 
     scheduler.add_job(
-        run_database_backup, trigger='cron', hour=3, minute=0, timezone='Europe/Kyiv',
+        _tagged_backup, trigger='cron', hour=3, minute=0, timezone='Europe/Kyiv',
         id='db_backup_daily', replace_existing=True,
         kwargs={'config': config}
     )

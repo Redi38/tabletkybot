@@ -6,7 +6,6 @@ import shutil
 import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
-
 import boto3
 from botocore.client import Config as BotoConfig
 from botocore.exceptions import ClientError
@@ -38,10 +37,8 @@ def _pg_dump_sync(database_url: str, dump_path: str) -> None:
     pg_dump doesn't understand the +asyncpg driver suffix, so it's stripped.
     """
     dsn = database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
-
     cmd = ["pg_dump", dsn, "-F", "c", "-f", dump_path]
     proc = subprocess.run(cmd, capture_output=True, text=True)
-
     if proc.returncode != 0:
         raise RuntimeError(f"pg_dump failed: {proc.stderr}")
 
@@ -60,13 +57,19 @@ def _upload_and_rotate_sync(config, dump_gz_path: str, object_name: str) -> None
 
     # ── Rotation: delete objects older than retention_days ──
     cutoff = datetime.now(timezone.utc) - timedelta(days=config.backup_retention_days)
-
     paginator = s3.get_paginator("list_objects_v2")
     to_delete = []
+    scanned = 0
     for page in paginator.paginate(Bucket=bucket, Prefix=BACKUP_PREFIX):
         for obj in page.get("Contents", []):
+            scanned += 1
             if obj["LastModified"] < cutoff:
                 to_delete.append({"Key": obj["Key"]})
+
+    logger.debug(
+        f"Retention scan: {scanned} object(s) under {BACKUP_PREFIX}, "
+        f"{len(to_delete)} older than {config.backup_retention_days} day(s) (cutoff={cutoff.isoformat()})"
+    )
 
     if to_delete:
         # delete_objects accepts at most 1000 keys per call
@@ -74,6 +77,8 @@ def _upload_and_rotate_sync(config, dump_gz_path: str, object_name: str) -> None
             batch = to_delete[i:i + 1000]
             s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
         logger.info(f"🗑️ Deleted {len(to_delete)} old backup(s)")
+    else:
+        logger.debug("No old backups to delete this run")
 
 
 async def run_database_backup(config) -> None:
@@ -88,15 +93,22 @@ async def run_database_backup(config) -> None:
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
     object_name = f"{BACKUP_PREFIX}medbot_{timestamp}.dump.gz"
+    logger.info(f"Starting scheduled database backup → {object_name}")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         dump_path = os.path.join(tmp_dir, "medbot.dump")
         dump_gz_path = os.path.join(tmp_dir, "medbot.dump.gz")
-
         try:
             await asyncio.to_thread(_pg_dump_sync, config.database_url, dump_path)
+            dump_size_mb = os.path.getsize(dump_path) / (1024 * 1024)
+            logger.debug(f"pg_dump finished: {dump_path} ({dump_size_mb:.2f} MB uncompressed)")
+
             await asyncio.to_thread(_gzip_file, dump_path, dump_gz_path)
+            gz_size_mb = os.path.getsize(dump_gz_path) / (1024 * 1024)
+            logger.debug(f"Compressed dump: {dump_gz_path} ({gz_size_mb:.2f} MB gzipped)")
+
             await asyncio.to_thread(_upload_and_rotate_sync, config, dump_gz_path, object_name)
+            logger.info(f"Backup completed successfully: {object_name} ({gz_size_mb:.2f} MB)")
         except ClientError as e:
             logger.error(f"❌ S3 error while uploading backup: {e}", exc_info=True)
         except Exception as e:

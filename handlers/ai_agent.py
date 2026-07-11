@@ -94,6 +94,11 @@ async def _process_ai_text(
     )
 
     if confirmation:
+        logger.info(
+            f"AI agent requested removal confirmation for user {message.from_user.id} "
+            f"(@{message.from_user.username}): {confirmation['target_type']} '{confirmation['target_name']}' "
+            f"(id={confirmation['target_id']})"
+        )
         await crud.add_chat_message(session, message.from_user.id, "user", text)
         await crud.add_chat_message(
             session, message.from_user.id, "assistant",
@@ -230,6 +235,8 @@ async def handle_voice(
         await message.answer(get_text(language, "ai_err_voice_empty"), reply_markup=get_main_keyboard(language))
         return
 
+    logger.info(f"Voice message from user {message.from_user.id} (@{message.from_user.username}) transcribed: {transcript!r}")
+
     await _process_ai_text(message, transcript, session, config, bot, language)
 
 
@@ -281,10 +288,12 @@ async def handle_ai_action_confirm(call: CallbackQuery, session: AsyncSession) -
         if action == "archive":
             await crud.update_medicine_field(session, target_id, "is_active", False)
             remove_reminders(target_id)
+            logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived medicine '{name}' (id={target_id}) via AI agent")
             await call.message.edit_text(get_text(language, "ai_medicine_archived", name=name))
         else:
             await crud.delete_medicine(session, target_id)
             remove_reminders(target_id)
+            logger.info(f"User {call.from_user.id} (@{call.from_user.username}) deleted medicine '{name}' (id={target_id}) via AI agent")
             await call.message.edit_text(get_text(language, "ai_medicine_deleted", name=name))
 
     else:  # prefix == "presc"
@@ -295,9 +304,11 @@ async def handle_ai_action_confirm(call: CallbackQuery, session: AsyncSession) -
         name = prescription.medicine_name
         if action == "archive":
             await crud.archive_prescription(session, target_id)
+            logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived prescription '{name}' (id={target_id}) via AI agent")
             await call.message.edit_text(get_text(language, "ai_prescription_archived", name=name))
         else:
             await crud.delete_prescription(session, target_id)
+            logger.info(f"User {call.from_user.id} (@{call.from_user.username}) deleted prescription '{name}' (id={target_id}) via AI agent")
             await call.message.edit_text(get_text(language, "ai_prescription_deleted", name=name))
 
     await call.answer()

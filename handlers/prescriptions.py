@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, date, timedelta
 from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
@@ -10,6 +11,7 @@ from database.models import Prescription
 from locales.texts import get_text, btn_variants
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 
 # ── Helper functions ───────────────────────────────────────────────────────
@@ -304,6 +306,10 @@ async def add_reminder(message: Message, state: FSMContext, session: AsyncSessio
         reminder_days_before=reminder_days,
     )
     await state.clear()
+    logger.info(
+        f"User {message.from_user.id} (@{message.from_user.username}) added prescription "
+        f"'{prescription.medicine_name}' (id={prescription.id}), valid until {prescription.expires_at}"
+    )
     await message.answer(
         get_text(
             lang, "presc_added",
@@ -543,6 +549,11 @@ async def buy_confirm(call: CallbackQuery, session: AsyncSession) -> None:
     if not result.get("success"):
         return
 
+    logger.info(
+        f"User {call.from_user.id} (@{call.from_user.username}) marked {amount} unit(s) "
+        f"bought for prescription '{result['medicine_name']}' (id={prescription_id})"
+    )
+
     await msg.edit_text(
         get_text(lang, "presc_bought_success", purchased=result["purchased_quantity"],
                   max=result["max_quantity"] if result["max_quantity"] is not None else "∞"),
@@ -641,6 +652,12 @@ async def stock_medicine_picked(call: CallbackQuery, state: FSMContext, session:
     medicine = await crud.get_medicine_by_id(session, medicine_id)
     name = medicine.name if medicine else "?"
 
+    if call.from_user:
+        logger.info(
+            f"User {call.from_user.id} (@{call.from_user.username}) added prescription purchase "
+            f"({total} units) to medicine '{name}' (id={medicine_id}) stock, new stock={new_stock}"
+        )
+
     await call.message.edit_text(
         get_text(lang, "presc_stock_added", total=total, name=name, stock=new_stock),
         parse_mode="HTML",
@@ -656,6 +673,7 @@ async def finish_archive(call: CallbackQuery, session: AsyncSession) -> None:
         return
     msg, lang, prescription_id, prescription = ctx
     await crud.archive_prescription(session, prescription_id)
+    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived prescription '{prescription.medicine_name}' (id={prescription_id}) after full purchase")
     await msg.edit_text(get_text(lang, "presc_archived", name=prescription.medicine_name), parse_mode="HTML")
     await call.answer()
 
@@ -695,6 +713,7 @@ async def archive_confirm(call: CallbackQuery, session: AsyncSession) -> None:
         return
     msg, lang, prescription_id, prescription = ctx
     await crud.archive_prescription(session, prescription_id)
+    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived prescription '{prescription.medicine_name}' (id={prescription_id})")
     await msg.edit_text(
         get_text(lang, "presc_archived", name=prescription.medicine_name),
         reply_markup=back_to_list_kb(lang), parse_mode="HTML",
@@ -751,6 +770,7 @@ async def delete_confirm(call: CallbackQuery, session: AsyncSession) -> None:
     msg, lang, prescription_id, prescription = ctx
     name = prescription.medicine_name
     await crud.delete_prescription(session, prescription_id)
+    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) permanently deleted prescription '{name}' (id={prescription_id})")
     await msg.edit_text(get_text(lang, "presc_deleted", name=name), reply_markup=prescription_menu_kb(lang), parse_mode="HTML")
     await call.answer()
 
@@ -818,5 +838,9 @@ async def restore_quantity(message: Message, state: FSMContext, session: AsyncSe
         expires_at=date.fromisoformat(data["expires"]),
         max_quantity=qty,
     )
+
+    if message.from_user:
+        logger.info(f"User {message.from_user.id} (@{message.from_user.username}) restored prescription (id={data['prescription_id']}) from archive")
+
     await state.clear()
     await message.answer(get_text(lang, "presc_restored"), reply_markup=prescription_menu_kb(lang), parse_mode="HTML")
