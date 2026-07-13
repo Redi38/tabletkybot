@@ -12,6 +12,9 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
+from sqlalchemy import text
+import redis.asyncio as aioredis
+
 from config import load_config
 from database.db import init_db
 from middleware.db_middleware import DatabaseMiddleware
@@ -80,6 +83,49 @@ def build_sync_handler(bot: Bot, session_factory):
             return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     return handle_sync
+
+
+def build_health_handler(session_factory, redis_url: str):
+    """
+    Health-check endpoint for Docker healthcheck / monitoring.
+    Verifies DB connectivity, Redis connectivity, and that the
+    APScheduler instance is actually running.
+    """
+    async def handle_health(request):
+        checks = {}
+        healthy = True
+
+        # DB check
+        try:
+            async with session_factory() as session:
+                await session.execute(text("SELECT 1"))
+            checks["database"] = "ok"
+        except Exception as e:
+            checks["database"] = f"error: {e}"
+            healthy = False
+
+        # Redis check
+        try:
+            redis_client = aioredis.from_url(redis_url)
+            await redis_client.ping()
+            await redis_client.close()
+            checks["redis"] = "ok"
+        except Exception as e:
+            checks["redis"] = f"error: {e}"
+            healthy = False
+
+        # Scheduler check
+        checks["scheduler"] = "running" if scheduler.running else "stopped"
+        if not scheduler.running:
+            healthy = False
+
+        status_code = 200 if healthy else 503
+        return web.json_response(
+            {"status": "healthy" if healthy else "unhealthy", "checks": checks},
+            status=status_code,
+        )
+
+    return handle_health
 
 
 async def main() -> None:
@@ -188,9 +234,10 @@ async def main() -> None:
     await site.start()
     logger.info(f"🌐 Public webhook server started on port {config.webhook_port}")
 
-    # ── Internal HTTP server for /api/sync from the admin panel (port 8080) ─
+    # ── Internal HTTP server for /api/sync and /health (port 8080) ────────
     internal_app = web.Application()
     internal_app.router.add_post("/api/sync", build_sync_handler(bot, session_factory))
+    internal_app.router.add_get("/health", build_health_handler(session_factory, config.redis_url))
 
     internal_runner = web.AppRunner(internal_app)
     await internal_runner.setup()

@@ -7,12 +7,15 @@ import aiohttp
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqladmin import ModelView, action, BaseView, expose
 from sqladmin.application import Admin as BaseAdmin
 from sqladmin.filters import BooleanFilter, StaticValuesFilter
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from starlette.requests import Request as StarletteRequest
+
+import redis.asyncio as aioredis
 
 from config import load_config
 from database.models import User, Medicine, MedicineRecord, ChatHistory, MedicineSchedule, Prescription
@@ -64,6 +67,39 @@ async def favicon():
     if os.path.exists(favicon_path):
         return FileResponse(favicon_path)
     return FileResponse("static/favicon.ico")
+
+
+@app.get("/health")
+async def health_check():
+    """
+    Health-check endpoint for Docker healthcheck / monitoring.
+    Verifies DB connectivity and Redis connectivity.
+    """
+    checks = {}
+    healthy = True
+
+    try:
+        async with SessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as e:
+        checks["database"] = f"error: {e}"
+        healthy = False
+
+    try:
+        redis_client = aioredis.from_url(config.redis_url)
+        await redis_client.ping()
+        await redis_client.close()
+        checks["redis"] = "ok"
+    except Exception as e:
+        checks["redis"] = f"error: {e}"
+        healthy = False
+
+    status_code = 200 if healthy else 503
+    return JSONResponse(
+        content={"status": "healthy" if healthy else "unhealthy", "checks": checks},
+        status_code=status_code,
+    )
 
 
 templates = Jinja2Templates(directory="templates")
@@ -351,6 +387,7 @@ async def download_logs(source: str = "bot", level: str = "", search: str = ""):
     def iter_file():
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             if not level and not search:
+                # Whole file, streamed in chunks — avoids loading it all into memory
                 while chunk := f.read(65536):
                     yield chunk
             else:

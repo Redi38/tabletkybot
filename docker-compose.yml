@@ -49,6 +49,12 @@ services:
       - "8443:8443"
     volumes:
       - logs_data:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   admin:
     build: .
@@ -65,9 +71,15 @@ services:
       db:
         condition: service_healthy
       bot:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - logs_data:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres_data:
