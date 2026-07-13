@@ -239,7 +239,7 @@ async def main() -> None:
     internal_app.router.add_post("/api/sync", build_sync_handler(bot, session_factory))
     internal_app.router.add_get("/health", build_health_handler(session_factory, config.redis_url))
 
-    internal_runner = web.AppRunner(internal_app)
+    internal_runner = web.AppRunner(internal_app, access_log=None)
     await internal_runner.setup()
     internal_site = web.TCPSite(internal_runner, "0.0.0.0", 8080)
     await internal_site.start()
