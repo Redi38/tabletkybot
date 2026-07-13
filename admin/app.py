@@ -1,11 +1,13 @@
 import os
 import logging
 from logging.handlers import RotatingFileHandler
+from datetime import datetime
+
 import aiohttp
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqladmin import ModelView, action, BaseView, expose
 from sqladmin.application import Admin as BaseAdmin
 from sqladmin.filters import BooleanFilter, StaticValuesFilter
@@ -298,6 +300,15 @@ def _tail_lines(path: str, max_lines: int, chunk_size: int = 65536) -> list[str]
         return lines[-max_lines:]
 
 
+def _log_line_matches(line: str, level: str = "", search: str = "") -> bool:
+    """Shared filter predicate used by both the JSON viewer and the download endpoint."""
+    if level and f"| {level.upper()} |" not in line:
+        return False
+    if search and search.lower() not in line.lower():
+        return False
+    return True
+
+
 @app.get("/api/admin/logs")
 async def get_admin_logs(
         source: str = "bot", lines: int = 200, level: str = "", search: str = ""
@@ -317,15 +328,47 @@ async def get_admin_logs(
 
     raw_lines = _tail_lines(path, max_lines=lines * 3 if (level or search) else lines)
 
-    if level:
-        marker = f"| {level.upper()} |"
-        raw_lines = [ln for ln in raw_lines if marker in ln]
-
-    if search:
-        needle = search.lower()
-        raw_lines = [ln for ln in raw_lines if needle in ln.lower()]
+    if level or search:
+        raw_lines = [ln for ln in raw_lines if _log_line_matches(ln, level, search)]
 
     return {"source": source, "lines": raw_lines[-lines:]}
+
+
+@app.get("/api/admin/logs/download")
+async def download_logs(source: str = "bot", level: str = "", search: str = ""):
+    """
+    Downloads the full log file (optionally filtered by level/search) as a
+    plain text attachment. Unlike /api/admin/logs, this is not capped by
+    _MAX_LINES — it streams the whole matching content so nothing is lost
+    when investigating an incident.
+    """
+    path = LOG_FILES.get(source)
+    if not path:
+        raise HTTPException(status_code=400, detail="Invalid log source")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Log file not found")
+
+    def iter_file():
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            if not level and not search:
+                while chunk := f.read(65536):
+                    yield chunk
+            else:
+                for line in f:
+                    if _log_line_matches(line, level, search):
+                        yield line
+
+    suffix_parts = [source]
+    if level:
+        suffix_parts.append(level.lower())
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"logs_{'_'.join(suffix_parts)}_{timestamp}.log"
+
+    return StreamingResponse(
+        iter_file(),
+        media_type="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 class LogsView(BaseView):
