@@ -4,14 +4,14 @@ These don't touch NVIDIA/Ollama APIs or the DB — they're regex/logic-only
 transformations, so no mocking is needed.
 """
 from services.ai_service import (
-    format_markdown_to_html,
-    strip_html_tags,
-    detect_message_language,
-    _resolve_language,
-    _looks_like_action_request,
     _dedupe_tool_calls,
     _extract_known_names,
     _find_ungrounded_names,
+    _looks_like_action_request,
+    _resolve_language,
+    detect_message_language,
+    format_markdown_to_html,
+    strip_html_tags,
 )
 
 

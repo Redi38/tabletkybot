@@ -1,7 +1,8 @@
 import logging
+
 from aiogram import Router
-from aiogram.types import ErrorEvent, Message
 from aiogram.exceptions import TelegramAPIError
+from aiogram.types import ErrorEvent, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.crud import get_user_language

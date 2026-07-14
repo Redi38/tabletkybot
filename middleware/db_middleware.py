@@ -1,7 +1,9 @@
 from typing import Any, Awaitable, Callable
+
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 from sqlalchemy.ext.asyncio import async_sessionmaker
+
 
 class DatabaseMiddleware(BaseMiddleware):
     """Middleware that automatically provides a DB session to every handler."""

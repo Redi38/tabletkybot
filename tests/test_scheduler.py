@@ -3,12 +3,12 @@ Tests for services/scheduler.py, focused on the repeat-reminder lifecycle:
 adding a repeat job, cancelling it, and making sure cancellation is properly
 awaited (regression test for the sync-fire-and-forget -> async fix).
 """
+import importlib
 from unittest.mock import AsyncMock
 
-import importlib
-scheduler_module = importlib.import_module("services.scheduler")
-from services.scheduler import cancel_repeat_reminder, remove_reminders, acquire_action_lock
+from services.scheduler import acquire_action_lock, cancel_repeat_reminder, remove_reminders
 
+scheduler_module = importlib.import_module("services.scheduler")
 
 class TestCancelRepeatReminder:
 

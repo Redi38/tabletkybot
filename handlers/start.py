@@ -1,14 +1,16 @@
-from config import Config
-from aiogram import Router, F
-from aiogram.filters import CommandStart, Command
+from aiogram import F, Router
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
-    Message, CallbackQuery, ReplyKeyboardMarkup,
-    KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton,
+    CallbackQuery,
+    KeyboardButton,
+    Message,
+    ReplyKeyboardMarkup,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.crud import get_or_create_user, update_user_language, get_user_language
-from locales.texts import get_text, TEXTS, btn_variants
+
+from database.crud import get_or_create_user, update_user_language
+from locales.texts import btn_variants, get_text
 
 router = Router()
 

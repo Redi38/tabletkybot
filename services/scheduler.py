@@ -1,20 +1,23 @@
 import asyncio
 import json
 import logging
+from datetime import date as date_type
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
+from zoneinfo import ZoneInfo
+
+import redis.asyncio as aioredis
+from aiogram import Bot
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from aiogram import Bot
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.exceptions import TelegramBadRequest
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.orm import selectinload
-from datetime import datetime, timedelta, timezone as dt_timezone, date as date_type
-from zoneinfo import ZoneInfo
-import redis.asyncio as aioredis
 
+from database.models import Medicine, User
 from locales.texts import get_text
-from database.models import Medicine, User, Prescription
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()

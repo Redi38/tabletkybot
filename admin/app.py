@@ -1,27 +1,25 @@
-import os
 import logging
-from logging.handlers import RotatingFileHandler
+import os
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 
 import aiohttp
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.templating import Jinja2Templates
+import redis.asyncio as aioredis
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
-from sqladmin import ModelView, action, BaseView, expose
+from fastapi.templating import Jinja2Templates
+from sqladmin import BaseView, ModelView, action, expose
 from sqladmin.application import Admin as BaseAdmin
 from sqladmin.filters import BooleanFilter, StaticValuesFilter
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.requests import Request as StarletteRequest
-
-import redis.asyncio as aioredis
+from wtforms.validators import AnyOf, DataRequired, Length, NumberRange, Regexp
 
 from config import load_config
-from database.models import User, Medicine, MedicineRecord, ChatHistory, MedicineSchedule, Prescription
 from database import crud
-
-from wtforms.validators import NumberRange, DataRequired, Length, Regexp, AnyOf
+from database.models import ChatHistory, Medicine, MedicineRecord, MedicineSchedule, Prescription, User
 
 # ─── Admin panel file logging ──────
 LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
@@ -128,7 +126,11 @@ async def notify_bot(action_name: str, medicine_id: int):
 
     try:
         async with aiohttp.ClientSession() as session:
-            await session.post(webhook_url, json={"action": action_name, "medicine_id": medicine_id}, timeout=2)
+            await session.post(
+                webhook_url,
+                json={"action": action_name, "medicine_id": medicine_id},
+                timeout=aiohttp.ClientTimeout(total=2),
+            )
             logger.info(f"Bot notified: {action_name} for medicine ID {medicine_id}")
     except Exception as e:
         logger.warning(f"⚠️ Failed to contact the bot for synchronization: {e}")

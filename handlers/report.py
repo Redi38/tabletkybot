@@ -1,16 +1,20 @@
-from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton
-from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
+
+from aiogram import Bot, F, Router
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from database import crud
-from services.report_service import create_excel_report, create_csv_report
-from locales.texts import get_text, TEXTS, btn_variants
+from locales.texts import btn_variants, get_text
+from services.report_service import create_csv_report, create_excel_report
+
 router = Router()
 # Main reports menu
 @router.message(F.text.in_(btn_variants("btn_report")))
 async def report_menu_handler(message: Message, session: AsyncSession) -> None:
     """Opens the inline menu for choosing a report."""
-    if not message.from_user: return
+    if not message.from_user:
+        return
     lang = await crud.get_user_language(session, message.from_user.id)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -22,7 +26,8 @@ async def report_menu_handler(message: Message, session: AsyncSession) -> None:
 # ── Helper function ─────────────────────────────────────────────────────
 async def _generate_and_send_report(call: CallbackQuery, session: AsyncSession, bot: Bot, report_type: str) -> None:
     """Universal function for generating and sending reports."""
-    if not call.from_user or not isinstance(call.message, Message): return
+    if not call.from_user or not isinstance(call.message, Message):
+        return
     user = await crud.get_or_create_user(session, call.from_user.id, call.from_user.username, call.from_user.full_name)
     lang = str(user.language) if user.language else "ua"
     records = await crud.get_medicine_records_for_report(session, call.from_user.id)

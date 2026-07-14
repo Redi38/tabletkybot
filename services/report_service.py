@@ -1,13 +1,15 @@
-import io
 import csv
+import io
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 import openpyxl
-from openpyxl.worksheet.worksheet import Worksheet
-from openpyxl.worksheet.filters import FilterColumn
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.filters import FilterColumn
+from openpyxl.worksheet.worksheet import Worksheet
+
 from locales.texts import get_text
 
 
@@ -184,8 +186,9 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
     ]
     widths = [5, 22, 15, 14, 10, 14]
 
+    cell: Any = None
     for col_idx, (header, width) in enumerate(zip(headers, widths), start=1):
-        cell: Any = ws.cell(row=3, column=col_idx)
+        cell = ws.cell(row=3, column=col_idx)
         cell.value = header
         cell.font = header_font
         cell.fill = header_fill
@@ -212,7 +215,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
         ]
 
         for col_idx, value in enumerate(row_data, start=1):
-            cell: Any = ws.cell(row=row_idx, column=col_idx)
+            cell = ws.cell(row=row_idx, column=col_idx)
             cell.value = value
             cell.alignment = center
             cell.border = border
@@ -280,7 +283,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
     ]
 
     for col_idx, header in enumerate(stat_headers, start=1):
-        cell: Any = ws_stats.cell(row=1, column=col_idx)
+        cell = ws_stats.cell(row=1, column=col_idx)
         cell.value = header
         cell.font = Font(name="Calibri", bold=True, size=11)
         cell.fill = stat_header_fill
@@ -299,7 +302,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
 
     for row_idx, row_data in enumerate([row_taken, row_missed], start=2):
         for col_idx, value in enumerate(row_data, start=1):
-            cell: Any = ws_stats.cell(row=row_idx, column=col_idx)
+            cell = ws_stats.cell(row=row_idx, column=col_idx)
             cell.value = value
             cell.alignment = center
             cell.border = border

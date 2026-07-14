@@ -1,12 +1,10 @@
 import os
-from datetime import datetime, date
-from sqlalchemy import (
-    BigInteger, String, Integer, Boolean,
-    DateTime, ForeignKey, Text, func, Date
-)
+from datetime import date, datetime
+
+from cryptography.fernet import Fernet, InvalidToken
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
-from cryptography.fernet import Fernet, InvalidToken
 
 _ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 _cipher: Fernet | None = Fernet(_ENCRYPTION_KEY.encode()) if _ENCRYPTION_KEY else None

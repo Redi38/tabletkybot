@@ -11,18 +11,16 @@ Split into two groups:
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from services.ai_tools import (
-    _parse_date_flexible,
-    _to_int,
     _find_medicine,
     _find_prescription,
+    _parse_date_flexible,
+    _to_int,
     execute_add_medicine_reminder,
-    execute_update_medicine,
     execute_add_prescription_entry,
     execute_mark_prescription_bought,
     execute_tool,
+    execute_update_medicine,
 )
 
 

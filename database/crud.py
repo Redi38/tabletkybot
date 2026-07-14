@@ -1,8 +1,10 @@
-from datetime import datetime, timedelta, timezone, date
+from datetime import date, datetime, timedelta, timezone
+
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func
 from sqlalchemy.orm import selectinload
-from database.models import User, Medicine, MedicineSchedule, MedicineRecord, ChatHistory, Prescription
+
+from database.models import ChatHistory, Medicine, MedicineRecord, MedicineSchedule, Prescription, User
 
 
 # ─── Helper functions ──────────────────────────────────────────────────────

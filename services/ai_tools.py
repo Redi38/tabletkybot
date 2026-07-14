@@ -1,5 +1,7 @@
 from datetime import date, datetime, timedelta
+
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from database import crud
 
 
@@ -264,6 +266,8 @@ async def execute_update_medicine(session: AsyncSession, user_id: int, args: dic
         return {"error": f"Medicine '{args.get('medicine_name')}' not found or the name is ambiguous."}
 
     field = args.get("field")
+    if not field:
+        return {"error": "field is required"}
     value = args.get("value")
 
     if field in ("stock_amount", "low_stock_threshold"):
@@ -303,7 +307,7 @@ async def execute_add_prescription_entry(session: AsyncSession, user_id: int, ar
     prescription = await crud.add_prescription(
         session=session, user_id=user_id,
         medicine_name=str(args.get("medicine_name", ""))[:150],
-        issued_at=issued, valid_from=valid_from, expires_at=expires_at,
+        valid_from=valid_from, expires_at=expires_at,
         max_quantity=max_quantity,
         reminder_days_before=reminder_days_before,
     )
@@ -319,6 +323,8 @@ async def execute_update_prescription(session: AsyncSession, user_id: int, args:
         return {"error": f"Prescription for '{args.get('medicine_name')}' not found or the name is ambiguous."}
 
     field = args.get("field")
+    if not field:
+        return {"error": "field is required"}
     value = args.get("value")
 
     if field == "max_quantity":

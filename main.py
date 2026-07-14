@@ -4,25 +4,32 @@ import os
 import ssl
 import sys
 from logging.handlers import RotatingFileHandler
-from aiohttp import web
 
+import redis.asyncio as aioredis
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
-
+from aiohttp import web
 from sqlalchemy import text
-import redis.asyncio as aioredis
 
 from config import load_config
 from database.db import init_db
+from handlers import ai_agent, errors, medicines, prescriptions, report, settings, start
 from middleware.db_middleware import DatabaseMiddleware
 from middleware.logging_context import CorrelationIdFilter, CorrelationIdMiddleware, correlation_scope
-
-from services.scheduler import start_scheduler, stop_scheduler, sync_reminders, sync_single_reminder, scheduler, check_prescription_reminders, init_redis, resume_pending_reminders
 from services.backup_service import run_database_backup
-from handlers import start, medicines, ai_agent, report, errors, settings, prescriptions
+from services.scheduler import (
+    check_prescription_reminders,
+    init_redis,
+    resume_pending_reminders,
+    scheduler,
+    start_scheduler,
+    stop_scheduler,
+    sync_reminders,
+    sync_single_reminder,
+)
 
 # ─── Logging: simultaneously to docker logs and to a file (for the Admin Panel) ──
 LOG_DIR = os.getenv("LOG_DIR", "/app/logs")

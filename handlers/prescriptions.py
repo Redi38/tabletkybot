@@ -1,14 +1,15 @@
 import logging
-from datetime import datetime, date, timedelta
-from aiogram import Router, F, Bot
+from datetime import date, datetime, timedelta
+
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
 from database.models import Prescription
-from locales.texts import get_text, btn_variants
+from locales.texts import btn_variants, get_text
 
 router = Router()
 logger = logging.getLogger(__name__)

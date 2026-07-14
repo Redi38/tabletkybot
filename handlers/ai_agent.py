@@ -3,21 +3,25 @@ import os
 import tempfile
 
 import aiohttp
-from config import Config
-from aiogram import Router, F, Bot
+from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
-    Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
 )
-from aiogram.exceptions import TelegramBadRequest
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.crud import get_or_create_user, get_user_language
+
+from config import Config
 from database import crud
-from locales.texts import get_text
-from services.ai_service import get_ai_agent_response, get_ai_vision_response, format_markdown_to_html, strip_html_tags
-from services.voice_service import transcribe_voice
-from services.scheduler import remove_reminders
+from database.crud import get_or_create_user, get_user_language
 from handlers.start import get_main_keyboard
+from locales.texts import get_text
+from services.ai_service import format_markdown_to_html, get_ai_agent_response, get_ai_vision_response, strip_html_tags
+from services.scheduler import remove_reminders
+from services.voice_service import transcribe_voice
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -240,7 +244,7 @@ async def handle_voice(
     await _process_ai_text(message, transcript, session, config, bot, language)
 
 
-@router.message(F.text.startswith("/") == False)
+@router.message(~F.text.startswith("/"))
 async def fallback_handler(
         message: Message, state: FSMContext, session: AsyncSession,
         config: Config, bot: Bot,

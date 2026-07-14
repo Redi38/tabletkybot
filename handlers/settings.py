@@ -1,11 +1,12 @@
 import pytz
-from aiogram import Router, F, Bot
+from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from database import crud
-from locales.texts import get_text, TEXTS, btn_variants
+from locales.texts import btn_variants, get_text
 from services.scheduler import add_reminders_for_medicine
 
 router = Router()

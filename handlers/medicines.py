@@ -1,18 +1,23 @@
 import logging
+
 import pytz
-from aiogram import Router, F, Bot
+from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from database import crud
 from database.models import Medicine
-from locales.texts import get_text, TEXTS, btn_variants
+from locales.texts import btn_variants, get_text
 from services.scheduler import (
-    add_reminders_for_medicine, remove_reminders, cancel_repeat_reminder,
-    save_stock_alert_pending, clear_stock_alert_pending, acquire_action_lock,
+    acquire_action_lock,
+    add_reminders_for_medicine,
+    cancel_repeat_reminder,
+    clear_stock_alert_pending,
+    remove_reminders,
+    save_stock_alert_pending,
 )
 
 router = Router()

@@ -1,7 +1,14 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock
+import os
+
+from cryptography.fernet import Fernet
+
+os.environ.setdefault("ENCRYPTION_KEY", Fernet.generate_key().decode())
 
 import importlib
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 scheduler_module = importlib.import_module("services.scheduler")
 
 

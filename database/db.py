@@ -1,6 +1,9 @@
 from sqlalchemy import Connection
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from database.models import Base
+
+
 def _create_tables(sync_conn: Connection) -> None:
     """Helper synchronous function for proper typing."""
     Base.metadata.create_all(sync_conn)
