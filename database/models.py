@@ -145,3 +145,23 @@ class Prescription(Base):
 
     def __str__(self) -> str:
         return f"{self.medicine_name} (until {self.expires_at.strftime('%d.%m.%Y')})"
+
+class AIMetric(Base):
+    __tablename__ = "ai_metrics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+
+    model_used: Mapped[str] = mapped_column(String(128))
+    tool_choice: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    tool_names: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    latency_ms: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), default="success")
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+    user: Mapped["User"] = relationship()
+
+    def __str__(self) -> str:
+        return f"{self.model_used} ({self.latency_ms}ms, {self.created_at.strftime('%d.%m %H:%M')})"

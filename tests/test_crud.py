@@ -7,6 +7,7 @@ from datetime import date, timedelta
 
 import database.crud as crud
 
+
 class TestUsers:
 
     async def test_get_or_create_user_creates_new(self, db_session):

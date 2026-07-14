@@ -3,12 +3,14 @@ import base64
 import json
 import logging
 import re
+import time
 
 import aiohttp
 
 from config import Config
 from locales.texts import get_text
 from services.ai_tools import TOOL_SCHEMAS, execute_tool
+from database import crud
 
 logger = logging.getLogger(__name__)
 
@@ -399,36 +401,77 @@ def _find_ungrounded_names(final_text: str, known_names: set[str]) -> list[str]:
     candidates = [m for m in mentioned if len(m) >= 3]
     return [m for m in candidates if not any(m in known or known in m for known in known_names)]
 
-
 async def get_ai_agent_response(
         config, session, user_id: int, messages: list[dict], language: str = "ua",
 ) -> tuple[str, str, dict | None]:
+    start_time = time.monotonic()
     language = _resolve_language(messages, language)
 
     if not config.nvidia_api_key:
         text, model = await get_ai_response(config, messages, language)
+        latency_ms = int((time.monotonic() - start_time) * 1000)
+        await _log_metric(
+            session, user_id, model_used=model,
+            tool_choice=None, tool_names=None,
+            latency_ms=latency_ms, status="success",
+        )
         return strip_html_tags(text), model, None
 
     try:
-        return await asyncio.wait_for(
+        text, model, confirmation, meta = await asyncio.wait_for(
             _run_agent_loop(config, session, user_id, messages, language),
             timeout=_AGENT_TOTAL_TIMEOUT_SECONDS,
         )
+        latency_ms = int((time.monotonic() - start_time) * 1000)
+        await _log_metric(
+            session, user_id, model_used=model,
+            tool_choice=meta["tool_choice"], tool_names=meta["tool_names"],
+            latency_ms=latency_ms, status="success",
+        )
+        return text, model, confirmation
     except asyncio.TimeoutError:
+        latency_ms = int((time.monotonic() - start_time) * 1000)
         logger.error(
             f"Agent loop exceeded the overall time limit "
             f"({_AGENT_TOTAL_TIMEOUT_SECONDS}s) for user_id={user_id}"
         )
+        await _log_metric(
+            session, user_id, model_used="none",
+            tool_choice=None, tool_names=None,
+            latency_ms=latency_ms, status="timeout",
+            error_message=f"Exceeded {_AGENT_TOTAL_TIMEOUT_SECONDS}s limit",
+        )
         return get_text(language, "ai_err_api"), "none", None
+
+
+async def _log_metric(
+        session, user_id: int, model_used: str,
+        tool_choice: str | None, tool_names: list[str] | None,
+        latency_ms: int, status: str, error_message: str | None = None,
+) -> None:
+    """
+    Best-effort metric logging — a failure here (e.g. a stale session) must
+    never break the actual AI response the user is waiting for.
+    """
+    try:
+        await crud.log_ai_metric(
+            session, user_id=user_id, model_used=model_used,
+            tool_choice=tool_choice, tool_names=tool_names,
+            latency_ms=latency_ms, status=status, error_message=error_message,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log AI metric for user_id={user_id}: {e}")
 
 
 async def _run_agent_loop(
         config, session, user_id: int, messages: list[dict], language: str,
-) -> tuple[str, str, dict | None]:
+) -> tuple[str, str, dict | None, dict]:
     conversation = list(messages)
     last_user_text = messages[-1].get("content", "") if messages else ""
     known_names: set[str] = set()
     retried_for_grounding = False
+    called_tool_names: list[str] = []
+    first_tool_choice: str | None = None
 
     try:
         for iteration in range(_MAX_AGENT_ITERATIONS):
@@ -438,6 +481,8 @@ async def _run_agent_loop(
                 and _looks_like_action_request(last_user_text)
             )
             tool_choice = "required" if force_tool else "auto"
+            if first_tool_choice is None:
+                first_tool_choice = tool_choice
 
             assistant_message = await ask_nvidia_raw(
                 config.nvidia_api_key, config.nvidia_base_url,
@@ -452,7 +497,6 @@ async def _run_agent_loop(
             if not tool_calls:
                 final_text = (assistant_message.get("content") or "").strip()
 
-                # ── Check for data "hallucination" ────────────────────
                 ungrounded = _find_ungrounded_names(final_text, known_names)
                 if ungrounded and not retried_for_grounding:
                     logger.warning(
@@ -472,7 +516,8 @@ async def _run_agent_loop(
                     retried_for_grounding = True
                     continue
 
-                return final_text, f"NVIDIA Agent ({config.nvidia_model})", None
+                meta = {"tool_choice": first_tool_choice, "tool_names": called_tool_names}
+                return final_text, f"NVIDIA Agent ({config.nvidia_model})", None, meta
 
             tool_calls = _dedupe_tool_calls(tool_calls)
 
@@ -484,6 +529,7 @@ async def _run_agent_loop(
 
             for call in tool_calls:
                 tool_name = call["function"]["name"]
+                called_tool_names.append(tool_name)
                 raw_arguments = call["function"].get("arguments") or "{}"
                 try:
                     parsed_arguments = json.loads(raw_arguments)
@@ -498,11 +544,12 @@ async def _run_agent_loop(
                     known_names |= _extract_known_names(tool_name, result)
 
                 if result.get("requires_confirmation"):
+                    meta = {"tool_choice": first_tool_choice, "tool_names": called_tool_names}
                     return "", f"NVIDIA Agent ({config.nvidia_model})", {
                         "target_type": result["target_type"],
                         "target_id": result["target_id"],
                         "target_name": result["target_name"],
-                    }
+                    }, meta
 
                 conversation.append({
                     "role": "tool",
@@ -511,9 +558,11 @@ async def _run_agent_loop(
                 })
 
         logger.error(f"The agent did not produce a final answer within {_MAX_AGENT_ITERATIONS} iterations")
-        return get_text(language, "ai_err_api"), "none", None
+        meta = {"tool_choice": first_tool_choice, "tool_names": called_tool_names}
+        return get_text(language, "ai_err_api"), "none", None, meta
 
     except Exception as e:
         logger.error(f"NVIDIA agent loop error: {type(e).__name__}: {e}")
         text, model = await get_ai_response(config, messages, language)
-        return strip_html_tags(text), model, None
+        meta = {"tool_choice": first_tool_choice, "tool_names": called_tool_names}
+        return strip_html_tags(text), model, None, meta
