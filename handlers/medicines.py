@@ -1,6 +1,7 @@
 import logging
 import pytz
 from aiogram import Router, F, Bot
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -11,7 +12,7 @@ from database.models import Medicine
 from locales.texts import get_text, TEXTS, btn_variants
 from services.scheduler import (
     add_reminders_for_medicine, remove_reminders, cancel_repeat_reminder,
-    save_stock_alert_pending, clear_stock_alert_pending,
+    save_stock_alert_pending, clear_stock_alert_pending, acquire_action_lock,
 )
 
 router = Router()
@@ -42,6 +43,20 @@ def parse_int(val_str: str) -> int | None:
         return val if val >= 0 else None
     except ValueError:
         return None
+
+
+async def _safe_edit_text(msg: Message, text: str, **kwargs) -> None:
+    """
+    Wraps msg.edit_text to swallow Telegram's "message is not modified" error,
+    which happens when a duplicate button tap (double-tap, network retry)
+    tries to set exactly the same text/markup that a previous, already-processed
+    tap set moments earlier. Any other TelegramBadRequest is re-raised as-is.
+    """
+    try:
+        await msg.edit_text(text, **kwargs)
+    except TelegramBadRequest as e:
+        if "message is not modified" not in str(e):
+            raise
 
 
 async def _base_ctx(call: CallbackQuery, session: AsyncSession) -> tuple[Message, str] | None:
@@ -620,6 +635,10 @@ async def process_medicine_status(call: CallbackQuery, state: FSMContext, sessio
     if not ctx or not call.data:
         return
     msg, lang, medicine_id, medicine = ctx
+
+    if not await acquire_action_lock(call.from_user.id, medicine_id):
+        return
+
     action = str(call.data).split("_")[0]
 
     logger.info(
@@ -635,7 +654,7 @@ async def process_medicine_status(call: CallbackQuery, state: FSMContext, sessio
             [InlineKeyboardButton(text=get_text(lang, "btn_restock_yes"), callback_data=f"restock_yes_{medicine_id}")],
             [InlineKeyboardButton(text=get_text(lang, "btn_restock_no"), callback_data=f"restock_no_{medicine_id}")],
         ])
-        await msg.edit_text(get_text(lang, "alert_empty_but_time", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML")
+        await _safe_edit_text(msg, get_text(lang, "alert_empty_but_time", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML")
         return
 
     db_status = "taken" if action == "take" else "skipped"
@@ -649,10 +668,10 @@ async def process_medicine_status(call: CallbackQuery, state: FSMContext, sessio
             [InlineKeyboardButton(text=get_text(lang, "btn_course_continue"), callback_data=f"med_extend_ask_{medicine_id}", style="success")],
             [InlineKeyboardButton(text=get_text(lang, "btn_course_finish"), callback_data=f"med_archive_confirm_{medicine_id}", style="primary")],
         ])
-        await msg.edit_text(get_text(lang, "course_finished_ask", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML")
+        await _safe_edit_text(msg, get_text(lang, "course_finished_ask", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML")
     else:
         success_key = "med_taken" if action == "take" else "med_skipped"
-        await msg.edit_text(get_text(lang, success_key, days=remaining), parse_mode="HTML")
+        await _safe_edit_text(msg, get_text(lang, success_key, days=remaining), parse_mode="HTML")
 
         if action == "take" and stock is not None:
             if stock == 0:

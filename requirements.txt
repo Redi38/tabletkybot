@@ -1,6 +1,6 @@
 aiogram
 aiohttp
-APScheduler
+APScheduler>=3.10,<4
 asyncpg
 fastapi
 openpyxl

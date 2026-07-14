@@ -30,6 +30,9 @@ _PENDING_TTL_SECONDS = 60 * 60 * 48
 _STOCK_ALERT_KEY_PREFIX = "stock_alert_pending:"
 _STOCK_ALERT_TTL_SECONDS = 60 * 60 * 24 * 30  # 30 дней
 
+_ACTION_LOCK_PREFIX = "action_lock:"
+_ACTION_LOCK_TTL_SECONDS = 3
+
 
 def init_redis(redis_url: str) -> None:
     global _redis_client
@@ -139,6 +142,26 @@ async def _delete_stock_alerts_for_medicine(medicine_id: int) -> None:
     pattern = f"{_STOCK_ALERT_KEY_PREFIX}*:{medicine_id}"
     async for key in _redis_client.scan_iter(match=pattern):
         await _redis_client.delete(key)
+
+
+async def acquire_action_lock(chat_id: int, medicine_id: int) -> bool:
+    """
+    Idempotency guard against duplicate take/skip button taps (double-tap,
+    slow network causing a retry, etc.) that would otherwise process the
+    same dose twice — double-decrementing stock/course_duration and/or
+    causing a "message is not modified" TelegramBadRequest when the second
+    tap tries to edit a message that the first tap already edited.
+
+    Returns True if this call acquired the lock (i.e. it's the first tap
+    in-flight for this medicine right now), False if another take/skip is
+    already being processed for the same chat_id+medicine_id — meaning this
+    is a duplicate that should be ignored.
+    """
+    if not _redis_client:
+        return True
+    key = f"{_ACTION_LOCK_PREFIX}{chat_id}:{medicine_id}"
+    acquired = await _redis_client.set(key, "1", nx=True, ex=_ACTION_LOCK_TTL_SECONDS)
+    return bool(acquired)
 
 
 def _local_today(tz_name: str) -> date_type:
