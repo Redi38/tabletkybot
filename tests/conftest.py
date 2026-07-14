@@ -8,6 +8,10 @@ import importlib
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from database.models import Base
 
 scheduler_module = importlib.import_module("services.scheduler")
 
@@ -29,7 +33,6 @@ def _reset_scheduler_state():
 
 @pytest.fixture
 def mock_redis():
-    """A fake async Redis client, wired into services.scheduler's module-level client."""
     client = AsyncMock()
     client.get = AsyncMock(return_value=None)
     client.set = AsyncMock(return_value=True)
@@ -50,3 +53,14 @@ def mock_bot():
     bot.send_message = AsyncMock()
     bot.delete_message = AsyncMock()
     return bot
+
+
+@pytest_asyncio.fixture
+async def db_session():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_factory() as session:
+        yield session
+    await engine.dispose()

@@ -306,7 +306,7 @@ async def add_chat_message(
     subq = (
         select(ChatHistory.id)
         .where(ChatHistory.user_id == user_id)
-        .order_by(ChatHistory.created_at.desc())
+        .order_by(ChatHistory.created_at.desc(), ChatHistory.id.desc())
         .limit(keep_last)
     )
     result = await session.execute(subq)
@@ -327,7 +327,7 @@ async def get_chat_history(
     result = await session.execute(
         select(ChatHistory)
         .where(ChatHistory.user_id == user_id)
-        .order_by(ChatHistory.created_at.desc())
+        .order_by(ChatHistory.created_at.desc(), ChatHistory.id.desc())
         .limit(limit)
     )
     messages = list(result.scalars().all())
