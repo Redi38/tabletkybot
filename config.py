@@ -46,6 +46,8 @@ class Config:
     backup_retention_days: int = 14
     # Voice
     nvidia_riva_function_id: str = "b702f636-f60c-4a3d-a6f4-f3568c13bd7d"
+    # Feedback
+    admin_chat_id: int | None = None
 
     @property
     def database_url(self) -> str:
@@ -76,6 +78,8 @@ def load_config() -> Config:
         raise ValueError("NVIDIA_API_KEY не знайдено у змінних середовища")
     if not webhook_host:
         raise ValueError("WEBHOOK_HOST не знайдено у змінних середовища")
+
+    admin_chat_id_raw = os.getenv("ADMIN_CHAT_ID")
 
     return Config(
         bot_token=bot_token,
@@ -108,4 +112,5 @@ def load_config() -> Config:
         backup_s3_region=os.getenv("BACKUP_S3_REGION", "eu-frankfurt-1"),
         backup_retention_days=int(os.getenv("BACKUP_RETENTION_DAYS", "14")),
         nvidia_riva_function_id=os.getenv("NVIDIA_RIVA_FUNCTION_ID", "b702f636-f60c-4a3d-a6f4-f3568c13bd7d"),
+        admin_chat_id=int(admin_chat_id_raw) if admin_chat_id_raw else None,
     )

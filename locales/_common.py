@@ -5,10 +5,12 @@ TEXTS = {
         'ask_extend_days': 'На скільки днів продовжити курс?',
         'ask_new_name': '📝 Введіть ваше нове ПІБ:',
         'ask_new_tz': '🌍 Напишіть місто і країну, де ви зараз перебуваєте\n\nНаприклад: <code>Варшава, Польща</code>',
+        'ask_feedback': '💬 Опишіть проблему або пропозицію одним повідомленням — я передам це розробнику.',
         'btn_add': '➕ Додати',
         'btn_back': '⬅️ Назад',
         'btn_change_name': '✏️ Змінити ПІБ',
         'btn_change_tz': '🌍 Змінити часовий пояс',
+        'btn_feedback': '💬 Зворотній зв\'язок',
         'btn_help': 'ℹ️ Допомога',
         'btn_lang': '🌐 Мова',
         'btn_list': '📋 Список',
@@ -25,7 +27,10 @@ TEXTS = {
         'err_invalid_number': '❌ Будь ласка, введіть коректне число.',
         'err_stock': '❌ Введіть ціле додатне число (наприклад: 20):',
         'err_timezone_place': '❌ Не вдалося визначити місто. Спробуйте ще раз у форматі: <b>Місто, Країна</b> (наприклад: <code>Варшава, Польща</code>).',
+        'err_feedback_unavailable': '⚠️ Наразі не вдалося передати повідомлення розробнику. Спробуйте пізніше.',
         'fallback_text': '👋 Натисніть /start щоб розпочати або оберіть дію з меню.',
+        'feedback_admin_header': '📩 <b>Нове звернення</b>\nВід: {name} (@{username}, id: <code>{user_id}</code>)\n\n{text}',
+        'feedback_sent': '✅ Дякуємо! Ваше повідомлення передано розробнику.',
         'help_text': (
             '<b>📖 Доступні команди:</b>\n\n'
             '/start – перезапустити бота\n'
@@ -56,11 +61,11 @@ TEXTS = {
             'Я твій медичний асистент. Ось що я вмію:\n\n'
             '💊 <b>Ліки</b> – додавати, переглядати, редагувати та видаляти нагадування, стежити за залишком в аптечці\n'
             '📝 <b>Рецепти</b> – зберігати рецепти, термін дії та кількість, яку ще можна купити\n'
-            '📤 <b>Звіти та Експорт</b> – отримати Excel/CSV-звіт про прийом препаратів\n'
-            '🌐 <b>Мова</b> – перемикати українську, english та русский\n'
-            '👤 <b>Налаштування</b> – змінити ПІБ та налаштувати часовий пояс\n\n'
+            '📤 <b>Звіти</b> – отримати Excel/CSV-звіт про прийом препаратів\n'
+            '👤 <b>Налаштування</b> – змінити ПІБ, мову, часовий пояс, зворотній зв\'язок\n\n'
             '💬 Просто напишіть (або надішліть голосове) з метою щось додати/змінити/видалити – я відповім та зроблю це як AI-асистент прямо тут, у чаті.\n\n'
-            '⚠️ <i>Важливо: перед додаванням першого препарату зайдіть у <b>Налаштування</b> та вкажіть ваш часовий пояс, щоб нагадування приходили точно вчасно!</i>\n\n'
+            'ℹ️ <b>/help</b> – детальніше про можливості бота\n\n'
+            '⚠️ Якщо помітили помилку в роботі бота або виникли питання, пишіть у <b>👤 Налаштування</b> -> <b>💬 Зворотній зв\'язок</b>\n\n'
             'Оберіть дію з меню нижче 👇'
         ),
         'tz_updated': '✅ Часовий пояс успішно оновлено!\n⏰ <i>Усі ваші нагадування автоматично переведені на новий час.</i>',
@@ -71,10 +76,12 @@ TEXTS = {
         'ask_extend_days': 'How many days to extend the course?',
         'ask_new_name': '📝 Enter your new Full Name:',
         'ask_new_tz': '🌍 Tell me the city and country you\'re currently in\n\nFor example: <code>Warsaw, Poland</code>',
+        'ask_feedback': '💬 Describe the problem or suggestion in one message — I\'ll pass it on to the developer.',
         'btn_add': '➕ Add',
         'btn_back': '⬅️ Back',
         'btn_change_name': '✏️ Change Name',
         'btn_change_tz': '🌍 Change Timezone',
+        'btn_feedback': '💬 Feedback',
         'btn_help': 'ℹ️ Help',
         'btn_lang': '🌐 Language',
         'btn_list': '📋 List',
@@ -91,7 +98,10 @@ TEXTS = {
         'err_invalid_number': '❌ Please enter a valid number.',
         'err_stock': '❌ Enter a positive integer (e.g., 20):',
         'err_timezone_place': '❌ Could not find that place. Please try again in the format: <b>City, Country</b> (e.g. <code>Warsaw, Poland</code>).',
+        'err_feedback_unavailable': '⚠️ Could not deliver your message to the developer right now. Please try again later.',
         'fallback_text': '👋 Press /start or choose an action from the menu.',
+        'feedback_admin_header': '📩 <b>New feedback</b>\nFrom: {name} (@{username}, id: <code>{user_id}</code>)\n\n{text}',
+        'feedback_sent': '✅ Thank you! Your message has been passed on to the developer.',
         'help_text': (
             '<b>📖 Available commands:</b>\n\n'
             '/start – restart the bot\n'
@@ -122,11 +132,11 @@ TEXTS = {
             'I am your medical assistant. I can help with:\n\n'
             '💊 <b>Medicines</b> – add, view, edit and delete reminders, track remaining stock\n'
             '📝 <b>Prescriptions</b> – keep track of prescriptions, expiration dates, and remaining allowed quantity\n'
-            '📤 <b>Reports &amp; Export</b> – get an Excel/CSV report about your medication intake\n'
-            '🌐 <b>Language</b> – switch between Ukrainian, English and Russian\n'
-            '👤 <b>Settings</b> – change your name and set your timezone\n\n'
+            '📤 <b>Reports</b> – get an Excel/CSV report about your medication intake\n'
+            '👤 <b>Settings</b> – change your name, language, timezone, feedback\n\n'
             '💬 Just send me (typed or as a voice message) with aim to add/change/remove something – I will answer and take care of it as an AI assistant right here in the chat.\n\n'
-            '⚠️ <i>Important: before adding your first medicine, go to <b>Settings</b> and set your timezone so reminders arrive exactly on time!</i>\n\n'
+            'ℹ️ <b>/help</b> – more details about the bot\'s features\n\n'
+            '⚠️ If you notice an error in the bot\'s operation or have any questions, write to <b>👤 Settings</b> -> <b>💬 Feedback</b>\n\n'
             'Choose an action from the menu below 👇'
         ),
         'tz_updated': '✅ Timezone successfully updated!\n⏰ <i>All your reminders have been automatically adjusted to the new time.</i>',
@@ -137,10 +147,12 @@ TEXTS = {
         'ask_extend_days': 'На сколько дней продлить курс?',
         'ask_new_name': '📝 Введите ваше новое ФИО:',
         'ask_new_tz': '🌍 Напишите город и страну, где вы сейчас находитесь\n\nНапример: <code>Варшава, Польша</code>',
+        'ask_feedback': '💬 Опишите проблему или предложение одним сообщением — я передам это разработчику.',
         'btn_add': '➕ Добавить',
         'btn_back': '⬅️ Назад',
         'btn_change_name': '✏️ Изменить ФИО',
         'btn_change_tz': '🌍 Изменить часовой пояс',
+        'btn_feedback': '💬 Обратная связь',
         'btn_help': 'ℹ️ Помощь',
         'btn_lang': '🌐 Язык',
         'btn_list': '📋 Список',
@@ -157,7 +169,10 @@ TEXTS = {
         'err_invalid_number': '❌ Пожалуйста, введите корректное число.',
         'err_stock': '❌ Введите целое положительное число (например: 20):',
         'err_timezone_place': '❌ Не удалось определить город. Попробуйте ещё раз в формате: <b>Город, Страна</b> (например: <code>Варшава, Польша</code>).',
+        'err_feedback_unavailable': '⚠️ Не удалось передать сообщение разработчику сейчас. Попробуйте позже.',
         'fallback_text': '👋 Нажмите /start чтобы начать или выберите действие из меню.',
+        'feedback_admin_header': '📩 <b>Новое обращение</b>\nОт: {name} (@{username}, id: <code>{user_id}</code>)\n\n{text}',
+        'feedback_sent': '✅ Спасибо! Ваше сообщение передано разработчику.',
         'help_text': (
             '<b>📖 Доступные команды:</b>\n\n'
             '/start – перезапустить бота\n'
@@ -188,11 +203,11 @@ TEXTS = {
             'Я твой медицинский ассистент. Вот что я умею:\n\n'
             '💊 <b>Лекарства</b> – добавлять, просматривать, редактировать и удалять напоминания, следить за остатком в аптечке\n'
             '📝 <b>Рецепты</b> – хранить рецепты, срок действия и оставшееся разрешённое количество\n'
-            '📤 <b>Отчёты и Экспорт</b> – получить Excel/CSV-отчёт о приёме препаратов\n'
-            '🌐 <b>Язык</b> – переключать украинский, английский и русский\n'
-            '👤 <b>Настройки</b> – изменить ФИО и настроить часовой пояс\n\n'
+            '📤 <b>Отчёты</b> – получить Excel/CSV-отчёт о приёме препаратов\n'
+            '👤 <b>Настройки</b> – изменить ФИО, язык, часовой пояс, обратная связь\n\n'
             '💬 Просто напишите (или отправьте голосовое) с целью что-то добавить/изменить/удалить – я отвечу и сделаю это как AI-ассистент прямо здесь, в чате.\n\n'
-            '⚠️ <i>Важно: перед добавлением первого препарата зайдите в <b>Настройки</b> и укажите ваш часовой пояс, чтобы напоминания приходили точно вовремя!</i>\n\n'
+            'ℹ️ <b>/help</b> – детальнее о возможностях бота\n\n'
+            '⚠️ Если заметили ошибку в работе бота/возникли вопросы, пишите в <b>👤 Настройки</b> -> <b>💬 Обратная связь</b>\n\n'
             'Выберите действие из меню ниже 👇'
         ),
         'tz_updated': '✅ Часовой пояс успешно обновлён!\n⏰ <i>Все ваши напоминания автоматически переведены на новое время.</i>',

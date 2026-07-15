@@ -1,20 +1,26 @@
+import logging
+from html import escape as html_escape
+
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import Config
 from database import crud
 from locales.texts import btn_variants, get_text
 from services.geo_service import resolve_timezone_from_place
 from services.scheduler import add_reminders_for_medicine
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 
 class SettingsState(StatesGroup):
     waiting_name = State()
     waiting_timezone = State()
+    waiting_feedback = State()
     lang = State()
 
 
@@ -23,6 +29,7 @@ def settings_keyboard(language: str = "ua") -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=get_text(language, "btn_change_name"), callback_data="set_name", style="primary")],
         [InlineKeyboardButton(text=get_text(language, "btn_change_tz"), callback_data="set_tz", style="primary")],
         [InlineKeyboardButton(text=get_text(language, "btn_lang"), callback_data="set_lang", style="primary")],
+        [InlineKeyboardButton(text=get_text(language, "btn_feedback"), callback_data="set_feedback", style="primary")],
     ])
 
 
@@ -134,3 +141,47 @@ def language_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="English", callback_data="lang_en", style="primary"),
         InlineKeyboardButton(text="Русский", callback_data="lang_ru", style="primary"),
     ]])
+
+
+# ── Feedback ──────────────────────────────────────────────────
+@router.callback_query(F.data == "set_feedback")
+async def feedback_start(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+    ctx = await _settings_ctx(call, state, session)
+    if not ctx:
+        return
+    msg, lang = ctx
+    await msg.edit_text(get_text(lang, "ask_feedback"), parse_mode="HTML")
+    await state.set_state(SettingsState.waiting_feedback)
+
+
+@router.message(SettingsState.waiting_feedback)
+async def feedback_save(message: Message, state: FSMContext, bot: Bot, config: Config) -> None:
+    ctx = await _msg_ctx(message, state)
+    if not ctx or not message.from_user:
+        return
+    feedback_text, lang = ctx
+    await state.clear()
+
+    if not config.admin_chat_id:
+        logger.warning(
+            f"Feedback from user {message.from_user.id} (@{message.from_user.username}) could not be "
+            f"forwarded — ADMIN_CHAT_ID is not configured: {feedback_text}"
+        )
+        await message.answer(get_text(lang, "err_feedback_unavailable"), parse_mode="HTML")
+        return
+
+    forward_text = get_text(
+        lang, "feedback_admin_header",
+        name=html_escape(message.from_user.full_name),
+        username=html_escape(message.from_user.username or "—"),
+        user_id=message.from_user.id,
+        text=html_escape(feedback_text),
+    )
+
+    try:
+        await bot.send_message(chat_id=config.admin_chat_id, text=forward_text, parse_mode="HTML")
+        logger.info(f"Feedback forwarded from user {message.from_user.id} (@{message.from_user.username})")
+        await message.answer(get_text(lang, "feedback_sent"), parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Failed to forward feedback from user {message.from_user.id}: {e}")
+        await message.answer(get_text(lang, "err_feedback_unavailable"), parse_mode="HTML")
