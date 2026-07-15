@@ -4,7 +4,7 @@ TEXTS = {
     "ua": {
         'ask_extend_days': 'На скільки днів продовжити курс?',
         'ask_new_name': '📝 Введіть ваше нове ПІБ:',
-        'ask_new_tz': '🌍 Введіть ваш новий часовий пояс\n\nПриклади: <code>Europe/Kyiv</code>, <code>Europe/Warsaw</code>',
+        'ask_new_tz': '🌍 Напишіть місто і країну, де ви зараз перебуваєте\n\nНаприклад: <code>Варшава, Польща</code>',
         'btn_add': '➕ Додати',
         'btn_back': '⬅️ Назад',
         'btn_change_name': '✏️ Змінити ПІБ',
@@ -24,6 +24,7 @@ TEXTS = {
         'edit_what': '✏️ <b>Що змінити?</b>',
         'err_invalid_number': '❌ Будь ласка, введіть коректне число.',
         'err_stock': '❌ Введіть ціле додатне число (наприклад: 20):',
+        'err_timezone_place': '❌ Не вдалося визначити місто. Спробуйте ще раз у форматі: <b>Місто, Країна</b> (наприклад: <code>Варшава, Польща</code>).',
         'fallback_text': '👋 Натисніть /start щоб розпочати або оберіть дію з меню.',
         'help_text': (
             '<b>📖 Доступні команди:</b>\n\n'
@@ -63,12 +64,13 @@ TEXTS = {
             'Оберіть дію з меню нижче 👇'
         ),
         'tz_updated': '✅ Часовий пояс успішно оновлено!\n⏰ <i>Усі ваші нагадування автоматично переведені на новий час.</i>',
+        'tz_updated_with_name': '✅ Часовий пояс оновлено: <b>{tz}</b>\n⏰ <i>Усі ваші нагадування автоматично переведені на новий час.</i>',
         'generic_error': '⚠️ Сталася помилка під час обробки вашого запиту.'
     },
     "en": {
         'ask_extend_days': 'How many days to extend the course?',
         'ask_new_name': '📝 Enter your new Full Name:',
-        'ask_new_tz': '🌍 Enter your new timezone\n\nExamples: <code>Europe/Kyiv</code>, <code>Europe/Warsaw</code>',
+        'ask_new_tz': '🌍 Tell me the city and country you\'re currently in\n\nFor example: <code>Warsaw, Poland</code>',
         'btn_add': '➕ Add',
         'btn_back': '⬅️ Back',
         'btn_change_name': '✏️ Change Name',
@@ -88,6 +90,7 @@ TEXTS = {
         'edit_what': '✏️ <b>What to change?</b>',
         'err_invalid_number': '❌ Please enter a valid number.',
         'err_stock': '❌ Enter a positive integer (e.g., 20):',
+        'err_timezone_place': '❌ Could not find that place. Please try again in the format: <b>City, Country</b> (e.g. <code>Warsaw, Poland</code>).',
         'fallback_text': '👋 Press /start or choose an action from the menu.',
         'help_text': (
             '<b>📖 Available commands:</b>\n\n'
@@ -127,12 +130,13 @@ TEXTS = {
             'Choose an action from the menu below 👇'
         ),
         'tz_updated': '✅ Timezone successfully updated!\n⏰ <i>All your reminders have been automatically adjusted to the new time.</i>',
+        'tz_updated_with_name': '✅ Timezone updated: <b>{tz}</b>\n⏰ <i>All your reminders have been automatically adjusted to the new time.</i>',
         'generic_error': '⚠️ An error occurred while processing your request.'
     },
     "ru": {
         'ask_extend_days': 'На сколько дней продлить курс?',
         'ask_new_name': '📝 Введите ваше новое ФИО:',
-        'ask_new_tz': '🌍 Введите ваш новый часовой пояс\n\nПримеры: <code>Europe/Kyiv</code>, <code>Europe/Warsaw</code>',
+        'ask_new_tz': '🌍 Напишите город и страну, где вы сейчас находитесь\n\nНапример: <code>Варшава, Польша</code>',
         'btn_add': '➕ Добавить',
         'btn_back': '⬅️ Назад',
         'btn_change_name': '✏️ Изменить ФИО',
@@ -152,6 +156,7 @@ TEXTS = {
         'edit_what': '✏️ <b>Что изменить?</b>',
         'err_invalid_number': '❌ Пожалуйста, введите корректное число.',
         'err_stock': '❌ Введите целое положительное число (например: 20):',
+        'err_timezone_place': '❌ Не удалось определить город. Попробуйте ещё раз в формате: <b>Город, Страна</b> (например: <code>Варшава, Польша</code>).',
         'fallback_text': '👋 Нажмите /start чтобы начать или выберите действие из меню.',
         'help_text': (
             '<b>📖 Доступные команды:</b>\n\n'
@@ -191,6 +196,7 @@ TEXTS = {
             'Выберите действие из меню ниже 👇'
         ),
         'tz_updated': '✅ Часовой пояс успешно обновлён!\n⏰ <i>Все ваши напоминания автоматически переведены на новое время.</i>',
+        'tz_updated_with_name': '✅ Часовой пояс обновлён: <b>{tz}</b>\n⏰ <i>Все ваши напоминания автоматически переведены на новое время.</i>',
         'generic_error': '⚠️ Произошла ошибка при обработке вашего запроса.'
     },
 }

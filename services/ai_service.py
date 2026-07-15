@@ -8,9 +8,9 @@ import time
 import aiohttp
 
 from config import Config
+from database import crud
 from locales.texts import get_text
 from services.ai_tools import TOOL_SCHEMAS, execute_tool
-from database import crud
 
 logger = logging.getLogger(__name__)
 
@@ -516,7 +516,7 @@ async def _run_agent_loop(
                     retried_for_grounding = True
                     continue
 
-                meta = {"tool_choice": first_tool_choice, "tool_names": called_tool_names}
+                meta: dict[str, str | list[str] | None] = {"tool_choice": first_tool_choice, "tool_names": called_tool_names}
                 return final_text, f"NVIDIA Agent ({config.nvidia_model})", None, meta
 
             tool_calls = _dedupe_tool_calls(tool_calls)

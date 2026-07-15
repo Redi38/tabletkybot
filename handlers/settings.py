@@ -1,4 +1,3 @@
-import pytz
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -7,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
 from locales.texts import btn_variants, get_text
+from services.geo_service import resolve_timezone_from_place
 from services.scheduler import add_reminders_for_medicine
 
 router = Router()
@@ -52,8 +52,9 @@ async def settings_menu(message: Message, session: AsyncSession) -> None:
         message.from_user.username, message.from_user.full_name,
     )
     lang = user.language or "ua"
+    tz_display = user.timezone or get_text(lang, "not_set")
     await message.answer(
-        get_text(lang, "settings_title", name=str(user.full_name), tz=str(user.timezone)),
+        get_text(lang, "settings_title", name=str(user.full_name), tz=tz_display),
         reply_markup=settings_keyboard(lang),
         parse_mode="HTML",
     )
@@ -100,21 +101,21 @@ async def edit_tz_save(message: Message, state: FSMContext, session: AsyncSessio
     ctx = await _msg_ctx(message, state)
     if not ctx or not message.from_user:
         return
-    new_tz, lang = ctx
+    place_text, lang = ctx
 
-    try:
-        pytz.timezone(new_tz)
-    except pytz.UnknownTimeZoneError:
-        await message.answer(get_text(lang, "err_timezone"), parse_mode="HTML")
+    tz_name = await resolve_timezone_from_place(place_text)
+
+    if not tz_name:
+        await message.answer(get_text(lang, "err_timezone_place"), parse_mode="HTML")
         return
 
-    await crud.update_user_timezone(session, message.from_user.id, new_tz)
+    await crud.update_user_timezone(session, message.from_user.id, tz_name)
     medicines = await crud.get_user_medicines(session, message.from_user.id, active_only=True)
     for med in medicines:
-        add_reminders_for_medicine(bot=bot, medicine=med, timezone=new_tz,
+        add_reminders_for_medicine(bot=bot, medicine=med, timezone=tz_name,
                                    chat_id=message.from_user.id, language=lang)
     await state.clear()
-    await message.answer(get_text(lang, "tz_updated"), parse_mode="HTML")
+    await message.answer(get_text(lang, "tz_updated_with_name", tz=tz_name), parse_mode="HTML")
 
 
 # ── Language ────────────────────────────────────────────────

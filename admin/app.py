@@ -19,7 +19,7 @@ from wtforms.validators import AnyOf, DataRequired, Length, NumberRange, Regexp
 
 from config import load_config
 from database import crud
-from database.models import ChatHistory, Medicine, MedicineRecord, MedicineSchedule, Prescription, User, AIMetric
+from database.models import ChatHistory, Medicine, MedicineRecord, MedicineSchedule, Prescription, User
 
 # ─── Admin panel file logging ──────
 LOG_DIR = os.getenv("LOG_DIR", "/app/logs")

@@ -4,7 +4,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from database.models import ChatHistory, Medicine, MedicineRecord, MedicineSchedule, Prescription, User, AIMetric
+from database.models import AIMetric, ChatHistory, Medicine, MedicineRecord, MedicineSchedule, Prescription, User
 
 
 # ─── Helper functions ──────────────────────────────────────────────────────

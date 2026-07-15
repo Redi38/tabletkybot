@@ -16,3 +16,5 @@ cryptography
 wtforms<3.2
 boto3
 nvidia-riva-client
+geopy
+timezonefinder

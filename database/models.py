@@ -40,7 +40,7 @@ class User(Base):
     username: Mapped[str | None] = mapped_column(String(64), nullable=True)
     full_name: Mapped[str] = mapped_column(String(128))
     language: Mapped[str] = mapped_column(String(8), default="ua")
-    timezone: Mapped[str] = mapped_column(String(64), default="Europe/Kyiv")
+    timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     medicines: Mapped[list["Medicine"]] = relationship(
@@ -125,6 +125,7 @@ class ChatHistory(Base):
     def __str__(self) -> str:
         return f"{self.role.capitalize()}: {self.content[:30]}..."
 
+
 class Prescription(Base):
     __tablename__ = "prescriptions"
 
@@ -145,6 +146,7 @@ class Prescription(Base):
 
     def __str__(self) -> str:
         return f"{self.medicine_name} (until {self.expires_at.strftime('%d.%m.%Y')})"
+
 
 class AIMetric(Base):
     __tablename__ = "ai_metrics"
