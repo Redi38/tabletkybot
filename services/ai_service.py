@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import json
 import logging
 import re
@@ -16,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 _NVIDIA_TIMEOUT = aiohttp.ClientTimeout(total=120)
 _OLLAMA_TIMEOUT = aiohttp.ClientTimeout(total=120)
-_VISION_TIMEOUT = aiohttp.ClientTimeout(total=180)
 
 _AGENT_CALL_TIMEOUT = aiohttp.ClientTimeout(total=25)
 _AGENT_TOTAL_TIMEOUT_SECONDS = 45
@@ -215,34 +213,6 @@ async def ask_nvidia(
     return data["choices"][0]["message"]["content"]
 
 
-async def ask_nvidia_vision(
-        api_key: str, base_url: str, model: str,
-        image_bytes: bytes, user_text: str, language: str = "ua",
-) -> str:
-    image_b64 = base64.b64encode(image_bytes).decode()
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt(language)},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-                    {"type": "text", "text": user_text},
-                ],
-            },
-        ],
-        "temperature": 0.4,
-        "max_tokens": 1024,
-        "stream": False,
-    }
-    data = await _post_json(
-        f"{base_url.rstrip('/')}/chat/completions",
-        payload, _nvidia_headers(api_key), _NVIDIA_TIMEOUT,
-    )
-    return data["choices"][0]["message"]["content"]
-
-
 async def ask_ollama(
         ollama_url: str, model: str, messages: list[dict], language: str = "ua",
 ) -> str:
@@ -256,25 +226,6 @@ async def ask_ollama(
     if "message" in data:
         return data["message"]["content"]
     raise ValueError(f"Unexpected Ollama response: {data}")
-
-
-async def ask_ollama_vision(
-        ollama_url: str, model: str, image_bytes: bytes, user_text: str, language: str = "ua",
-) -> str:
-    image_b64 = base64.b64encode(image_bytes).decode()
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt(language)},
-            {"role": "user", "content": user_text, "images": [image_b64]},
-        ],
-        "stream": False,
-        "options": {"temperature": 0.4},
-    }
-    data = await _post_json(f"{ollama_url.rstrip('/')}/api/chat", payload, None, _VISION_TIMEOUT)
-    if "message" in data:
-        return data["message"]["content"]
-    raise ValueError(f"Unexpected Ollama vision response: {data}")
 
 
 async def get_ai_response(
@@ -299,33 +250,6 @@ async def get_ai_response(
     except Exception as e:
         logger.error(f"Ollama fallback also failed, returning error to user: {type(e).__name__}: {e}")
         return get_text(language, "ai_err_api"), "none"
-
-
-async def get_ai_vision_response(
-        config: Config, image_bytes: bytes, user_text: str, language: str = "ua"
-) -> tuple[str, str]:
-    """Vision request: NVIDIA Vision → Ollama Vision fallback."""
-    language = detect_message_language(user_text) or language
-
-    if config.nvidia_api_key:
-        try:
-            response = await ask_nvidia_vision(
-                config.nvidia_api_key, config.nvidia_base_url,
-                config.nvidia_vision_model, image_bytes, user_text, language,
-            )
-            return format_markdown_to_html(response), f"NVIDIA Vision ({config.nvidia_vision_model})"
-        except Exception as e:
-            logger.warning(f"NVIDIA Vision unavailable, falling back to Ollama Vision: {type(e).__name__}: {e}")
-
-    try:
-        response = await ask_ollama_vision(
-            config.ollama_url, config.ollama_vision_model, image_bytes, user_text, language
-        )
-        return format_markdown_to_html(response), f"Ollama Vision ({config.ollama_vision_model})"
-    except Exception as e:
-        logger.error(f"Ollama Vision fallback also failed, returning error to user: {type(e).__name__}: {e}")
-
-    return get_text(language, "ai_err_vision"), "none"
 
 
 _MAX_AGENT_ITERATIONS = 5  # protection against an infinite loop of tool calls

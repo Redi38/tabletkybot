@@ -19,7 +19,7 @@ from database import crud
 from database.crud import get_or_create_user, get_user_language
 from handlers.start import get_main_keyboard
 from locales.texts import get_text
-from services.ai_service import format_markdown_to_html, get_ai_agent_response, get_ai_vision_response, strip_html_tags
+from services.ai_service import format_markdown_to_html, get_ai_agent_response, strip_html_tags
 from services.scheduler import remove_reminders
 from services.voice_service import transcribe_voice
 
@@ -48,20 +48,6 @@ async def download_telegram_file(bot: Bot, file_id: str) -> bytes:
         async with session.get(file_url) as resp:
             resp.raise_for_status()
             return await resp.read()
-
-
-async def pdf_to_image(pdf_bytes: bytes) -> bytes | None:
-    """Convert the first page of a PDF into an image."""
-    try:
-        import fitz
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        page = doc[0]
-        mat = fitz.Matrix(2, 2)
-        pix = page.get_pixmap(matrix=mat)
-        return pix.tobytes("jpeg")
-    except Exception as e:
-        logger.error(f"PDF conversion error: {e}")
-        return None
 
 
 async def _send_ai_answer(message: Message, response_text: str, model_used: str, language: str) -> None:
@@ -117,90 +103,6 @@ async def _process_ai_text(
 
     formatted_text = format_markdown_to_html(raw_text)
     await _send_ai_answer(message, formatted_text, model_used, language)
-
-
-@router.message(F.photo)
-async def handle_photo(message: Message, session: AsyncSession, config: Config, bot: Bot, state: FSMContext) -> None:
-    """Handles photos via the Vision model — works in a regular chat, no separate AI mode."""
-    if not message.from_user or not message.photo:
-        return
-    if await state.get_state() is not None:
-        return
-
-    await bot.send_chat_action(message.chat.id, "typing")
-
-    user = await get_or_create_user(
-        session, message.from_user.id,
-        message.from_user.username, message.from_user.full_name,
-    )
-    language = user.language or "ua"
-
-    photo = message.photo[-1]
-    caption = message.caption or get_text(language, "ai_analyze_photo")
-
-    await message.answer(get_text(language, "ai_analyzing"), reply_markup=get_main_keyboard(language))
-
-    try:
-        image_bytes = await download_telegram_file(bot, photo.file_id)
-        response_text, model_used = await get_ai_vision_response(config, image_bytes, caption, language)
-
-        await crud.add_chat_message(session, message.from_user.id, "user", f"[Photo] {caption}")
-        await crud.add_chat_message(session, message.from_user.id, "assistant", response_text)
-        await _send_ai_answer(message, response_text, model_used, language)
-
-    except Exception as e:
-        logger.error(f"AI photo processing error: {e}")
-        await message.answer(get_text(language, "ai_err_photo"), reply_markup=get_main_keyboard(language))
-
-
-@router.message(F.document)
-async def handle_document(message: Message, session: AsyncSession, config: Config, bot: Bot, state: FSMContext) -> None:
-    """Handles PDF documents — works in a regular chat, no separate AI mode."""
-    doc = message.document
-    if not message.from_user or not doc:
-        return
-    if await state.get_state() is not None:
-        return
-
-    user = await get_or_create_user(
-        session, message.from_user.id,
-        message.from_user.username, message.from_user.full_name,
-    )
-    language = user.language or "ua"
-
-    if doc.mime_type != "application/pdf":
-        await message.answer(
-            get_text(language, "ai_err_type", mime=str(doc.mime_type)),
-            parse_mode="HTML",
-            reply_markup=get_main_keyboard(language),
-        )
-        return
-
-    await bot.send_chat_action(message.chat.id, "typing")
-    await message.answer(get_text(language, "ai_process_pdf"), reply_markup=get_main_keyboard(language))
-
-    try:
-        pdf_bytes = await download_telegram_file(bot, doc.file_id)
-        image_bytes = await pdf_to_image(pdf_bytes)
-
-        if image_bytes is None:
-            await message.answer(
-                get_text(language, "ai_err_pdf_lib"),
-                parse_mode="HTML",
-                reply_markup=get_main_keyboard(language),
-            )
-            return
-
-        caption = message.caption or get_text(language, "ai_analyze_pdf")
-        response_text, model_used = await get_ai_vision_response(config, image_bytes, caption, language)
-
-        await crud.add_chat_message(session, message.from_user.id, "user", f"[PDF] {caption}")
-        await crud.add_chat_message(session, message.from_user.id, "assistant", response_text)
-        await _send_ai_answer(message, response_text, model_used, language)
-
-    except Exception as e:
-        logger.error(f"PDF document processing error: {e}")
-        await message.answer(get_text(language, "ai_err_pdf"), reply_markup=get_main_keyboard(language))
 
 
 @router.message(F.voice)

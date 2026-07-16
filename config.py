@@ -21,11 +21,9 @@ class Config:
     nvidia_api_key: str | None = None
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_model: str = "meta/llama-3.1-70b-instruct"
-    nvidia_vision_model: str = "meta/llama-3.2-11b-vision-instruct"
     # Ollama
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
-    ollama_vision_model: str = "llama3.2-vision:latest"
     # PostgreSQL
     postgres_user: str = "botuser"
     postgres_password: str = "botpassword"
@@ -92,10 +90,8 @@ def load_config() -> Config:
         nvidia_api_key=nvidia_api_key,
         nvidia_base_url=os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"),
         nvidia_model=os.getenv("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct"),
-        nvidia_vision_model=os.getenv("NVIDIA_VISION_MODEL", "meta/llama-3.2-11b-vision-instruct"),
         ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
         ollama_model=os.getenv("OLLAMA_MODEL", "llama3"),
-        ollama_vision_model=os.getenv("OLLAMA_VISION_MODEL", "llama3.2-vision:latest"),
         postgres_user=os.getenv("POSTGRES_USER", "botuser"),
         postgres_password=os.getenv("POSTGRES_PASSWORD", "botpassword"),
         postgres_db=os.getenv("POSTGRES_DB", "medbot"),
