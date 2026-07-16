@@ -11,6 +11,7 @@ from database import crud
 from database.models import Medicine
 from locales.texts import btn_variants, get_text
 from services.geo_service import format_timezone_display, resolve_timezone_from_place
+from services.report_service import get_medicine_stats_summary
 from services.scheduler import (
     acquire_action_lock,
     add_reminders_for_medicine,
@@ -408,24 +409,38 @@ async def list_medicines(call: CallbackQuery, session: AsyncSession) -> None:
 
 @router.callback_query(F.data == "med_stats")
 async def medicine_stats(call: CallbackQuery, session: AsyncSession) -> None:
+    """
+    Per-medicine breakdown (taken/missed/% adherence/last dose), using the
+    same aggregation as the Excel report's "By medicine" sheet — so the
+    numbers shown here always match what the user sees in their exported
+    report.
+    """
     ctx = await _base_ctx(call, session)
     if not ctx or not call.from_user:
         return
     msg, lang = ctx
-    stats = await crud.get_medicine_intake_stats(session, call.from_user.id)
-    if stats["total"] == 0:
+
+    records = await crud.get_medicine_records_for_report(session, call.from_user.id)
+    if not records:
         await msg.edit_text(get_text(lang, "med_stats_empty"), reply_markup=medicine_back_only_kb(lang))
         return
-    taken_p = stats["taken"] / stats["total"] * 100
-    skipped_p = stats["skipped"] / stats["total"] * 100
-    text = (
-        f"{get_text(lang, 'med_stats_title')}\n\n"
-        f"{get_text(lang, 'med_stats_total')}: <b>{stats['total']}</b>\n"
-        f"✅ {get_text(lang, 'med_stats_taken')}: <b>{taken_p:.1f}%</b> ({stats['taken']})\n"
-        f"⏭️ {get_text(lang, 'med_stats_skipped')}: <b>{skipped_p:.1f}%</b> ({stats['skipped']})"
-    )
-    await msg.edit_text(text, reply_markup=medicine_back_only_kb(lang), parse_mode="HTML")
 
+    user_tz = await crud.get_user_timezone(session, call.from_user.id)
+    stats_by_medicine = get_medicine_stats_summary(records, user_tz)
+
+    lines = [get_text(lang, "med_stats_title"), ""]
+    for stat in stats_by_medicine:
+        pct = stat["pct"]
+        indicator = "🟢" if pct >= 80 else "🟡" if pct >= 50 else "🔴"
+        last_str = stat["last_dt"].strftime("%d.%m.%Y %H:%M") if stat["last_dt"] else "—"
+        lines.append(
+            f"{indicator} <b>{stat['name']}</b> ({stat['dosage']})\n"
+            f"   ✅ {stat['taken']} / ⏭️ {stat['missed']} — <b>{pct:.1f}%</b>\n"
+            f"   {get_text(lang, 'med_stats_last')}: {last_str}\n"
+        )
+
+    text = "\n".join(lines)
+    await msg.edit_text(text, reply_markup=medicine_back_only_kb(lang), parse_mode="HTML")
 
 # ── Archive and Removal ─────────────────────────────────────────────────────
 @router.callback_query(F.data == "med_archive_list")
