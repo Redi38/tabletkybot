@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import Config
 from database import crud
 from locales.texts import btn_variants, get_text
-from services.geo_service import resolve_timezone_from_place
+from services.geo_service import format_timezone_display, resolve_timezone_from_place
 from services.scheduler import add_reminders_for_medicine
 
 router = Router()
@@ -59,7 +59,7 @@ async def settings_menu(message: Message, session: AsyncSession) -> None:
         message.from_user.username, message.from_user.full_name,
     )
     lang = user.language or "ua"
-    tz_display = user.timezone or get_text(lang, "not_set")
+    tz_display = format_timezone_display(user.timezone) or get_text(lang, "not_set")
     await message.answer(
         get_text(lang, "settings_title", name=str(user.full_name), tz=tz_display),
         reply_markup=settings_keyboard(lang),
@@ -122,7 +122,7 @@ async def edit_tz_save(message: Message, state: FSMContext, session: AsyncSessio
         add_reminders_for_medicine(bot=bot, medicine=med, timezone=tz_name,
                                    chat_id=message.from_user.id, language=lang)
     await state.clear()
-    await message.answer(get_text(lang, "tz_updated_with_name", tz=tz_name), parse_mode="HTML")
+    await message.answer(get_text(lang, "tz_updated_with_name", tz=format_timezone_display(tz_name)), parse_mode="HTML")
 
 
 # ── Language ────────────────────────────────────────────────

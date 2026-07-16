@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from database import crud
 from database.models import Medicine
 from locales.texts import btn_variants, get_text
-from services.geo_service import resolve_timezone_from_place
+from services.geo_service import format_timezone_display, resolve_timezone_from_place
 from services.scheduler import (
     acquire_action_lock,
     add_reminders_for_medicine,
@@ -288,7 +288,7 @@ async def add_timezone(message: Message, state: FSMContext, session: AsyncSessio
 
     await state.update_data(timezone=tz_name)
     await crud.update_user_timezone(session, message.from_user.id, tz_name)
-    await message.answer(get_text(lang, "timezone_resolved", tz=tz_name), parse_mode="HTML")
+    await message.answer(get_text(lang, "timezone_resolved", tz=format_timezone_display(tz_name)), parse_mode="HTML")
     await message.answer(get_text(lang, "ask_track_stock"), reply_markup=track_stock_kb(lang), parse_mode="HTML")
     await state.set_state(AddMedicine.track_stock)
 

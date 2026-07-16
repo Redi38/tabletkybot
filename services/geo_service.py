@@ -7,6 +7,8 @@ step needs a network call.
 """
 import asyncio
 import logging
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 from geopy.geocoders import Nominatim
@@ -40,3 +42,33 @@ async def resolve_timezone_from_place(place_text: str) -> str | None:
         return None
 
     return tz_name
+
+def format_timezone_display(tz_name: str | None) -> str | None:
+    """
+    Converts an IANA timezone name into a human-friendly display string,
+    e.g. "Europe/Kyiv" -> "Kyiv (UTC+3)". Uses the current UTC offset,
+    so it automatically reflects DST where applicable.
+    """
+    if not tz_name:
+        return None
+
+    city = tz_name.split("/")[-1].replace("_", " ")
+
+    try:
+        offset = datetime.now(ZoneInfo(tz_name)).utcoffset()
+    except Exception:
+        return city
+
+    if offset is None:
+        return city
+
+    total_minutes = int(offset.total_seconds() // 60)
+    sign = "+" if total_minutes >= 0 else "-"
+    hours, minutes = divmod(abs(total_minutes), 60)
+
+    if minutes:
+        offset_str = f"UTC{sign}{hours}:{minutes:02d}"
+    else:
+        offset_str = f"UTC{sign}{hours}"
+
+    return f"{city} ({offset_str})"
