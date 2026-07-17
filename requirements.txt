@@ -18,3 +18,4 @@ boto3
 nvidia-riva-client
 geopy
 timezonefinder
+itsdangerous

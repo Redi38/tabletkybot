@@ -7,8 +7,6 @@ services:
       POSTGRES_USER: botuser
       POSTGRES_PASSWORD: botpassword
       POSTGRES_DB: medbot
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,8 +19,6 @@ services:
     image: redis:7-alpine
     container_name: medbot_redis
     restart: always
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -60,7 +56,7 @@ services:
     build: .
     container_name: medbot_admin
     restart: always
-    command: uvicorn admin.app:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn admin.app:app --host 0.0.0.0 --port 8000
     env_file:
       - .env
     environment:
