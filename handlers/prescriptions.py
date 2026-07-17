@@ -62,7 +62,7 @@ async def _base_ctx(call: CallbackQuery, session: AsyncSession) -> tuple[Message
 
 
 async def _valid_prescription_ctx(
-        call: CallbackQuery, session: AsyncSession
+    call: CallbackQuery, session: AsyncSession
 ) -> tuple[Message, str, int, Prescription] | None:
     base = await _base_ctx(call, session)
     if not base or not call.data:
@@ -108,68 +108,119 @@ class AddPurchaseToStock(StatesGroup):
     Flow after marking a prescription purchase: we ask for the pack size and
     which (active) medicine to add the purchased quantity to in stock.
     """
+
     waiting_pack_size = State()
     waiting_medicine_choice = State()
 
 
 # ── Keyboards ───────────────────────────────────────────────────────────
 def prescription_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text=get_text(language, "btn_add"), callback_data="presc_add", style="success"),
-            InlineKeyboardButton(text=get_text(language, "btn_list"), callback_data="presc_list", style="primary"),
-        ],
-        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_back")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=get_text(language, "btn_add"), callback_data="presc_add", style="success"),
+                InlineKeyboardButton(text=get_text(language, "btn_list"), callback_data="presc_list", style="primary"),
+            ],
+            [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_back")],
+        ]
+    )
 
 
 def prescription_back_only_kb(language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_menu")]
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_menu")]]
+    )
 
 
 def back_to_list_kb(language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_list")]
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_list")]]
+    )
 
 
 def duration_kb(language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=get_text(language, "btn_duration_30"), callback_data="presc_dur_30"),
-        InlineKeyboardButton(text=get_text(language, "btn_duration_60"), callback_data="presc_dur_60"),
-    ]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=get_text(language, "btn_duration_30"), callback_data="presc_dur_30"),
+                InlineKeyboardButton(text=get_text(language, "btn_duration_60"), callback_data="presc_dur_60"),
+            ]
+        ]
+    )
 
 
 def edit_duration_kb(prescription_id: int, language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=get_text(language, "btn_duration_30"), callback_data=f"presc_edur_30_{prescription_id}"),
-        InlineKeyboardButton(text=get_text(language, "btn_duration_60"), callback_data=f"presc_edur_60_{prescription_id}"),
-    ]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_duration_30"), callback_data=f"presc_edur_30_{prescription_id}"
+                ),
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_duration_60"), callback_data=f"presc_edur_60_{prescription_id}"
+                ),
+            ]
+        ]
+    )
 
 
 def edit_field_kb(prescription_id: int, language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=get_text(language, "btn_edit_valid_from"), callback_data=f"presc_ef_valid_{prescription_id}", style="primary")],
-        [InlineKeyboardButton(text=get_text(language, "btn_edit_presc_duration"), callback_data=f"presc_ef_duration_{prescription_id}", style="primary")],
-        [InlineKeyboardButton(text=get_text(language, "btn_edit_quantity"), callback_data=f"presc_ef_quantity_{prescription_id}", style="primary")],
-        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_list")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_edit_valid_from"),
+                    callback_data=f"presc_ef_valid_{prescription_id}",
+                    style="primary",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_edit_presc_duration"),
+                    callback_data=f"presc_ef_duration_{prescription_id}",
+                    style="primary",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_edit_quantity"),
+                    callback_data=f"presc_ef_quantity_{prescription_id}",
+                    style="primary",
+                )
+            ],
+            [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_list")],
+        ]
+    )
 
 
 def archived_prescription_row(prescription_id: int, language: str = "ua") -> list[InlineKeyboardButton]:
     return [
-        InlineKeyboardButton(text=get_text(language, "btn_restore_presc"), callback_data=f"presc_restore_{prescription_id}", style="success"),
-        InlineKeyboardButton(text=get_text(language, "btn_delete_presc"), callback_data=f"presc_delete_ask_{prescription_id}", style="danger"),
+        InlineKeyboardButton(
+            text=get_text(language, "btn_restore_presc"),
+            callback_data=f"presc_restore_{prescription_id}",
+            style="success",
+        ),
+        InlineKeyboardButton(
+            text=get_text(language, "btn_delete_presc"),
+            callback_data=f"presc_delete_ask_{prescription_id}",
+            style="danger",
+        ),
     ]
 
 
 def stock_ask_kb(prescription_id: int, amount: int, language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=get_text(language, "btn_yes"), callback_data=f"presc_stock_yes_{prescription_id}_{amount}", style="success"),
-        InlineKeyboardButton(text=get_text(language, "btn_no"), callback_data="presc_stock_no"),
-    ]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_yes"),
+                    callback_data=f"presc_stock_yes_{prescription_id}_{amount}",
+                    style="success",
+                ),
+                InlineKeyboardButton(text=get_text(language, "btn_no"), callback_data="presc_stock_no"),
+            ]
+        ]
+    )
 
 
 # ── Navigation ────────────────────────────────────────────────────────────
@@ -243,7 +294,8 @@ async def add_valid_from(message: Message, state: FSMContext) -> None:
     await state.update_data(valid_from=valid_from.isoformat())
     await message.answer(
         get_text(lang, "presc_choose_duration"),
-        reply_markup=duration_kb(lang), parse_mode="HTML",
+        reply_markup=duration_kb(lang),
+        parse_mode="HTML",
     )
     await state.set_state(AddPrescription.duration)
 
@@ -313,7 +365,8 @@ async def add_reminder(message: Message, state: FSMContext, session: AsyncSessio
     )
     await message.answer(
         get_text(
-            lang, "presc_added",
+            lang,
+            "presc_added",
             name=prescription.medicine_name,
             valid_from=prescription.valid_from.strftime("%d.%m.%Y"),
             expires=prescription.expires_at.strftime("%d.%m.%Y"),
@@ -333,10 +386,12 @@ async def list_prescriptions(call: CallbackQuery, session: AsyncSession) -> None
     prescriptions = await crud.get_user_prescriptions(session, call.from_user.id)
 
     if not prescriptions:
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=get_text(lang, "btn_archive_list"), callback_data="presc_archive_list")],
-            [InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="presc_menu")],
-        ])
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=get_text(lang, "btn_archive_list"), callback_data="presc_archive_list")],
+                [InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="presc_menu")],
+            ]
+        )
         await msg.edit_text(get_text(lang, "presc_empty"), reply_markup=kb, parse_mode="HTML")
         return
 
@@ -352,8 +407,16 @@ async def list_prescriptions(call: CallbackQuery, session: AsyncSession) -> None
         )
         row = [InlineKeyboardButton(text=f"✏️ {p.medicine_name}", callback_data=f"presc_edit_{p.id}", style="primary")]
         if not p.is_fully_purchased:
-            row.append(InlineKeyboardButton(text=get_text(lang, "btn_mark_bought"), callback_data=f"presc_buy_ask_{p.id}", style="success"))
-        row.append(InlineKeyboardButton(text=get_text(lang, "btn_archive_presc"), callback_data=f"presc_archive_ask_{p.id}", style="danger"))
+            row.append(
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_mark_bought"), callback_data=f"presc_buy_ask_{p.id}", style="success"
+                )
+            )
+        row.append(
+            InlineKeyboardButton(
+                text=get_text(lang, "btn_archive_presc"), callback_data=f"presc_archive_ask_{p.id}", style="danger"
+            )
+        )
         buttons.append(row)
 
     buttons.append([InlineKeyboardButton(text=get_text(lang, "btn_archive_list"), callback_data="presc_archive_list")])
@@ -370,7 +433,8 @@ async def edit_menu(call: CallbackQuery, session: AsyncSession) -> None:
     msg, lang, prescription_id, prescription = ctx
     await msg.edit_text(
         get_text(lang, "presc_edit_title", name=prescription.medicine_name),
-        reply_markup=edit_field_kb(prescription_id, lang), parse_mode="HTML",
+        reply_markup=edit_field_kb(prescription_id, lang),
+        parse_mode="HTML",
     )
     await call.answer()
 
@@ -430,7 +494,8 @@ async def edit_duration_start(call: CallbackQuery, session: AsyncSession) -> Non
     msg, lang, prescription_id, _ = ctx
     await msg.edit_text(
         get_text(lang, "presc_choose_duration"),
-        reply_markup=edit_duration_kb(prescription_id, lang), parse_mode="HTML",
+        reply_markup=edit_duration_kb(prescription_id, lang),
+        parse_mode="HTML",
     )
     await call.answer()
 
@@ -542,17 +607,22 @@ async def buy_amount_entered(message: Message, state: FSMContext, session: Async
             )
             return
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(
-            text=get_text(lang, "btn_confirm_bought"),
-            callback_data=f"presc_buy_confirm_{prescription_id}_{amount}",
-            style="success",
-        ),
-        InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="presc_list"),
-    ]])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_confirm_bought"),
+                    callback_data=f"presc_buy_confirm_{prescription_id}_{amount}",
+                    style="success",
+                ),
+                InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="presc_list"),
+            ]
+        ]
+    )
     await message.answer(
         get_text(lang, "presc_bought_confirm", amount=amount, name=prescription.medicine_name),
-        reply_markup=kb, parse_mode="HTML",
+        reply_markup=kb,
+        parse_mode="HTML",
     )
     await state.clear()
 
@@ -576,8 +646,12 @@ async def buy_confirm(call: CallbackQuery, session: AsyncSession) -> None:
     )
 
     await msg.edit_text(
-        get_text(lang, "presc_bought_success", purchased=result["purchased_quantity"],
-                  max=result["max_quantity"] if result["max_quantity"] is not None else "∞"),
+        get_text(
+            lang,
+            "presc_bought_success",
+            purchased=result["purchased_quantity"],
+            max=result["max_quantity"] if result["max_quantity"] is not None else "∞",
+        ),
         parse_mode="HTML",
     )
 
@@ -588,13 +662,26 @@ async def buy_confirm(call: CallbackQuery, session: AsyncSession) -> None:
     )
 
     if result.get("is_fully_purchased"):
-        kb = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text=get_text(lang, "btn_presc_archive_now"), callback_data=f"presc_finish_archive_{prescription_id}", style="danger"),
-            InlineKeyboardButton(text=get_text(lang, "btn_presc_keep_active"), callback_data=f"presc_finish_keep_{prescription_id}", style="success"),
-        ]])
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=get_text(lang, "btn_presc_archive_now"),
+                        callback_data=f"presc_finish_archive_{prescription_id}",
+                        style="danger",
+                    ),
+                    InlineKeyboardButton(
+                        text=get_text(lang, "btn_presc_keep_active"),
+                        callback_data=f"presc_finish_keep_{prescription_id}",
+                        style="success",
+                    ),
+                ]
+            ]
+        )
         await msg.answer(
             get_text(lang, "presc_fully_purchased_ask", name=result["medicine_name"]),
-            reply_markup=kb, parse_mode="HTML",
+            reply_markup=kb,
+            parse_mode="HTML",
         )
     await call.answer()
 
@@ -648,10 +735,7 @@ async def stock_pack_size_entered(message: Message, state: FSMContext, session: 
         return
 
     await state.update_data(total=total)
-    buttons = [
-        [InlineKeyboardButton(text=f"💊 {m.name}", callback_data=f"presc_stock_pick_{m.id}")]
-        for m in medicines
-    ]
+    buttons = [[InlineKeyboardButton(text=f"💊 {m.name}", callback_data=f"presc_stock_pick_{m.id}")] for m in medicines]
     await message.answer(
         get_text(lang, "presc_stock_choose_medicine", total=total),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
@@ -694,7 +778,9 @@ async def finish_archive(call: CallbackQuery, session: AsyncSession) -> None:
         return
     msg, lang, prescription_id, prescription = ctx
     await crud.archive_prescription(session, prescription_id)
-    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived prescription '{prescription.medicine_name}' (id={prescription_id}) after full purchase")
+    logger.info(
+        f"User {call.from_user.id} (@{call.from_user.username}) archived prescription '{prescription.medicine_name}' (id={prescription_id}) after full purchase"
+    )
     await msg.edit_text(get_text(lang, "presc_archived", name=prescription.medicine_name), parse_mode="HTML")
     await call.answer()
 
@@ -718,13 +804,22 @@ async def archive_ask(call: CallbackQuery, session: AsyncSession) -> None:
     if not ctx:
         return
     msg, lang, prescription_id, prescription = ctx
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=get_text(lang, "btn_confirm_archive"), callback_data=f"presc_archive_confirm_{prescription_id}", style="danger"),
-        InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="presc_list"),
-    ]])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_confirm_archive"),
+                    callback_data=f"presc_archive_confirm_{prescription_id}",
+                    style="danger",
+                ),
+                InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="presc_list"),
+            ]
+        ]
+    )
     await msg.edit_text(
         get_text(lang, "presc_archive_confirm_q", name=prescription.medicine_name),
-        reply_markup=kb, parse_mode="HTML",
+        reply_markup=kb,
+        parse_mode="HTML",
     )
     await call.answer()
 
@@ -736,10 +831,13 @@ async def archive_confirm(call: CallbackQuery, session: AsyncSession) -> None:
         return
     msg, lang, prescription_id, prescription = ctx
     await crud.archive_prescription(session, prescription_id)
-    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived prescription '{prescription.medicine_name}' (id={prescription_id})")
+    logger.info(
+        f"User {call.from_user.id} (@{call.from_user.username}) archived prescription '{prescription.medicine_name}' (id={prescription_id})"
+    )
     await msg.edit_text(
         get_text(lang, "presc_archived", name=prescription.medicine_name),
-        reply_markup=back_to_list_kb(lang), parse_mode="HTML",
+        reply_markup=back_to_list_kb(lang),
+        parse_mode="HTML",
     )
     await call.answer()
 
@@ -754,7 +852,9 @@ async def archive_list(call: CallbackQuery, session: AsyncSession) -> None:
     archived = await crud.get_user_archived_prescriptions(session, call.from_user.id)
 
     if not archived:
-        await msg.edit_text(get_text(lang, "presc_archive_empty"), reply_markup=back_to_list_kb(lang), parse_mode="HTML")
+        await msg.edit_text(
+            get_text(lang, "presc_archive_empty"), reply_markup=back_to_list_kb(lang), parse_mode="HTML"
+        )
         return
 
     text = get_text(lang, "presc_archive_title")
@@ -774,13 +874,22 @@ async def delete_ask(call: CallbackQuery, session: AsyncSession) -> None:
     if not ctx:
         return
     msg, lang, prescription_id, prescription = ctx
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=get_text(lang, "btn_confirm_delete"), callback_data=f"presc_delete_confirm_{prescription_id}", style="danger"),
-        InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="presc_archive_list"),
-    ]])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_confirm_delete"),
+                    callback_data=f"presc_delete_confirm_{prescription_id}",
+                    style="danger",
+                ),
+                InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="presc_archive_list"),
+            ]
+        ]
+    )
     await msg.edit_text(
         get_text(lang, "presc_delete_confirm_q", name=prescription.medicine_name),
-        reply_markup=kb, parse_mode="HTML",
+        reply_markup=kb,
+        parse_mode="HTML",
     )
     await call.answer()
 
@@ -793,8 +902,12 @@ async def delete_confirm(call: CallbackQuery, session: AsyncSession) -> None:
     msg, lang, prescription_id, prescription = ctx
     name = prescription.medicine_name
     await crud.delete_prescription(session, prescription_id)
-    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) permanently deleted prescription '{name}' (id={prescription_id})")
-    await msg.edit_text(get_text(lang, "presc_deleted", name=name), reply_markup=prescription_menu_kb(lang), parse_mode="HTML")
+    logger.info(
+        f"User {call.from_user.id} (@{call.from_user.username}) permanently deleted prescription '{name}' (id={prescription_id})"
+    )
+    await msg.edit_text(
+        get_text(lang, "presc_deleted", name=name), reply_markup=prescription_menu_kb(lang), parse_mode="HTML"
+    )
     await call.answer()
 
 
@@ -823,7 +936,8 @@ async def restore_valid_from(message: Message, state: FSMContext) -> None:
     await state.update_data(valid_from=valid_from.isoformat())
     await message.answer(
         get_text(lang, "presc_choose_duration"),
-        reply_markup=duration_kb(lang), parse_mode="HTML",
+        reply_markup=duration_kb(lang),
+        parse_mode="HTML",
     )
     await state.set_state(RestorePrescription.duration)
 
@@ -856,14 +970,17 @@ async def restore_quantity(message: Message, state: FSMContext, session: AsyncSe
 
     valid_from = date.fromisoformat(data["valid_from"])
     await crud.restore_prescription(
-        session, data["prescription_id"],
+        session,
+        data["prescription_id"],
         valid_from=valid_from,
         expires_at=date.fromisoformat(data["expires"]),
         max_quantity=qty,
     )
 
     if message.from_user:
-        logger.info(f"User {message.from_user.id} (@{message.from_user.username}) restored prescription (id={data['prescription_id']}) from archive")
+        logger.info(
+            f"User {message.from_user.id} (@{message.from_user.username}) restored prescription (id={data['prescription_id']}) from archive"
+        )
 
     await state.clear()
     await message.answer(get_text(lang, "presc_restored"), reply_markup=prescription_menu_kb(lang), parse_mode="HTML")

@@ -47,8 +47,13 @@ def _pending_key(chat_id: int, medicine_id: int) -> str:
 
 
 async def _save_pending_reminder(
-        chat_id: int, medicine_id: int, message_id: int,
-        medicine_name: str, course_duration: int, language: str, timezone: str,
+    chat_id: int,
+    medicine_id: int,
+    message_id: int,
+    medicine_name: str,
+    course_duration: int,
+    language: str,
+    timezone: str,
 ) -> None:
     if not _redis_client:
         return
@@ -180,17 +185,26 @@ def _med_job_id(medicine_id: int, schedule_id: int) -> str:
 
 
 def get_reminder_keyboard(medicine_id: int, language: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=get_text(language, "btn_take"), callback_data=f"take_{medicine_id}"),
-        InlineKeyboardButton(text=get_text(language, "btn_skip"), callback_data=f"skip_{medicine_id}"),
-    ]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=get_text(language, "btn_take"), callback_data=f"take_{medicine_id}"),
+                InlineKeyboardButton(text=get_text(language, "btn_skip"), callback_data=f"skip_{medicine_id}"),
+            ]
+        ]
+    )
 
 
 async def send_reminder(
-        bot: Bot, medicine_id: int, medicine_name: str,
-        chat_id: int, course_duration: int, language: str,
-        timezone: str = "Europe/Kyiv", is_manual: bool = False,
-        session_factory: async_sessionmaker | None = None,
+    bot: Bot,
+    medicine_id: int,
+    medicine_name: str,
+    chat_id: int,
+    course_duration: int,
+    language: str,
+    timezone: str = "Europe/Kyiv",
+    is_manual: bool = False,
+    session_factory: async_sessionmaker | None = None,
 ) -> None:
     # ── Auto-archive check ──────────────────────────────────────────────
     # If the empty-stock alert from the previous dose is still unacknowledged
@@ -200,6 +214,7 @@ async def send_reminder(
         stock_alert = await get_stock_alert_pending(chat_id, medicine_id)
         if stock_alert:
             from database import crud
+
             async with session_factory() as session:
                 await crud.update_medicine_field(session, medicine_id, "is_active", False)
             remove_reminders(medicine_id)
@@ -226,8 +241,7 @@ async def send_reminder(
         _manual_reminder_today[medicine_id] = today
     elif _manual_reminder_today.get(medicine_id) == today:
         logger.info(
-            f"Skipping the regular reminder for med_{medicine_id} — "
-            f"already sent manually today via the Admin Panel"
+            f"Skipping the regular reminder for med_{medicine_id} — already sent manually today via the Admin Panel"
         )
         _manual_reminder_today.pop(medicine_id, None)
         return
@@ -242,8 +256,13 @@ async def send_reminder(
         logger.info(f"Reminder sent to user {chat_id} for {medicine_name}")
 
         await _save_pending_reminder(
-            chat_id, medicine_id, sent.message_id,
-            medicine_name, course_duration, language, timezone,
+            chat_id,
+            medicine_id,
+            sent.message_id,
+            medicine_name,
+            course_duration,
+            language,
+            timezone,
         )
 
         scheduler.add_job(
@@ -291,8 +310,13 @@ async def send_repeat_reminder(bot: Bot, medicine_id: int, chat_id: int) -> None
             parse_mode="HTML",
         )
         await _save_pending_reminder(
-            chat_id, medicine_id, sent.message_id,
-            medicine_name, pending["course_duration"], language, pending["timezone"],
+            chat_id,
+            medicine_id,
+            sent.message_id,
+            medicine_name,
+            pending["course_duration"],
+            language,
+            pending["timezone"],
         )
         logger.info(f"Repeat reminder sent to {chat_id} for {medicine_name}")
     except Exception as e:
@@ -380,9 +404,13 @@ def remove_reminders(medicine_id: int) -> None:
 
 
 def add_reminders_for_medicine(
-        bot: Bot, medicine: Medicine, timezone: str,
-        chat_id: int, language: str = "ua", is_sync: bool = False,
-        session_factory: async_sessionmaker | None = None,
+    bot: Bot,
+    medicine: Medicine,
+    timezone: str,
+    chat_id: int,
+    language: str = "ua",
+    is_sync: bool = False,
+    session_factory: async_sessionmaker | None = None,
 ) -> None:
     if not medicine.is_active:
         remove_reminders(medicine.id)
@@ -459,7 +487,8 @@ async def sync_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
 
     for med, user in active_data:
         add_reminders_for_medicine(
-            bot=bot, medicine=med,
+            bot=bot,
+            medicine=med,
             timezone=user.timezone or "Europe/Kyiv",
             chat_id=user.id,
             language=user.language or "ua",
@@ -470,9 +499,7 @@ async def sync_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
     logger.info(f"Successfully restored {len(expected_ids)} reminders from the database!")
 
 
-async def sync_single_reminder(
-        bot: Bot, session_factory: async_sessionmaker, medicine_id: int, action: str
-) -> None:
+async def sync_single_reminder(bot: Bot, session_factory: async_sessionmaker, medicine_id: int, action: str) -> None:
     if action == "delete":
         remove_reminders(medicine_id)
         return
@@ -508,7 +535,8 @@ async def sync_single_reminder(
         return
 
     add_reminders_for_medicine(
-        bot=bot, medicine=med,
+        bot=bot,
+        medicine=med,
         timezone=user.timezone or "Europe/Kyiv",
         chat_id=user.id,
         language=user.language or "ua",
@@ -519,12 +547,16 @@ async def sync_single_reminder(
 
 
 def get_prescription_alert_keyboard(prescription_id: int, language: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(
-            text=get_text(language, "btn_mark_bought"),
-            callback_data=f"presc_buy_ask_{prescription_id}",
-        )
-    ]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_mark_bought"),
+                    callback_data=f"presc_buy_ask_{prescription_id}",
+                )
+            ]
+        ]
+    )
 
 
 async def check_prescription_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
@@ -552,7 +584,8 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
                 await bot.send_message(
                     chat_id=user.id,
                     text=get_text(
-                        language, "presc_expiring_alert",
+                        language,
+                        "presc_expiring_alert",
                         name=prescription.medicine_name,
                         expires=prescription.expires_at.strftime("%d.%m.%Y"),
                         days=days_left,

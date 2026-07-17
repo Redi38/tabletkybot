@@ -14,7 +14,6 @@ _correlation_id: ContextVar[str] = ContextVar("correlation_id", default="-")
 
 
 class CorrelationIdFilter(logging.Filter):
-
     def filter(self, record: logging.LogRecord) -> bool:
         record.cid = _correlation_id.get()
         return True

@@ -1,6 +1,7 @@
 """
 Tests for locales/__init__.py: get_text() and btn_variants().
 """
+
 import pytest
 
 import locales
@@ -30,6 +31,7 @@ def sample_texts(monkeypatch):
 
 
 # get_text
+
 
 def test_get_text_returns_correct_language(sample_texts):
     assert texts.get_text("en", "btn_settings") == "Settings"
@@ -69,6 +71,7 @@ def test_get_text_key_missing_in_requested_lang_but_present_in_ua(sample_texts):
 
 # btn_variants
 
+
 def test_btn_variants_collects_all_language_variants(sample_texts):
     result = texts.btn_variants("btn_settings")
     assert result == {"Налаштування", "Settings", "Настройки"}
@@ -90,6 +93,7 @@ def test_btn_variants_returns_a_set_not_a_list(sample_texts):
 
 
 # Sanity checks against the real merged texts (from _common.py etc.)
+
 
 def test_real_texts_has_all_three_languages():
     assert {"ua", "en", "ru"}.issubset(texts.TEXTS.keys())
@@ -114,8 +118,12 @@ def test_real_btn_variants_btn_settings_has_three_unique_variants():
 
 def test_real_feedback_admin_header_formats_all_placeholders():
     result = texts.get_text(
-        "ua", "feedback_admin_header",
-        name="Redi", username="redi_dev", user_id=123, text="test feedback",
+        "ua",
+        "feedback_admin_header",
+        name="Redi",
+        username="redi_dev",
+        user_id=123,
+        text="test feedback",
     )
     assert "Redi" in result
     assert "redi_dev" in result

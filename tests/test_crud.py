@@ -9,10 +9,12 @@ import database.crud as crud
 
 
 class TestUsers:
-
     async def test_get_or_create_user_creates_new(self, db_session):
         user = await crud.get_or_create_user(
-            db_session, user_id=1, username="redi", full_name="Redi Test",
+            db_session,
+            user_id=1,
+            username="redi",
+            full_name="Redi Test",
         )
         assert user.id == 1
         assert user.username == "redi"
@@ -57,13 +59,16 @@ class TestUsers:
 
 
 class TestMedicines:
-
     async def test_add_medicine_creates_schedules(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
 
         med = await crud.add_medicine(
-            db_session, user_id=1, name="Aspirin", form="tablet",
-            dosage="500mg", schedules_list=["08:00", "20:00"],
+            db_session,
+            user_id=1,
+            name="Aspirin",
+            form="tablet",
+            dosage="500mg",
+            schedules_list=["08:00", "20:00"],
             course_duration=10,
         )
 
@@ -81,15 +86,19 @@ class TestMedicines:
         """
         await crud.get_or_create_user(db_session, 1, "a", "A")
         med = await crud.add_medicine(
-            db_session, user_id=1, name="VerySecretMedicineName", form="tablet",
-            dosage="10mg", schedules_list=["08:00"], course_duration=5,
+            db_session,
+            user_id=1,
+            name="VerySecretMedicineName",
+            form="tablet",
+            dosage="10mg",
+            schedules_list=["08:00"],
+            course_duration=5,
         )
         await db_session.commit()
 
         from sqlalchemy import text
-        raw = await db_session.execute(
-            text("SELECT name FROM medicines WHERE id = :id"), {"id": med.id}
-        )
+
+        raw = await db_session.execute(text("SELECT name FROM medicines WHERE id = :id"), {"id": med.id})
         raw_value = raw.scalar_one()
 
         assert raw_value != "VerySecretMedicineName"
@@ -98,10 +107,22 @@ class TestMedicines:
     async def test_get_user_medicines_active_only_by_default(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         active = await crud.add_medicine(
-            db_session, 1, "Active Med", "tablet", "1mg", ["08:00"], 5,
+            db_session,
+            1,
+            "Active Med",
+            "tablet",
+            "1mg",
+            ["08:00"],
+            5,
         )
         inactive = await crud.add_medicine(
-            db_session, 1, "Inactive Med", "tablet", "1mg", ["08:00"], 5,
+            db_session,
+            1,
+            "Inactive Med",
+            "tablet",
+            "1mg",
+            ["08:00"],
+            5,
         )
         await crud.update_medicine_field(db_session, inactive.id, "is_active", False)
 
@@ -143,12 +164,17 @@ class TestMedicines:
 
 
 class TestRecordMedicineTaken:
-
     async def test_taken_decrements_course_duration_and_stock(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         med = await crud.add_medicine(
-            db_session, 1, "Med", "tablet", "1mg", ["08:00"],
-            course_duration=5, stock_amount=10,
+            db_session,
+            1,
+            "Med",
+            "tablet",
+            "1mg",
+            ["08:00"],
+            course_duration=5,
+            stock_amount=10,
         )
 
         result = await crud.record_medicine_taken(db_session, med.id, status="taken")
@@ -160,8 +186,14 @@ class TestRecordMedicineTaken:
     async def test_skipped_does_not_decrement_stock(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         med = await crud.add_medicine(
-            db_session, 1, "Med", "tablet", "1mg", ["08:00"],
-            course_duration=5, stock_amount=10,
+            db_session,
+            1,
+            "Med",
+            "tablet",
+            "1mg",
+            ["08:00"],
+            course_duration=5,
+            stock_amount=10,
         )
 
         result = await crud.record_medicine_taken(db_session, med.id, status="skipped")
@@ -172,8 +204,14 @@ class TestRecordMedicineTaken:
     async def test_taken_does_not_go_below_zero_course_duration(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         med = await crud.add_medicine(
-            db_session, 1, "Med", "tablet", "1mg", ["08:00"],
-            course_duration=0, stock_amount=5,
+            db_session,
+            1,
+            "Med",
+            "tablet",
+            "1mg",
+            ["08:00"],
+            course_duration=0,
+            stock_amount=5,
         )
 
         result = await crud.record_medicine_taken(db_session, med.id, status="taken")
@@ -183,8 +221,14 @@ class TestRecordMedicineTaken:
     async def test_taken_does_not_go_below_zero_stock(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         med = await crud.add_medicine(
-            db_session, 1, "Med", "tablet", "1mg", ["08:00"],
-            course_duration=5, stock_amount=0,
+            db_session,
+            1,
+            "Med",
+            "tablet",
+            "1mg",
+            ["08:00"],
+            course_duration=5,
+            stock_amount=0,
         )
 
         result = await crud.record_medicine_taken(db_session, med.id, status="taken")
@@ -200,8 +244,14 @@ class TestRecordMedicineTaken:
         # suddenly get a numeric value from a "taken" event
         await crud.get_or_create_user(db_session, 1, "a", "A")
         med = await crud.add_medicine(
-            db_session, 1, "Med", "tablet", "1mg", ["08:00"],
-            course_duration=5, stock_amount=None,
+            db_session,
+            1,
+            "Med",
+            "tablet",
+            "1mg",
+            ["08:00"],
+            course_duration=5,
+            stock_amount=None,
         )
 
         result = await crud.record_medicine_taken(db_session, med.id, status="taken")
@@ -210,12 +260,17 @@ class TestRecordMedicineTaken:
 
 
 class TestAddStock:
-
     async def test_adds_to_existing_stock(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         med = await crud.add_medicine(
-            db_session, 1, "Med", "tablet", "1mg", ["08:00"],
-            course_duration=5, stock_amount=10,
+            db_session,
+            1,
+            "Med",
+            "tablet",
+            "1mg",
+            ["08:00"],
+            course_duration=5,
+            stock_amount=10,
         )
 
         new_stock = await crud.add_stock(db_session, med.id, 5)
@@ -224,8 +279,14 @@ class TestAddStock:
     async def test_adds_to_null_stock_treats_as_zero(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         med = await crud.add_medicine(
-            db_session, 1, "Med", "tablet", "1mg", ["08:00"],
-            course_duration=5, stock_amount=None,
+            db_session,
+            1,
+            "Med",
+            "tablet",
+            "1mg",
+            ["08:00"],
+            course_duration=5,
+            stock_amount=None,
         )
 
         new_stock = await crud.add_stock(db_session, med.id, 7)
@@ -237,7 +298,6 @@ class TestAddStock:
 
 
 class TestArchivedMedicines:
-
     async def test_returns_only_inactive(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         await crud.add_medicine(db_session, 1, "Active", "tablet", "1mg", ["08:00"], 5)
@@ -249,7 +309,6 @@ class TestArchivedMedicines:
 
 
 class TestChatHistory:
-
     async def test_add_and_get_roundtrip(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         await crud.add_chat_message(db_session, 1, "user", "Hello there")
@@ -288,6 +347,7 @@ class TestChatHistory:
         await db_session.commit()
 
         from sqlalchemy import text
+
         raw = await db_session.execute(text("SELECT content FROM chat_history"))
         raw_value = raw.scalar_one()
 
@@ -295,12 +355,14 @@ class TestChatHistory:
 
 
 class TestPrescriptions:
-
     async def test_add_and_get(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         presc = await crud.add_prescription(
-            db_session, user_id=1, medicine_name="Amoxicillin",
-            valid_from=date(2026, 1, 1), expires_at=date(2026, 1, 31),
+            db_session,
+            user_id=1,
+            medicine_name="Amoxicillin",
+            valid_from=date(2026, 1, 1),
+            expires_at=date(2026, 1, 31),
             max_quantity=20,
         )
 
@@ -312,10 +374,18 @@ class TestPrescriptions:
     async def test_get_user_prescriptions_active_only_by_default(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         active = await crud.add_prescription(
-            db_session, 1, "Active Presc", date(2026, 1, 1), date(2026, 1, 31),
+            db_session,
+            1,
+            "Active Presc",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
         )
         inactive = await crud.add_prescription(
-            db_session, 1, "Inactive Presc", date(2026, 1, 1), date(2026, 1, 31),
+            db_session,
+            1,
+            "Inactive Presc",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
         )
         await crud.archive_prescription(db_session, inactive.id)
 
@@ -325,7 +395,12 @@ class TestPrescriptions:
     async def test_mark_prescription_purchased_accumulates(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         presc = await crud.add_prescription(
-            db_session, 1, "Med", date(2026, 1, 1), date(2026, 1, 31), max_quantity=10,
+            db_session,
+            1,
+            "Med",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
+            max_quantity=10,
         )
 
         await crud.mark_prescription_purchased(db_session, presc.id, 4)
@@ -337,7 +412,12 @@ class TestPrescriptions:
     async def test_mark_prescription_purchased_flips_fully_purchased_flag(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         presc = await crud.add_prescription(
-            db_session, 1, "Med", date(2026, 1, 1), date(2026, 1, 31), max_quantity=10,
+            db_session,
+            1,
+            "Med",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
+            max_quantity=10,
         )
 
         result = await crud.mark_prescription_purchased(db_session, presc.id, 10)
@@ -351,7 +431,11 @@ class TestPrescriptions:
     async def test_archive_prescription(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         presc = await crud.add_prescription(
-            db_session, 1, "Med", date(2026, 1, 1), date(2026, 1, 31),
+            db_session,
+            1,
+            "Med",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
         )
 
         ok = await crud.archive_prescription(db_session, presc.id)
@@ -363,7 +447,11 @@ class TestPrescriptions:
     async def test_delete_prescription(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         presc = await crud.add_prescription(
-            db_session, 1, "Med", date(2026, 1, 1), date(2026, 1, 31),
+            db_session,
+            1,
+            "Med",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
         )
 
         ok = await crud.delete_prescription(db_session, presc.id)
@@ -373,10 +461,18 @@ class TestPrescriptions:
     async def test_get_prescriptions_needing_reminder_excludes_sent(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         pending = await crud.add_prescription(
-            db_session, 1, "Pending", date(2026, 1, 1), date(2026, 1, 31),
+            db_session,
+            1,
+            "Pending",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
         )
         already_sent = await crud.add_prescription(
-            db_session, 1, "Already Sent", date(2026, 1, 1), date(2026, 1, 31),
+            db_session,
+            1,
+            "Already Sent",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
         )
         await crud.mark_prescription_reminder_sent(db_session, already_sent.id)
 
@@ -389,7 +485,12 @@ class TestPrescriptions:
     async def test_get_prescriptions_needing_reminder_excludes_fully_purchased(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         presc = await crud.add_prescription(
-            db_session, 1, "Med", date(2026, 1, 1), date(2026, 1, 31), max_quantity=5,
+            db_session,
+            1,
+            "Med",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
+            max_quantity=5,
         )
         await crud.mark_prescription_purchased(db_session, presc.id, 5)
 
@@ -399,11 +500,17 @@ class TestPrescriptions:
     async def test_get_expired_active_prescriptions(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         expired = await crud.add_prescription(
-            db_session, 1, "Expired", date(2020, 1, 1),
+            db_session,
+            1,
+            "Expired",
+            date(2020, 1, 1),
             expires_at=date.today() - timedelta(days=1),
         )
         still_valid = await crud.add_prescription(
-            db_session, 1, "Valid", date.today(),
+            db_session,
+            1,
+            "Valid",
+            date.today(),
             expires_at=date.today() + timedelta(days=30),
         )
 
@@ -416,7 +523,11 @@ class TestPrescriptions:
     async def test_get_user_archived_prescriptions(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         presc = await crud.add_prescription(
-            db_session, 1, "Med", date(2026, 1, 1), date(2026, 1, 31),
+            db_session,
+            1,
+            "Med",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
         )
         await crud.archive_prescription(db_session, presc.id)
 
@@ -427,14 +538,21 @@ class TestPrescriptions:
     async def test_restore_prescription_resets_purchase_state(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         presc = await crud.add_prescription(
-            db_session, 1, "Med", date(2026, 1, 1), date(2026, 1, 31), max_quantity=10,
+            db_session,
+            1,
+            "Med",
+            date(2026, 1, 1),
+            date(2026, 1, 31),
+            max_quantity=10,
         )
         await crud.mark_prescription_purchased(db_session, presc.id, 10)
         await crud.archive_prescription(db_session, presc.id)
 
         ok = await crud.restore_prescription(
-            db_session, presc.id,
-            valid_from=date(2026, 6, 1), expires_at=date(2026, 6, 30),
+            db_session,
+            presc.id,
+            valid_from=date(2026, 6, 1),
+            expires_at=date(2026, 6, 30),
             max_quantity=20,
         )
 
@@ -448,13 +566,16 @@ class TestPrescriptions:
 
     async def test_restore_prescription_nonexistent_returns_false(self, db_session):
         ok = await crud.restore_prescription(
-            db_session, 999, date(2026, 1, 1), date(2026, 1, 31), None,
+            db_session,
+            999,
+            date(2026, 1, 1),
+            date(2026, 1, 31),
+            None,
         )
         assert ok is False
 
 
 class TestMedicineIntakeStats:
-
     async def test_counts_taken_and_skipped(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         med = await crud.add_medicine(db_session, 1, "Med", "tablet", "1mg", ["08:00"], 5)

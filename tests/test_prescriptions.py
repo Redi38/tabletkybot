@@ -3,6 +3,7 @@ Tests for the Prescription-related functions in database/crud.py.
 
 Uses the in-memory aiosqlite db_session fixture from conftest.py.
 """
+
 from datetime import date, timedelta
 
 import pytest
@@ -16,6 +17,7 @@ async def _make_user(db_session, user_id: int = 1) -> None:
 
 # add_prescription / get_user_prescriptions
 
+
 @pytest.mark.asyncio
 async def test_add_prescription_creates_record_with_defaults(db_session):
     await _make_user(db_session)
@@ -23,8 +25,11 @@ async def test_add_prescription_creates_record_with_defaults(db_session):
     expires = today + timedelta(days=30)
 
     prescription = await crud.add_prescription(
-        db_session, user_id=1, medicine_name="Ibuprofen",
-        valid_from=today, expires_at=expires,
+        db_session,
+        user_id=1,
+        medicine_name="Ibuprofen",
+        valid_from=today,
+        expires_at=expires,
     )
 
     assert prescription.id is not None
@@ -45,9 +50,13 @@ async def test_add_prescription_with_custom_quantity_and_reminder_days(db_sessio
     today = date.today()
 
     prescription = await crud.add_prescription(
-        db_session, user_id=1, medicine_name="Amoxicillin",
-        valid_from=today, expires_at=today + timedelta(days=14),
-        max_quantity=20, reminder_days_before=5,
+        db_session,
+        user_id=1,
+        medicine_name="Amoxicillin",
+        valid_from=today,
+        expires_at=today + timedelta(days=14),
+        max_quantity=20,
+        reminder_days_before=5,
     )
 
     assert prescription.max_quantity == 20
@@ -59,12 +68,8 @@ async def test_get_user_prescriptions_active_only_filters_archived(db_session):
     await _make_user(db_session)
     today = date.today()
 
-    active = await crud.add_prescription(
-        db_session, 1, "Active Med", today, today + timedelta(days=10)
-    )
-    archived = await crud.add_prescription(
-        db_session, 1, "Archived Med", today, today + timedelta(days=10)
-    )
+    active = await crud.add_prescription(db_session, 1, "Active Med", today, today + timedelta(days=10))
+    archived = await crud.add_prescription(db_session, 1, "Archived Med", today, today + timedelta(days=10))
     await crud.archive_prescription(db_session, archived.id)
 
     result = await crud.get_user_prescriptions(db_session, 1, active_only=True)
@@ -118,6 +123,7 @@ async def test_get_user_prescriptions_only_returns_requested_user(db_session):
 
 # get_prescription_by_id / update_prescription_field
 
+
 @pytest.mark.asyncio
 async def test_get_prescription_by_id_found_and_not_found(db_session):
     await _make_user(db_session)
@@ -153,13 +159,12 @@ async def test_update_prescription_field_returns_false_for_missing_id(db_session
 
 # mark_prescription_purchased
 
+
 @pytest.mark.asyncio
 async def test_mark_prescription_purchased_partial_purchase(db_session):
     await _make_user(db_session)
     today = date.today()
-    created = await crud.add_prescription(
-        db_session, 1, "Med", today, today + timedelta(days=10), max_quantity=10
-    )
+    created = await crud.add_prescription(db_session, 1, "Med", today, today + timedelta(days=10), max_quantity=10)
 
     result = await crud.mark_prescription_purchased(db_session, created.id, 4)
 
@@ -173,9 +178,7 @@ async def test_mark_prescription_purchased_partial_purchase(db_session):
 async def test_mark_prescription_purchased_accumulates_across_calls(db_session):
     await _make_user(db_session)
     today = date.today()
-    created = await crud.add_prescription(
-        db_session, 1, "Med", today, today + timedelta(days=10), max_quantity=10
-    )
+    created = await crud.add_prescription(db_session, 1, "Med", today, today + timedelta(days=10), max_quantity=10)
 
     await crud.mark_prescription_purchased(db_session, created.id, 3)
     result = await crud.mark_prescription_purchased(db_session, created.id, 4)
@@ -188,9 +191,7 @@ async def test_mark_prescription_purchased_accumulates_across_calls(db_session):
 async def test_mark_prescription_purchased_reaches_max_sets_fully_purchased(db_session):
     await _make_user(db_session)
     today = date.today()
-    created = await crud.add_prescription(
-        db_session, 1, "Med", today, today + timedelta(days=10), max_quantity=10
-    )
+    created = await crud.add_prescription(db_session, 1, "Med", today, today + timedelta(days=10), max_quantity=10)
 
     result = await crud.mark_prescription_purchased(db_session, created.id, 10)
 
@@ -201,9 +202,7 @@ async def test_mark_prescription_purchased_reaches_max_sets_fully_purchased(db_s
 async def test_mark_prescription_purchased_can_exceed_max_and_still_fully_purchased(db_session):
     await _make_user(db_session)
     today = date.today()
-    created = await crud.add_prescription(
-        db_session, 1, "Med", today, today + timedelta(days=10), max_quantity=10
-    )
+    created = await crud.add_prescription(db_session, 1, "Med", today, today + timedelta(days=10), max_quantity=10)
 
     result = await crud.mark_prescription_purchased(db_session, created.id, 15)
 
@@ -231,6 +230,7 @@ async def test_mark_prescription_purchased_missing_id_returns_failure(db_session
 
 
 # archive_prescription / delete_prescription / restore_prescription
+
 
 @pytest.mark.asyncio
 async def test_archive_prescription_sets_is_active_false(db_session):
@@ -267,9 +267,7 @@ async def test_delete_prescription_missing_id_returns_false(db_session):
 async def test_restore_prescription_resets_all_purchase_and_status_fields(db_session):
     await _make_user(db_session)
     today = date.today()
-    created = await crud.add_prescription(
-        db_session, 1, "Med", today, today + timedelta(days=10), max_quantity=10
-    )
+    created = await crud.add_prescription(db_session, 1, "Med", today, today + timedelta(days=10), max_quantity=10)
     await crud.mark_prescription_purchased(db_session, created.id, 10)  # fully purchased
     await crud.archive_prescription(db_session, created.id)  # and archived
 
@@ -277,8 +275,11 @@ async def test_restore_prescription_resets_all_purchase_and_status_fields(db_ses
     new_expires_at = today + timedelta(days=60)
 
     success = await crud.restore_prescription(
-        db_session, created.id,
-        valid_from=new_valid_from, expires_at=new_expires_at, max_quantity=20,
+        db_session,
+        created.id,
+        valid_from=new_valid_from,
+        expires_at=new_expires_at,
+        max_quantity=20,
     )
 
     assert success is True
@@ -301,6 +302,7 @@ async def test_restore_prescription_missing_id_returns_false(db_session):
 
 
 # get_prescriptions_needing_reminder
+
 
 @pytest.mark.asyncio
 async def test_get_prescriptions_needing_reminder_returns_eligible_only(db_session):
@@ -354,17 +356,14 @@ async def test_mark_prescription_reminder_sent_excludes_from_future_queries(db_s
 
 # get_expired_active_prescriptions
 
+
 @pytest.mark.asyncio
 async def test_get_expired_active_prescriptions_returns_only_past_expiry(db_session):
     await _make_user(db_session, user_id=1)
     today = date.today()
 
-    await crud.add_prescription(
-        db_session, 1, "Expired", today - timedelta(days=30), today - timedelta(days=1)
-    )
-    still_valid = await crud.add_prescription(
-        db_session, 1, "Still valid", today, today + timedelta(days=10)
-    )
+    await crud.add_prescription(db_session, 1, "Expired", today - timedelta(days=30), today - timedelta(days=1))
+    still_valid = await crud.add_prescription(db_session, 1, "Still valid", today, today + timedelta(days=10))
 
     result = await crud.get_expired_active_prescriptions(db_session)
 
@@ -402,6 +401,7 @@ async def test_get_expired_active_prescriptions_expiring_today_is_not_expired(db
 
 
 # get_user_archived_prescriptions
+
 
 @pytest.mark.asyncio
 async def test_get_user_archived_prescriptions_returns_only_archived_sorted_desc(db_session):

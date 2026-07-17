@@ -5,6 +5,7 @@ Covers the pure data-prep/aggregation helpers directly, plus smoke tests
 for the Excel/CSV report generators (making sure they don't crash and
 produce non-empty, readable output).
 """
+
 from datetime import datetime, timezone
 
 import openpyxl
@@ -18,6 +19,7 @@ def _dt(y, m, d, h=0, mi=0, tz=None):
 
 
 # prepare_and_sort_records
+
 
 def test_prepare_and_sort_records_sorts_newest_first():
     records = [
@@ -85,6 +87,7 @@ def test_prepare_and_sort_records_preserves_all_fields():
 
 
 # aggregate_medicine_stats / get_medicine_stats_summary
+
 
 def test_aggregate_medicine_stats_counts_taken_and_missed():
     sorted_records = [
@@ -183,6 +186,7 @@ def test_get_medicine_stats_summary_empty_records_returns_empty_list():
 
 # get_clean_status_text
 
+
 def test_get_clean_status_text_strips_emojis():
     taken_text = report_service._get_clean_status_text("taken", "ua")
     skipped_text = report_service._get_clean_status_text("skipped", "ua")
@@ -194,6 +198,7 @@ def test_get_clean_status_text_strips_emojis():
 
 
 # create_excel_report / create_csv_report - smoke tests
+
 
 def _sample_records():
     return [

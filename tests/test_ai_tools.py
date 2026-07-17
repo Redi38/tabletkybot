@@ -8,6 +8,7 @@ Split into two groups:
    verify the VALIDATION logic (bounds checking, malformed input handling),
    not SQLAlchemy behavior itself.
 """
+
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
@@ -25,7 +26,6 @@ from services.ai_tools import (
 
 
 class TestParseDateFlexible:
-
     def test_parses_dd_mm_yy(self):
         assert _parse_date_flexible("15.03.26") == date(2026, 3, 15)
 
@@ -49,7 +49,6 @@ class TestParseDateFlexible:
 
 
 class TestToInt:
-
     def test_converts_valid_string(self):
         assert _to_int("42") == 42
 
@@ -82,7 +81,6 @@ class TestToInt:
 
 
 class TestFindMedicine:
-
     async def test_exact_name_match(self):
         session = AsyncMock()
         med = MagicMock(name="Aspirin")
@@ -162,7 +160,6 @@ def _patch_crud_get_user_prescriptions(prescriptions):
 
 
 class TestFindPrescription:
-
     async def test_exact_match(self):
         session = AsyncMock()
         presc = MagicMock()
@@ -184,42 +181,70 @@ class TestFindPrescription:
 
 
 class TestExecuteAddMedicineReminder:
-
     async def test_rejects_empty_times_list(self):
         session = AsyncMock()
-        result = await execute_add_medicine_reminder(session, user_id=1, args={
-            "name": "Aspirin", "form": "tablet", "dosage": "500mg",
-            "times": [], "duration_days": 10,
-        })
+        result = await execute_add_medicine_reminder(
+            session,
+            user_id=1,
+            args={
+                "name": "Aspirin",
+                "form": "tablet",
+                "dosage": "500mg",
+                "times": [],
+                "duration_days": 10,
+            },
+        )
         assert "error" in result
 
     async def test_rejects_missing_times(self):
         session = AsyncMock()
-        result = await execute_add_medicine_reminder(session, user_id=1, args={
-            "name": "Aspirin", "form": "tablet", "dosage": "500mg",
-            "duration_days": 10,
-        })
+        result = await execute_add_medicine_reminder(
+            session,
+            user_id=1,
+            args={
+                "name": "Aspirin",
+                "form": "tablet",
+                "dosage": "500mg",
+                "duration_days": 10,
+            },
+        )
         assert "error" in result
 
     async def test_rejects_duration_out_of_bounds(self):
         session = AsyncMock()
-        result = await execute_add_medicine_reminder(session, user_id=1, args={
-            "name": "Aspirin", "form": "tablet", "dosage": "500mg",
-            "times": ["08:00"], "duration_days": 999,
-        })
+        result = await execute_add_medicine_reminder(
+            session,
+            user_id=1,
+            args={
+                "name": "Aspirin",
+                "form": "tablet",
+                "dosage": "500mg",
+                "times": ["08:00"],
+                "duration_days": 999,
+            },
+        )
         assert "error" in result
         assert "duration_days" in result["error"]
 
     async def test_rejects_invalid_stock_amount(self):
         session = AsyncMock()
-        result = await execute_add_medicine_reminder(session, user_id=1, args={
-            "name": "Aspirin", "form": "tablet", "dosage": "500mg",
-            "times": ["08:00"], "duration_days": 10, "stock_amount": -5,
-        })
+        result = await execute_add_medicine_reminder(
+            session,
+            user_id=1,
+            args={
+                "name": "Aspirin",
+                "form": "tablet",
+                "dosage": "500mg",
+                "times": ["08:00"],
+                "duration_days": 10,
+                "stock_amount": -5,
+            },
+        )
         assert "error" in result
 
     async def test_calculates_course_duration_as_days_times_frequency(self, monkeypatch):
         import database.crud as crud_module
+
         added_kwargs = {}
 
         async def fake_add_medicine(**kwargs):
@@ -231,10 +256,17 @@ class TestExecuteAddMedicineReminder:
         monkeypatch.setattr(crud_module, "add_medicine", fake_add_medicine)
 
         session = AsyncMock()
-        result = await execute_add_medicine_reminder(session, user_id=1, args={
-            "name": "Aspirin", "form": "tablet", "dosage": "500mg",
-            "times": ["08:00", "20:00"], "duration_days": 10,
-        })
+        result = await execute_add_medicine_reminder(
+            session,
+            user_id=1,
+            args={
+                "name": "Aspirin",
+                "form": "tablet",
+                "dosage": "500mg",
+                "times": ["08:00", "20:00"],
+                "duration_days": 10,
+            },
+        )
 
         assert result["success"] is True
         # 10 days * 2 doses/day = 20 total doses
@@ -242,17 +274,23 @@ class TestExecuteAddMedicineReminder:
 
 
 class TestExecuteUpdateMedicine:
-
     async def test_medicine_not_found_returns_error(self):
         session = AsyncMock()
         with _patch_crud_get_user_medicines(session, []):
-            result = await execute_update_medicine(session, user_id=1, args={
-                "medicine_name": "Unknown", "field": "dosage", "value": "1000mg",
-            })
+            result = await execute_update_medicine(
+                session,
+                user_id=1,
+                args={
+                    "medicine_name": "Unknown",
+                    "field": "dosage",
+                    "value": "1000mg",
+                },
+            )
             assert "error" in result
 
     async def test_rejects_invalid_stock_amount_value(self, monkeypatch):
         import database.crud as crud_module
+
         med = MagicMock()
         med.name = "Aspirin"
         med.id = 1
@@ -260,34 +298,50 @@ class TestExecuteUpdateMedicine:
         with _patch_crud_get_user_medicines(AsyncMock(), [med]):
             monkeypatch.setattr(crud_module, "update_medicine_field", AsyncMock())
             session = AsyncMock()
-            result = await execute_update_medicine(session, user_id=1, args={
-                "medicine_name": "Aspirin", "field": "stock_amount", "value": "not-a-number",
-            })
+            result = await execute_update_medicine(
+                session,
+                user_id=1,
+                args={
+                    "medicine_name": "Aspirin",
+                    "field": "stock_amount",
+                    "value": "not-a-number",
+                },
+            )
             assert "error" in result
 
 
 class TestExecuteAddPrescriptionEntry:
-
     async def test_rejects_unparseable_dates(self):
         session = AsyncMock()
-        result = await execute_add_prescription_entry(session, user_id=1, args={
-            "medicine_name": "Amoxicillin",
-            "issued_date": "garbage", "valid_from_date": "garbage",
-            "duration_days": 30,
-        })
+        result = await execute_add_prescription_entry(
+            session,
+            user_id=1,
+            args={
+                "medicine_name": "Amoxicillin",
+                "issued_date": "garbage",
+                "valid_from_date": "garbage",
+                "duration_days": 30,
+            },
+        )
         assert "error" in result
 
     async def test_rejects_duration_not_30_or_60(self):
         session = AsyncMock()
-        result = await execute_add_prescription_entry(session, user_id=1, args={
-            "medicine_name": "Amoxicillin",
-            "issued_date": "01.01.26", "valid_from_date": "01.01.26",
-            "duration_days": 45,
-        })
+        result = await execute_add_prescription_entry(
+            session,
+            user_id=1,
+            args={
+                "medicine_name": "Amoxicillin",
+                "issued_date": "01.01.26",
+                "valid_from_date": "01.01.26",
+                "duration_days": 45,
+            },
+        )
         assert "error" in result
 
     async def test_computes_expires_at_from_valid_from_plus_duration(self, monkeypatch):
         import database.crud as crud_module
+
         added_kwargs = {}
 
         async def fake_add_prescription(**kwargs):
@@ -299,18 +353,22 @@ class TestExecuteAddPrescriptionEntry:
         monkeypatch.setattr(crud_module, "add_prescription", fake_add_prescription)
 
         session = AsyncMock()
-        result = await execute_add_prescription_entry(session, user_id=1, args={
-            "medicine_name": "Amoxicillin",
-            "issued_date": "01.01.26", "valid_from_date": "01.01.26",
-            "duration_days": 30,
-        })
+        result = await execute_add_prescription_entry(
+            session,
+            user_id=1,
+            args={
+                "medicine_name": "Amoxicillin",
+                "issued_date": "01.01.26",
+                "valid_from_date": "01.01.26",
+                "duration_days": 30,
+            },
+        )
 
         assert result["success"] is True
         assert added_kwargs["expires_at"] == date(2026, 1, 31)
 
 
 class TestExecuteMarkPrescriptionBought:
-
     async def test_rejects_amount_exceeding_remaining_quantity(self):
         presc = MagicMock()
         presc.medicine_name = "Amoxicillin"
@@ -319,9 +377,14 @@ class TestExecuteMarkPrescriptionBought:
 
         with _patch_crud_get_user_prescriptions([presc]):
             session = AsyncMock()
-            result = await execute_mark_prescription_bought(session, user_id=1, args={
-                "medicine_name": "Amoxicillin", "amount": 5,
-            })
+            result = await execute_mark_prescription_bought(
+                session,
+                user_id=1,
+                args={
+                    "medicine_name": "Amoxicillin",
+                    "amount": 5,
+                },
+            )
             assert "error" in result
             assert "remaining" in result["error"] or "exceeded" in result["error"].lower()
 
@@ -332,14 +395,18 @@ class TestExecuteMarkPrescriptionBought:
 
         with _patch_crud_get_user_prescriptions([presc]):
             session = AsyncMock()
-            result = await execute_mark_prescription_bought(session, user_id=1, args={
-                "medicine_name": "Amoxicillin", "amount": "not-a-number",
-            })
+            result = await execute_mark_prescription_bought(
+                session,
+                user_id=1,
+                args={
+                    "medicine_name": "Amoxicillin",
+                    "amount": "not-a-number",
+                },
+            )
             assert "error" in result
 
 
 class TestExecuteTool:
-
     async def test_unknown_tool_returns_error(self):
         session = AsyncMock()
         result = await execute_tool("nonexistent_tool", session, user_id=1)
@@ -351,6 +418,7 @@ class TestExecuteTool:
             raise RuntimeError("boom")
 
         from services import ai_tools
+
         monkeypatch.setitem(ai_tools.TOOL_EXECUTORS, "get_my_medicines", broken_executor)
 
         session = AsyncMock()

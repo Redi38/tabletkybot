@@ -98,6 +98,7 @@ def build_health_handler(session_factory, redis_url: str):
     Verifies DB connectivity, Redis connectivity, and that the
     APScheduler instance is actually running.
     """
+
     async def handle_health(request):
         checks = {}
         healthy = True
@@ -192,20 +193,33 @@ async def main() -> None:
             await run_database_backup(config)
 
     scheduler.add_job(
-        _tagged_sync_reminders, trigger='interval', hours=1, id='db_sync_job_hourly',
-        replace_existing=True, kwargs={'bot': bot, 'session_factory': session_factory}
+        _tagged_sync_reminders,
+        trigger="interval",
+        hours=1,
+        id="db_sync_job_hourly",
+        replace_existing=True,
+        kwargs={"bot": bot, "session_factory": session_factory},
     )
 
     scheduler.add_job(
-        _tagged_check_prescriptions, trigger='cron', minute=0, timezone='UTC',
-        id='presc_reminder_check_hourly', replace_existing=True,
-        kwargs={'bot': bot, 'session_factory': session_factory}
+        _tagged_check_prescriptions,
+        trigger="cron",
+        minute=0,
+        timezone="UTC",
+        id="presc_reminder_check_hourly",
+        replace_existing=True,
+        kwargs={"bot": bot, "session_factory": session_factory},
     )
 
     scheduler.add_job(
-        _tagged_backup, trigger='cron', hour=3, minute=0, timezone='Europe/Kyiv',
-        id='db_backup_daily', replace_existing=True,
-        kwargs={'config': config}
+        _tagged_backup,
+        trigger="cron",
+        hour=3,
+        minute=0,
+        timezone="Europe/Kyiv",
+        id="db_backup_daily",
+        replace_existing=True,
+        kwargs={"config": config},
     )
 
     # Read the certificate for Telegram

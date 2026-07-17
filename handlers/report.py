@@ -20,12 +20,16 @@ async def report_menu_handler(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return
     lang = await crud.get_user_language(session, message.from_user.id)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text=get_text(lang, "btn_gen_excel"), callback_data="report_excel", style="primary"),
-            InlineKeyboardButton(text=get_text(lang, "btn_gen_csv"), callback_data="report_csv", style="primary")
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_gen_excel"), callback_data="report_excel", style="primary"
+                ),
+                InlineKeyboardButton(text=get_text(lang, "btn_gen_csv"), callback_data="report_csv", style="primary"),
+            ]
         ]
-    ])
+    )
     await message.answer(get_text(lang, "report_menu_title"), reply_markup=kb, parse_mode="HTML")
 
 
@@ -39,7 +43,9 @@ async def _generate_and_send_report(call: CallbackQuery, session: AsyncSession, 
 
     records = await crud.get_medicine_records_for_report(session, call.from_user.id)
     if not records:
-        logger.info(f"User {call.from_user.id} (@{call.from_user.username}) requested a {report_type} report but has no records")
+        logger.info(
+            f"User {call.from_user.id} (@{call.from_user.username}) requested a {report_type} report but has no records"
+        )
         await call.message.answer(get_text(lang, "report_empty"))
         await call.answer()
         return
@@ -56,12 +62,10 @@ async def _generate_and_send_report(call: CallbackQuery, session: AsyncSession, 
         file_ext = "csv"
 
     filename = f"med_report_{datetime.now().strftime('%Y-%m-%d')}.{file_ext}"
-    caption = get_text(lang, "report_caption", date=datetime.now().strftime('%d.%m.%Y %H:%M'), count=len(records))
+    caption = get_text(lang, "report_caption", date=datetime.now().strftime("%d.%m.%Y %H:%M"), count=len(records))
 
     await call.message.answer_document(
-        document=BufferedInputFile(buffer.read(), filename=filename),
-        caption=caption,
-        parse_mode="HTML"
+        document=BufferedInputFile(buffer.read(), filename=filename), caption=caption, parse_mode="HTML"
     )
 
     logger.info(

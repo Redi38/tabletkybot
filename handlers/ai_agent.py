@@ -32,13 +32,19 @@ def build_removal_confirm_kb(confirmation: dict, language: str = "ua") -> Inline
     target_type = confirmation["target_type"]  # "medicine" or "prescription"
     target_id = confirmation["target_id"]
     prefix = "med" if target_type == "medicine" else "presc"
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text=get_text(language, "btn_ai_archive"), callback_data=f"ai_act_{prefix}_archive_{target_id}"),
-            InlineKeyboardButton(text=get_text(language, "btn_ai_delete"), callback_data=f"ai_act_{prefix}_delete_{target_id}"),
-        ],
-        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="ai_act_cancel")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_ai_archive"), callback_data=f"ai_act_{prefix}_archive_{target_id}"
+                ),
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_ai_delete"), callback_data=f"ai_act_{prefix}_delete_{target_id}"
+                ),
+            ],
+            [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="ai_act_cancel")],
+        ]
+    )
 
 
 async def download_telegram_file(bot: Bot, file_id: str) -> bytes:
@@ -62,8 +68,12 @@ async def _send_ai_answer(message: Message, response_text: str, model_used: str,
 
 
 async def _process_ai_text(
-        message: Message, text: str, session: AsyncSession,
-        config: Config, bot: Bot, language: str,
+    message: Message,
+    text: str,
+    session: AsyncSession,
+    config: Config,
+    bot: Bot,
+    language: str,
 ) -> None:
     """Core AI-agent flow shared by text and voice messages."""
     if not message.from_user:
@@ -80,7 +90,11 @@ async def _process_ai_text(
     conv_messages.append({"role": "user", "content": text})
 
     raw_text, model_used, confirmation = await get_ai_agent_response(
-        config, session, message.from_user.id, conv_messages, language=language,
+        config,
+        session,
+        message.from_user.id,
+        conv_messages,
+        language=language,
     )
 
     if confirmation:
@@ -91,7 +105,9 @@ async def _process_ai_text(
         )
         await crud.add_chat_message(session, message.from_user.id, "user", text)
         await crud.add_chat_message(
-            session, message.from_user.id, "assistant",
+            session,
+            message.from_user.id,
+            "assistant",
             f"[Removal confirmation requested: {confirmation['target_name']}]",
         )
         confirm_text = get_text(language, "ai_confirm_removal_prompt", name=confirmation["target_name"])
@@ -107,8 +123,11 @@ async def _process_ai_text(
 
 @router.message(F.voice)
 async def handle_voice(
-        message: Message, state: FSMContext, session: AsyncSession,
-        config: Config, bot: Bot,
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    config: Config,
+    bot: Bot,
 ) -> None:
     """Handles voice messages: transcribes them and feeds the text into the AI agent."""
     if not message.from_user or not message.voice:
@@ -117,8 +136,10 @@ async def handle_voice(
         return
 
     user = await get_or_create_user(
-        session, message.from_user.id,
-        message.from_user.username, message.from_user.full_name,
+        session,
+        message.from_user.id,
+        message.from_user.username,
+        message.from_user.full_name,
     )
     language = user.language or "ua"
 
@@ -141,15 +162,20 @@ async def handle_voice(
         await message.answer(get_text(language, "ai_err_voice_empty"), reply_markup=get_main_keyboard(language))
         return
 
-    logger.info(f"Voice message from user {message.from_user.id} (@{message.from_user.username}) transcribed: {transcript!r}")
+    logger.info(
+        f"Voice message from user {message.from_user.id} (@{message.from_user.username}) transcribed: {transcript!r}"
+    )
 
     await _process_ai_text(message, transcript, session, config, bot, language)
 
 
 @router.message(~F.text.startswith("/"))
 async def fallback_handler(
-        message: Message, state: FSMContext, session: AsyncSession,
-        config: Config, bot: Bot,
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    config: Config,
+    bot: Bot,
 ) -> None:
     """Any regular text message (not a command, not inside an FSM) is handled by the AI agent."""
     if not message.from_user or not message.text:
@@ -158,8 +184,10 @@ async def fallback_handler(
         return
 
     user = await get_or_create_user(
-        session, message.from_user.id,
-        message.from_user.username, message.from_user.full_name,
+        session,
+        message.from_user.id,
+        message.from_user.username,
+        message.from_user.full_name,
     )
     language = user.language or "ua"
 
@@ -194,12 +222,16 @@ async def handle_ai_action_confirm(call: CallbackQuery, session: AsyncSession) -
         if action == "archive":
             await crud.update_medicine_field(session, target_id, "is_active", False)
             remove_reminders(target_id)
-            logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived medicine '{name}' (id={target_id}) via AI agent")
+            logger.info(
+                f"User {call.from_user.id} (@{call.from_user.username}) archived medicine '{name}' (id={target_id}) via AI agent"
+            )
             await call.message.edit_text(get_text(language, "ai_medicine_archived", name=name))
         else:
             await crud.delete_medicine(session, target_id)
             remove_reminders(target_id)
-            logger.info(f"User {call.from_user.id} (@{call.from_user.username}) deleted medicine '{name}' (id={target_id}) via AI agent")
+            logger.info(
+                f"User {call.from_user.id} (@{call.from_user.username}) deleted medicine '{name}' (id={target_id}) via AI agent"
+            )
             await call.message.edit_text(get_text(language, "ai_medicine_deleted", name=name))
 
     else:  # prefix == "presc"
@@ -210,11 +242,15 @@ async def handle_ai_action_confirm(call: CallbackQuery, session: AsyncSession) -
         name = prescription.medicine_name
         if action == "archive":
             await crud.archive_prescription(session, target_id)
-            logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived prescription '{name}' (id={target_id}) via AI agent")
+            logger.info(
+                f"User {call.from_user.id} (@{call.from_user.username}) archived prescription '{name}' (id={target_id}) via AI agent"
+            )
             await call.message.edit_text(get_text(language, "ai_prescription_archived", name=name))
         else:
             await crud.delete_prescription(session, target_id)
-            logger.info(f"User {call.from_user.id} (@{call.from_user.username}) deleted prescription '{name}' (id={target_id}) via AI agent")
+            logger.info(
+                f"User {call.from_user.id} (@{call.from_user.username}) deleted prescription '{name}' (id={target_id}) via AI agent"
+            )
             await call.message.edit_text(get_text(language, "ai_prescription_deleted", name=name))
 
     await call.answer()

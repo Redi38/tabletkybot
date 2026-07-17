@@ -12,6 +12,7 @@ _cipher: Fernet | None = Fernet(_ENCRYPTION_KEY.encode()) if _ENCRYPTION_KEY els
 
 class EncryptedString(TypeDecorator):
     """Transparent encryption/decryption of string data in the DB."""
+
     impl = Text
     cache_ok = True
 
@@ -43,15 +44,9 @@ class User(Base):
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    medicines: Mapped[list["Medicine"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
-    chat_history: Mapped[list["ChatHistory"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
-    prescriptions: Mapped[list["Prescription"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
+    medicines: Mapped[list["Medicine"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    chat_history: Mapped[list["ChatHistory"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    prescriptions: Mapped[list["Prescription"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
     def __str__(self) -> str:
         return f"{self.full_name} (ID: {self.id})"
@@ -72,12 +67,8 @@ class Medicine(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="medicines")
-    records: Mapped[list["MedicineRecord"]] = relationship(
-        back_populates="medicine", cascade="all, delete-orphan"
-    )
-    schedules: Mapped[list["MedicineSchedule"]] = relationship(
-        back_populates="medicine", cascade="all, delete-orphan"
-    )
+    records: Mapped[list["MedicineRecord"]] = relationship(back_populates="medicine", cascade="all, delete-orphan")
+    schedules: Mapped[list["MedicineSchedule"]] = relationship(back_populates="medicine", cascade="all, delete-orphan")
 
     def __str__(self) -> str:
         return f"{self.name} {self.dosage}"

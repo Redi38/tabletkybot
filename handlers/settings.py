@@ -25,16 +25,20 @@ class SettingsState(StatesGroup):
 
 
 def settings_keyboard(language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=get_text(language, "btn_change_name"), callback_data="set_name", style="primary")],
-        [InlineKeyboardButton(text=get_text(language, "btn_change_tz"), callback_data="set_tz", style="primary")],
-        [InlineKeyboardButton(text=get_text(language, "btn_lang"), callback_data="set_lang", style="primary")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_change_name"), callback_data="set_name", style="primary"
+                )
+            ],
+            [InlineKeyboardButton(text=get_text(language, "btn_change_tz"), callback_data="set_tz", style="primary")],
+            [InlineKeyboardButton(text=get_text(language, "btn_lang"), callback_data="set_lang", style="primary")],
+        ]
+    )
 
 
-async def _settings_ctx(
-        call: CallbackQuery, state: FSMContext, session: AsyncSession
-) -> tuple[Message, str] | None:
+async def _settings_ctx(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> tuple[Message, str] | None:
     if not isinstance(call.message, Message) or not call.from_user:
         return None
     lang = await crud.get_user_language(session, call.from_user.id)
@@ -54,8 +58,10 @@ async def settings_menu(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return
     user = await crud.get_or_create_user(
-        session, message.from_user.id,
-        message.from_user.username, message.from_user.full_name,
+        session,
+        message.from_user.id,
+        message.from_user.username,
+        message.from_user.full_name,
     )
     lang = user.language or "ua"
     tz_display = format_timezone_display(user.timezone) or get_text(lang, "not_set")
@@ -83,13 +89,17 @@ async def edit_name_save(message: Message, state: FSMContext, session: AsyncSess
         return
     new_name, lang = ctx
     user = await crud.get_or_create_user(
-        session, message.from_user.id,
-        message.from_user.username, message.from_user.full_name,
+        session,
+        message.from_user.id,
+        message.from_user.username,
+        message.from_user.full_name,
     )
     old_name = user.full_name
     user.full_name = new_name
     await session.flush()
-    logger.info(f"User {message.from_user.id} (@{message.from_user.username}) changed name: '{old_name}' -> '{new_name}'")
+    logger.info(
+        f"User {message.from_user.id} (@{message.from_user.username}) changed name: '{old_name}' -> '{new_name}'"
+    )
     await state.clear()
     await message.answer(get_text(lang, "name_updated"))
 
@@ -114,15 +124,16 @@ async def edit_tz_save(message: Message, state: FSMContext, session: AsyncSessio
     tz_name = await resolve_timezone_from_place(place_text)
 
     if not tz_name:
-        logger.warning(f"User {message.from_user.id} (@{message.from_user.username}) entered unresolvable place: '{place_text}'")
+        logger.warning(
+            f"User {message.from_user.id} (@{message.from_user.username}) entered unresolvable place: '{place_text}'"
+        )
         await message.answer(get_text(lang, "err_timezone_place"), parse_mode="HTML")
         return
 
     await crud.update_user_timezone(session, message.from_user.id, tz_name)
     medicines = await crud.get_user_medicines(session, message.from_user.id, active_only=True)
     for med in medicines:
-        add_reminders_for_medicine(bot=bot, medicine=med, timezone=tz_name,
-                                   chat_id=message.from_user.id, language=lang)
+        add_reminders_for_medicine(bot=bot, medicine=med, timezone=tz_name, chat_id=message.from_user.id, language=lang)
     logger.info(
         f"User {message.from_user.id} (@{message.from_user.username}) set timezone to '{tz_name}' "
         f"(from input '{place_text}'), rescheduled {len(medicines)} medicine(s)"
@@ -142,11 +153,16 @@ async def edit_lang_start(call: CallbackQuery, state: FSMContext, session: Async
 
 
 def language_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="Українська", callback_data="lang_ua", style="primary"),
-        InlineKeyboardButton(text="English", callback_data="lang_en", style="primary"),
-        InlineKeyboardButton(text="Русский", callback_data="lang_ru", style="primary"),
-    ]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Українська", callback_data="lang_ua", style="primary"),
+                InlineKeyboardButton(text="English", callback_data="lang_en", style="primary"),
+                InlineKeyboardButton(text="Русский", callback_data="lang_ru", style="primary"),
+            ]
+        ]
+    )
+
 
 # ── Feedback ──────────────────────────────────────────────────
 @router.callback_query(F.data == "set_feedback")
@@ -176,7 +192,8 @@ async def feedback_save(message: Message, state: FSMContext, bot: Bot, config: C
         return
 
     forward_text = get_text(
-        lang, "feedback_admin_header",
+        lang,
+        "feedback_admin_header",
         name=html_escape(message.from_user.full_name),
         username=html_escape(message.from_user.username or "—"),
         user_id=message.from_user.id,

@@ -41,8 +41,9 @@ def _prepare_and_sort_records(records: list[tuple], user_tz_str: str) -> list[tu
 
 def _get_clean_status_text(status: str, lang: str) -> str:
     """Gets the status text and strips emojis from it."""
-    raw_status_text = get_text(lang, "excel_status_taken") if status == "taken" else get_text(lang,
-                                                                                              "excel_status_skipped")
+    raw_status_text = (
+        get_text(lang, "excel_status_taken") if status == "taken" else get_text(lang, "excel_status_skipped")
+    )
 
     return raw_status_text.replace("✅", "").replace("❌", "").replace("⏭️", "").strip()
 
@@ -73,11 +74,17 @@ def _aggregate_medicine_stats(sorted_records: list[tuple]) -> list[dict]:
         missed = data["missed"]
         total = taken + missed
         pct = round(taken / total * 100, 1) if total > 0 else 0.0
-        result.append({
-            "name": name, "dosage": dosage,
-            "taken": taken, "missed": missed, "total": total,
-            "pct": pct, "last_dt": data["last_dt"],
-        })
+        result.append(
+            {
+                "name": name,
+                "dosage": dosage,
+                "taken": taken,
+                "missed": missed,
+                "total": total,
+                "pct": pct,
+                "last_dt": data["last_dt"],
+            }
+        )
     return result
 
 
@@ -96,9 +103,9 @@ def get_medicine_stats_summary(records: list[tuple], user_tz: str = "Europe/Kyiv
     return _aggregate_medicine_stats(sorted_records)
 
 
-def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
-                                 header_font: Font, center: Alignment,
-                                 border: Border) -> None:
+def _build_medicine_stats_sheet(
+    wb, sorted_records: list[tuple], lang: str, header_font: Font, center: Alignment, border: Border
+) -> None:
     """Summary table: one row per medicine + intake % + autofilter."""
     ws = wb.create_sheet(title=get_text(lang, "excel_med_stats_sheet"))
 
@@ -136,8 +143,8 @@ def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
 
     # ── Data: one row per medicine (shared aggregation) ──────────────────
     pct_good = PatternFill("solid", fgColor="C6EFCE")
-    pct_mid  = PatternFill("solid", fgColor="FFEB9C")
-    pct_bad  = PatternFill("solid", fgColor="FFC7CE")
+    pct_mid = PatternFill("solid", fgColor="FFEB9C")
+    pct_bad = PatternFill("solid", fgColor="FFC7CE")
 
     stats_list = _aggregate_medicine_stats(sorted_records)
 
@@ -165,9 +172,11 @@ def _build_medicine_stats_sheet(wb, sorted_records: list[tuple], lang: str,
     # ── Freeze pane ──────────────────────────────────────────────────────
     ws.freeze_panes = "A3"
 
+
 # ── Main report generators ──────────────────────────────────────────────
-def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str = "",
-                        user_tz: str = "Europe/Kyiv") -> io.BytesIO:
+def create_excel_report(
+    records: list[tuple], lang: str = "ua", user_name: str = "", user_tz: str = "Europe/Kyiv"
+) -> io.BytesIO:
     """Generates an Excel report of medicine intake (History + Statistics)."""
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -215,7 +224,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
         get_text(lang, "excel_h_dose"),
         get_text(lang, "excel_h_date"),
         get_text(lang, "excel_h_time"),
-        get_text(lang, "excel_h_status")
+        get_text(lang, "excel_h_status"),
     ]
     widths = [5, 22, 15, 14, 10, 14]
 
@@ -260,7 +269,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
     ws.auto_filter.ref = f"A3:F{last_data_row}"
 
     for col_idx in range(6):  # Remove autofilter buttons from A to F (0 to 5)
-        if col_idx != 1:    # Column B index
+        if col_idx != 1:  # Column B index
             col_filter = FilterColumn(colId=col_idx, hiddenButton=True, blank=False)
             ws.auto_filter.filterColumn.append(col_filter)
 
@@ -309,10 +318,14 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
             stats_data["180+"][s_key] += 1
 
     stat_headers = [
-        get_text(lang, "excel_stats_period"), get_text(lang, "excel_days_0_30"),
-        get_text(lang, "excel_days_31_60"), get_text(lang, "excel_days_61_90"),
-        get_text(lang, "excel_days_91_120"), get_text(lang, "excel_days_121_150"),
-        get_text(lang, "excel_days_151_180"), get_text(lang, "excel_days_180_plus")
+        get_text(lang, "excel_stats_period"),
+        get_text(lang, "excel_days_0_30"),
+        get_text(lang, "excel_days_31_60"),
+        get_text(lang, "excel_days_61_90"),
+        get_text(lang, "excel_days_91_120"),
+        get_text(lang, "excel_days_121_150"),
+        get_text(lang, "excel_days_151_180"),
+        get_text(lang, "excel_days_180_plus"),
     ]
 
     for col_idx, header in enumerate(stat_headers, start=1):
@@ -324,7 +337,7 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
         cell.border = border
         ws_stats.column_dimensions[get_column_letter(col_idx)].width = 15
 
-    ws_stats.column_dimensions['A'].width = 18
+    ws_stats.column_dimensions["A"].width = 18
 
     row_taken: list[Any] = [get_text(lang, "excel_pure_taken")]
     row_missed: list[Any] = [get_text(lang, "excel_pure_skipped")]
@@ -352,8 +365,9 @@ def create_excel_report(records: list[tuple], lang: str = "ua", user_name: str =
     return buffer
 
 
-def create_csv_report(records: list[tuple], lang: str = "ua", user_name: str = "",
-                      user_tz: str = "Europe/Kyiv") -> io.BytesIO:
+def create_csv_report(
+    records: list[tuple], lang: str = "ua", user_name: str = "", user_tz: str = "Europe/Kyiv"
+) -> io.BytesIO:
     """Generates a lightweight CSV report of medicine intake."""
     output = io.StringIO()
     writer = csv.writer(output)
@@ -364,9 +378,12 @@ def create_csv_report(records: list[tuple], lang: str = "ua", user_name: str = "
 
     # Column headers
     headers = [
-        get_text(lang, "excel_h_num"), get_text(lang, "excel_h_name"),
-        get_text(lang, "excel_h_dose"), get_text(lang, "excel_h_date"),
-        get_text(lang, "excel_h_time"), get_text(lang, "excel_h_status")
+        get_text(lang, "excel_h_num"),
+        get_text(lang, "excel_h_name"),
+        get_text(lang, "excel_h_dose"),
+        get_text(lang, "excel_h_date"),
+        get_text(lang, "excel_h_time"),
+        get_text(lang, "excel_h_status"),
     ]
     writer.writerow(headers)
 
@@ -379,15 +396,8 @@ def create_csv_report(records: list[tuple], lang: str = "ua", user_name: str = "
 
         status_text = _get_clean_status_text(status, lang)
 
-        writer.writerow([
-            row_idx,
-            name,
-            dosage,
-            taken_dt.strftime("%d.%m.%Y"),
-            taken_dt.strftime("%H:%M"),
-            status_text
-        ])
+        writer.writerow([row_idx, name, dosage, taken_dt.strftime("%d.%m.%Y"), taken_dt.strftime("%H:%M"), status_text])
 
-    buffer = io.BytesIO(output.getvalue().encode('utf-8'))
+    buffer = io.BytesIO(output.getvalue().encode("utf-8"))
     buffer.seek(0)
     return buffer

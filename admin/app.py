@@ -59,7 +59,7 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-@app.get('/favicon.ico', include_in_schema=False)
+@app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     favicon_path = "static/favicon.ico"
     if os.path.exists(favicon_path):
@@ -110,7 +110,9 @@ class DashboardAdmin(BaseAdmin):
             stats = await crud.get_global_intake_stats(session)
 
         return await self.templates.TemplateResponse(
-            request, "sqladmin/index.html", context={"stats": stats},
+            request,
+            "sqladmin/index.html",
+            context={"stats": stats},
         )
 
 
@@ -144,14 +146,18 @@ class UserAdmin(ModelView, model=User):
     column_list = [User.id, User.full_name, User.username, User.language, User.timezone, User.created_at]
 
     column_searchable_list = ["full_name", "username"]
-    column_filters = [StaticValuesFilter(User.language, values=[("ua", "Ukrainian"), ("en", "English"), ("ru", "Russian")])]
+    column_filters = [
+        StaticValuesFilter(User.language, values=[("ua", "Ukrainian"), ("en", "English"), ("ru", "Russian")])
+    ]
     column_default_sort = ("created_at", True)
 
     form_args = dict(
-        full_name=dict(validators=[
-            DataRequired(message="Full name is required"),
-            Length(min=2, max=100, message="Name must be between 2 and 100 characters")
-        ]),
+        full_name=dict(
+            validators=[
+                DataRequired(message="Full name is required"),
+                Length(min=2, max=100, message="Name must be between 2 and 100 characters"),
+            ]
+        ),
         timezone=dict(validators=[DataRequired(message="Timezone cannot be empty")]),
     )
 
@@ -160,23 +166,29 @@ class MedicineAdmin(ModelView, model=Medicine):
     name = "Medicine"
     name_plural = "Medicines"
     icon = "fa-solid fa-pills"
-    column_list = [Medicine.id, Medicine.user, Medicine.name, Medicine.dosage,
-                   Medicine.course_duration, Medicine.stock_amount, Medicine.is_active]
+    column_list = [
+        Medicine.id,
+        Medicine.user,
+        Medicine.name,
+        Medicine.dosage,
+        Medicine.course_duration,
+        Medicine.stock_amount,
+        Medicine.is_active,
+    ]
 
     column_searchable_list = ["form", "user.full_name", "user.username"]
     column_filters = [BooleanFilter(Medicine.is_active)]
     column_details_exclude_list = [Medicine.records, Medicine.schedules]
 
     form_args = dict(
-        name=dict(validators=[
-            DataRequired(message="Medicine name cannot be empty"),
-            Length(max=150)
-        ]),
+        name=dict(validators=[DataRequired(message="Medicine name cannot be empty"), Length(max=150)]),
         form=dict(validators=[DataRequired(message="Specify the form (e.g. tablets)")]),
         dosage=dict(validators=[DataRequired(message="Specify the dosage (e.g. 500 mg)")]),
-        course_duration=dict(validators=[NumberRange(min=1, message="Course duration (doses) must be a number greater than 0")]),
+        course_duration=dict(
+            validators=[NumberRange(min=1, message="Course duration (doses) must be a number greater than 0")]
+        ),
         stock_amount=dict(validators=[NumberRange(min=0, message="Stock must be >= 0 (or left empty)")]),
-        low_stock_threshold=dict(validators=[NumberRange(min=0, message="Threshold must be >= 0 (or left empty)")])
+        low_stock_threshold=dict(validators=[NumberRange(min=0, message="Threshold must be >= 0 (or left empty)")]),
     )
 
     async def after_model_change(self, data, model, is_created, request):
@@ -206,6 +218,7 @@ class MedicineAdmin(ModelView, model=Medicine):
                 failed += 1
 
         from starlette.responses import RedirectResponse
+
         referer = request.headers.get("referer", "/admin/medicine/list")
         return RedirectResponse(url=referer, status_code=303)
 
@@ -219,10 +232,12 @@ class MedicineScheduleAdmin(ModelView, model=MedicineSchedule):
     column_searchable_list = ["scheduled_time"]
 
     form_args = dict(
-        scheduled_time=dict(validators=[
-            DataRequired(message="Time is required"),
-            Regexp(r"^(?:[01]\d|2[0-3]):[0-5]\d$", message="Time must be in HH:MM format (e.g. 08:30 or 20:00)")
-        ])
+        scheduled_time=dict(
+            validators=[
+                DataRequired(message="Time is required"),
+                Regexp(r"^(?:[01]\d|2[0-3]):[0-5]\d$", message="Time must be in HH:MM format (e.g. 08:30 or 20:00)"),
+            ]
+        )
     )
 
     async def after_model_change(self, data, model, is_created, request):
@@ -236,17 +251,24 @@ class MedicineRecordAdmin(ModelView, model=MedicineRecord):
     name = "Intake Record"
     name_plural = "Intake History"
     icon = "fa-solid fa-clipboard-check"
-    column_list = [MedicineRecord.id, MedicineRecord.medicine, MedicineRecord.status, MedicineRecord.taken_at,
-                   MedicineRecord.remaining_days]
+    column_list = [
+        MedicineRecord.id,
+        MedicineRecord.medicine,
+        MedicineRecord.status,
+        MedicineRecord.taken_at,
+        MedicineRecord.remaining_days,
+    ]
     column_default_sort = ("taken_at", True)
     column_filters = [StaticValuesFilter(MedicineRecord.status, values=[("taken", "Taken"), ("skipped", "Skipped")])]
 
     form_args = dict(
-        status=dict(validators=[
-            DataRequired(message="Status is required"),
-            AnyOf(["taken", "skipped"], message="Status can only be 'taken' or 'skipped'")
-        ]),
-        remaining_days=dict(validators=[NumberRange(min=0, message="Remaining days cannot be negative")])
+        status=dict(
+            validators=[
+                DataRequired(message="Status is required"),
+                AnyOf(["taken", "skipped"], message="Status can only be 'taken' or 'skipped'"),
+            ]
+        ),
+        remaining_days=dict(validators=[NumberRange(min=0, message="Remaining days cannot be negative")]),
     )
 
 
@@ -255,20 +277,24 @@ class PrescriptionAdmin(ModelView, model=Prescription):
     name_plural = "Prescriptions"
     icon = "fa-solid fa-file-prescription"
     column_list = [
-        Prescription.id, Prescription.user, Prescription.medicine_name,
-        Prescription.valid_from, Prescription.expires_at, Prescription.max_quantity,
-        Prescription.purchased_quantity, Prescription.is_fully_purchased,
-        Prescription.reminder_days_before, Prescription.reminder_sent, Prescription.is_active,
+        Prescription.id,
+        Prescription.user,
+        Prescription.medicine_name,
+        Prescription.valid_from,
+        Prescription.expires_at,
+        Prescription.max_quantity,
+        Prescription.purchased_quantity,
+        Prescription.is_fully_purchased,
+        Prescription.reminder_days_before,
+        Prescription.reminder_sent,
+        Prescription.is_active,
     ]
     column_searchable_list = ["medicine_name", "user.full_name"]
     column_default_sort = ("expires_at", False)
     column_filters = [BooleanFilter(Prescription.is_active), BooleanFilter(Prescription.is_fully_purchased)]
 
     form_args = dict(
-        medicine_name=dict(validators=[
-            DataRequired(message="Medicine name is required"),
-            Length(max=150)
-        ]),
+        medicine_name=dict(validators=[DataRequired(message="Medicine name is required"), Length(max=150)]),
         max_quantity=dict(validators=[NumberRange(min=0, message="Must be >= 0 (or empty)")]),
         purchased_quantity=dict(validators=[NumberRange(min=0, message="Cannot be negative")]),
         reminder_days_before=dict(validators=[NumberRange(min=0, max=90, message="From 0 to 90 days")]),
@@ -279,11 +305,18 @@ class ChatHistoryAdmin(ModelView, model=ChatHistory):
     """
     Read-only view of the conversation with the AI agent.
     """
+
     name = "AI Message"
     name_plural = "AI Chat History"
     icon = "fa-solid fa-robot"
     column_list = [ChatHistory.id, ChatHistory.user, ChatHistory.role, ChatHistory.content, ChatHistory.created_at]
-    column_details_list = [ChatHistory.id, ChatHistory.user, ChatHistory.role, ChatHistory.content, ChatHistory.created_at]
+    column_details_list = [
+        ChatHistory.id,
+        ChatHistory.user,
+        ChatHistory.role,
+        ChatHistory.content,
+        ChatHistory.created_at,
+    ]
     column_searchable_list = ["user.full_name", "user.username"]
     column_filters = [StaticValuesFilter(ChatHistory.role, values=[("user", "user"), ("assistant", "assistant")])]
     column_default_sort = ("created_at", True)
@@ -348,9 +381,7 @@ def _log_line_matches(line: str, level: str = "", search: str = "") -> bool:
 
 
 @app.get("/api/admin/logs")
-async def get_admin_logs(
-        source: str = "bot", lines: int = 200, level: str = "", search: str = ""
-) -> dict:
+async def get_admin_logs(source: str = "bot", lines: int = 200, level: str = "", search: str = "") -> dict:
     """
     JSON with the latest log lines.
     source: "bot" | "admin"
@@ -417,7 +448,9 @@ class AIMetricsView(BaseView):
     @expose("/admin/ai-metrics-view", methods=["GET"])
     async def ai_metrics_page(self, request: Request):
         return await self.templates.TemplateResponse(
-            request, "sqladmin/ai_metrics.html", context={"request": request},
+            request,
+            "sqladmin/ai_metrics.html",
+            context={"request": request},
         )
 
 
@@ -426,13 +459,16 @@ class LogsView(BaseView):
     Custom page in the Admin Panel sidebar. Data is loaded via JS
     through /api/admin/logs — the page itself only renders the template.
     """
+
     name = "Logs"
     icon = "fa-solid fa-file-lines"
 
     @expose("/admin/logs-view", methods=["GET"])
     async def logs_page(self, request: Request):
         return await self.templates.TemplateResponse(
-            request, "sqladmin/logs.html", context={"request": request},
+            request,
+            "sqladmin/logs.html",
+            context={"request": request},
         )
 
 
@@ -448,7 +484,9 @@ async def admin_dashboard(request: Request):
         stats = await crud.get_global_intake_stats(session)
 
     return await admin.templates.TemplateResponse(
-        request, "sqladmin/index.html", context={"stats": stats},
+        request,
+        "sqladmin/index.html",
+        context={"stats": stats},
     )
 
 
@@ -458,6 +496,7 @@ async def get_admin_stats(period: str = "all"):
     async with SessionLocal() as session:
         stats = await crud.get_dashboard_stats(session, period)
         return stats
+
 
 @app.get("/api/admin/ai-metrics")
 async def get_ai_metrics(period: str = "24h"):

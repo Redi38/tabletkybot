@@ -60,8 +60,7 @@ TOOL_SCHEMAS = [
         "function": {
             "name": "get_my_medicines",
             "description": (
-                "Get the list of the user's active medicines with their intake "
-                "schedule, dosage, and remaining course."
+                "Get the list of the user's active medicines with their intake schedule, dosage, and remaining course."
             ),
             "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
         },
@@ -200,36 +199,47 @@ TOOL_SCHEMAS = [
 
 # ─── Reads ─────────────────────────────────────────────────────────────
 
+
 async def execute_get_my_medicines(session: AsyncSession, user_id: int, args: dict) -> dict:
     medicines = await crud.get_user_medicines(session, user_id, active_only=True)
     if not medicines:
         return {"medicines": [], "note": "No active medicines found for this user."}
-    return {"medicines": [
-        {
-            "name": m.name, "form": m.form, "dosage": m.dosage,
-            "schedule": [s.scheduled_time for s in m.schedules],
-            "remaining_doses": m.course_duration, "stock_amount": m.stock_amount,
-        }
-        for m in medicines
-    ]}
+    return {
+        "medicines": [
+            {
+                "name": m.name,
+                "form": m.form,
+                "dosage": m.dosage,
+                "schedule": [s.scheduled_time for s in m.schedules],
+                "remaining_doses": m.course_duration,
+                "stock_amount": m.stock_amount,
+            }
+            for m in medicines
+        ]
+    }
 
 
 async def execute_get_my_prescriptions(session: AsyncSession, user_id: int, args: dict) -> dict:
     prescriptions = await crud.get_user_prescriptions(session, user_id, active_only=True)
     if not prescriptions:
         return {"prescriptions": [], "note": "No active prescriptions found for this user."}
-    return {"prescriptions": [
-        {
-            "medicine_name": p.medicine_name,
-            "valid_from": p.valid_from.isoformat(), "expires_at": p.expires_at.isoformat(),
-            "max_quantity": p.max_quantity, "purchased_quantity": p.purchased_quantity,
-            "is_fully_purchased": p.is_fully_purchased,
-        }
-        for p in prescriptions
-    ]}
+    return {
+        "prescriptions": [
+            {
+                "medicine_name": p.medicine_name,
+                "valid_from": p.valid_from.isoformat(),
+                "expires_at": p.expires_at.isoformat(),
+                "max_quantity": p.max_quantity,
+                "purchased_quantity": p.purchased_quantity,
+                "is_fully_purchased": p.is_fully_purchased,
+            }
+            for p in prescriptions
+        ]
+    }
 
 
 # ─── Writes (executed immediately) ─────────────────────────────────────
+
 
 async def execute_add_medicine_reminder(session: AsyncSession, user_id: int, args: dict) -> dict:
     times = args.get("times") or []
@@ -249,7 +259,8 @@ async def execute_add_medicine_reminder(session: AsyncSession, user_id: int, arg
     course_duration = duration_days * len(times)
 
     medicine = await crud.add_medicine(
-        session=session, user_id=user_id,
+        session=session,
+        user_id=user_id,
         name=str(args.get("name", ""))[:150],
         form=str(args.get("form", ""))[:64],
         dosage=str(args.get("dosage", ""))[:64],
@@ -305,15 +316,19 @@ async def execute_add_prescription_entry(session: AsyncSession, user_id: int, ar
     expires_at = valid_from + timedelta(days=duration_days)
 
     prescription = await crud.add_prescription(
-        session=session, user_id=user_id,
+        session=session,
+        user_id=user_id,
         medicine_name=str(args.get("medicine_name", ""))[:150],
-        valid_from=valid_from, expires_at=expires_at,
+        valid_from=valid_from,
+        expires_at=expires_at,
         max_quantity=max_quantity,
         reminder_days_before=reminder_days_before,
     )
     return {
-        "success": True, "medicine_name": prescription.medicine_name,
-        "valid_from": valid_from.isoformat(), "expires_at": expires_at.isoformat(),
+        "success": True,
+        "medicine_name": prescription.medicine_name,
+        "valid_from": valid_from.isoformat(),
+        "expires_at": expires_at.isoformat(),
     }
 
 
@@ -362,6 +377,7 @@ async def execute_mark_prescription_bought(session: AsyncSession, user_id: int, 
 
 # ─── Confirmation requests (nothing is deleted, only the target is found) ─────
 
+
 async def execute_request_medicine_removal(session: AsyncSession, user_id: int, args: dict) -> dict:
     medicine = await _find_medicine(session, user_id, args.get("medicine_name", ""))
     if not medicine:
@@ -408,6 +424,5 @@ async def execute_tool(tool_name: str, session: AsyncSession, user_id: int, argu
     try:
         return await executor(session, user_id, arguments or {})
     except Exception as e:
-
         await session.rollback()
         return {"error": f"Error executing {tool_name}: {e}"}

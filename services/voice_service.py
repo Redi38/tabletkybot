@@ -17,8 +17,16 @@ def _convert_to_wav_sync(src_path: str, wav_path: str) -> None:
     the format Riva/Whisper NIM expects.
     """
     cmd = [
-        "ffmpeg", "-y", "-i", src_path,
-        "-ac", "1", "-ar", "16000", "-sample_fmt", "s16",
+        "ffmpeg",
+        "-y",
+        "-i",
+        src_path,
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-sample_fmt",
+        "s16",
         wav_path,
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)

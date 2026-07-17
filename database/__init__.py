@@ -4,6 +4,10 @@ from database.models import Base, ChatHistory, Medicine, MedicineRecord, User
 
 __all__ = [
     "init_db",
-    "Base", "User", "Medicine", "MedicineRecord", "ChatHistory",
+    "Base",
+    "User",
+    "Medicine",
+    "MedicineRecord",
+    "ChatHistory",
     "crud",
 ]

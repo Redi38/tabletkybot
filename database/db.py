@@ -7,6 +7,8 @@ from database.models import Base
 def _create_tables(sync_conn: Connection) -> None:
     """Helper synchronous function for proper typing."""
     Base.metadata.create_all(sync_conn)
+
+
 async def init_db(database_url: str) -> async_sessionmaker:
     """Initializes the database connection and creates the tables.
     Returns the session_factory for use in middleware."""

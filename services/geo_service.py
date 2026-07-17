@@ -5,6 +5,7 @@ for geocoding and timezonefinder for the coordinate -> timezone lookup.
 timezonefinder works fully offline once installed, so only the geocoding
 step needs a network call.
 """
+
 import asyncio
 import logging
 from datetime import datetime
@@ -42,6 +43,7 @@ async def resolve_timezone_from_place(place_text: str) -> str | None:
         return None
 
     return tz_name
+
 
 def format_timezone_display(tz_name: str | None) -> str | None:
     """

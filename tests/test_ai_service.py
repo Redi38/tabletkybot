@@ -3,6 +3,7 @@ Tests for the pure/stateless helper functions in services/ai_service.py.
 These don't touch NVIDIA/Ollama APIs or the DB — they're regex/logic-only
 transformations, so no mocking is needed.
 """
+
 from services.ai_service import (
     _dedupe_tool_calls,
     _extract_known_names,
@@ -16,7 +17,6 @@ from services.ai_service import (
 
 
 class TestFormatMarkdownToHtml:
-
     def test_bold_conversion(self):
         assert format_markdown_to_html("**hello**") == "<b>hello</b>"
 
@@ -41,7 +41,6 @@ class TestFormatMarkdownToHtml:
 
 
 class TestStripHtmlTags:
-
     def test_removes_bold_tags(self):
         assert strip_html_tags("<b>bold</b> text") == "bold text"
 
@@ -56,7 +55,6 @@ class TestStripHtmlTags:
 
 
 class TestDetectMessageLanguage:
-
     def test_detects_ukrainian_by_unique_chars(self):
         assert detect_message_language("Привіт, як справи?") == "ua"
 
@@ -83,7 +81,6 @@ class TestDetectMessageLanguage:
 
 
 class TestResolveLanguage:
-
     def test_uses_last_user_message(self):
         messages = [
             {"role": "user", "content": "Hello"},
@@ -102,7 +99,6 @@ class TestResolveLanguage:
 
 
 class TestLooksLikeActionRequest:
-
     def test_detects_ukrainian_action_keyword(self):
         assert _looks_like_action_request("Додай ібупрофен") is True
 
@@ -123,7 +119,6 @@ class TestLooksLikeActionRequest:
 
 
 class TestDedupeToolCalls:
-
     def test_removes_exact_duplicate_calls(self):
         calls = [
             {"id": "1", "function": {"name": "get_my_medicines", "arguments": "{}"}},
@@ -164,7 +159,6 @@ class TestDedupeToolCalls:
 
 
 class TestExtractKnownNames:
-
     def test_extracts_medicine_names(self):
         result = {"medicines": [{"name": "Aspirin"}, {"name": "Ibuprofen"}]}
         names = _extract_known_names("get_my_medicines", result)
@@ -190,7 +184,6 @@ class TestExtractKnownNames:
 
 
 class TestFindUngroundedNames:
-
     def test_flags_name_not_in_known_set(self):
         text = "You are taking <b>Paracetamol</b> daily."
         known = {"aspirin"}

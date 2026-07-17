@@ -19,25 +19,25 @@ _OLLAMA_TIMEOUT = aiohttp.ClientTimeout(total=120)
 _AGENT_CALL_TIMEOUT = aiohttp.ClientTimeout(total=25)
 _AGENT_TOTAL_TIMEOUT_SECONDS = 45
 
-_MD_BOLD = re.compile(r'\*\*(.*?)\*\*')
-_MD_H3 = re.compile(r'^###\s+(.*?)$', re.MULTILINE)
-_MD_H2 = re.compile(r'^##\s+(.*?)$', re.MULTILINE)
-_MD_H1 = re.compile(r'^#\s+(.*?)$', re.MULTILINE)
-_MD_LIST = re.compile(r'^\*\s+', re.MULTILINE)
+_MD_BOLD = re.compile(r"\*\*(.*?)\*\*")
+_MD_H3 = re.compile(r"^###\s+(.*?)$", re.MULTILINE)
+_MD_H2 = re.compile(r"^##\s+(.*?)$", re.MULTILINE)
+_MD_H1 = re.compile(r"^#\s+(.*?)$", re.MULTILINE)
+_MD_LIST = re.compile(r"^\*\s+", re.MULTILINE)
 
-_HTML_TAG = re.compile(r'<[^>]+>')
-_BOLD_CONTENT = re.compile(r'<b>(.*?)</b>')
+_HTML_TAG = re.compile(r"<[^>]+>")
+_BOLD_CONTENT = re.compile(r"<b>(.*?)</b>")
 
 
 def format_markdown_to_html(text: str) -> str:
     """Converts Markdown from the AI into Telegram-compatible HTML."""
     if not text:
         return text
-    text = _MD_BOLD.sub(r'<b>\1</b>', text)
-    text = _MD_H3.sub(r'<b>\1</b>\n', text)
-    text = _MD_H2.sub(r'<b>\1</b>\n', text)
-    text = _MD_H1.sub(r'<b>\1</b>\n', text)
-    text = _MD_LIST.sub('- ', text)
+    text = _MD_BOLD.sub(r"<b>\1</b>", text)
+    text = _MD_H3.sub(r"<b>\1</b>\n", text)
+    text = _MD_H2.sub(r"<b>\1</b>\n", text)
+    text = _MD_H1.sub(r"<b>\1</b>\n", text)
+    text = _MD_LIST.sub("- ", text)
     return text
 
 
@@ -45,7 +45,7 @@ def strip_html_tags(text: str) -> str:
     """Removes HTML tags (<b>, <i>, <code>, etc.) from the text."""
     if not text:
         return text
-    return _HTML_TAG.sub('', text)
+    return _HTML_TAG.sub("", text)
 
 
 # ─── Detecting the language of the user's latest message ───────────────────
@@ -88,16 +88,57 @@ def _resolve_language(messages: list[dict], fallback: str) -> str:
 # ─── Keywords that explicitly indicate an intent to do something with data ────────
 _ACTION_KEYWORDS = (
     # UA
-    "додай", "додати", "видали", "видалити", "архівуй", "архівувати",
-    "зміни", "змінити", "онови", "оновити", "покажи", "показати",
-    "скільки", "які", "яка", "який", "куплено", "купив", "купила",
+    "додай",
+    "додати",
+    "видали",
+    "видалити",
+    "архівуй",
+    "архівувати",
+    "зміни",
+    "змінити",
+    "онови",
+    "оновити",
+    "покажи",
+    "показати",
+    "скільки",
+    "які",
+    "яка",
+    "який",
+    "куплено",
+    "купив",
+    "купила",
     # RU
-    "добавь", "добавить", "удали", "удалить", "архивируй", "архивировать",
-    "измени", "изменить", "обнови", "обновить", "покажи", "показать",
-    "сколько", "какие", "какая", "какой", "куплено", "купил", "купила",
+    "добавь",
+    "добавить",
+    "удали",
+    "удалить",
+    "архивируй",
+    "архивировать",
+    "измени",
+    "изменить",
+    "обнови",
+    "обновить",
+    "покажи",
+    "показать",
+    "сколько",
+    "какие",
+    "какая",
+    "какой",
+    "куплено",
+    "купил",
+    "купила",
     # EN
-    "add", "delete", "remove", "archive", "change", "update", "show",
-    "list", "how many", "how much", "bought",
+    "add",
+    "delete",
+    "remove",
+    "archive",
+    "change",
+    "update",
+    "show",
+    "list",
+    "how many",
+    "how much",
+    "bought",
 )
 
 
@@ -195,8 +236,11 @@ async def _post_json(url: str, payload: dict, headers: dict | None, timeout: aio
 
 
 async def ask_nvidia(
-        api_key: str, base_url: str, model: str,
-        messages: list[dict], language: str = "ua",
+    api_key: str,
+    base_url: str,
+    model: str,
+    messages: list[dict],
+    language: str = "ua",
 ) -> str:
     payload = {
         "model": model,
@@ -208,13 +252,18 @@ async def ask_nvidia(
     }
     data = await _post_json(
         f"{base_url.rstrip('/')}/chat/completions",
-        payload, _nvidia_headers(api_key), _NVIDIA_TIMEOUT,
+        payload,
+        _nvidia_headers(api_key),
+        _NVIDIA_TIMEOUT,
     )
     return data["choices"][0]["message"]["content"]
 
 
 async def ask_ollama(
-        ollama_url: str, model: str, messages: list[dict], language: str = "ua",
+    ollama_url: str,
+    model: str,
+    messages: list[dict],
+    language: str = "ua",
 ) -> str:
     payload = {
         "model": model,
@@ -228,17 +277,18 @@ async def ask_ollama(
     raise ValueError(f"Unexpected Ollama response: {data}")
 
 
-async def get_ai_response(
-        config: Config, messages: list[dict], language: str = "ua"
-) -> tuple[str, str]:
+async def get_ai_response(config: Config, messages: list[dict], language: str = "ua") -> tuple[str, str]:
     """Text request: NVIDIA → Ollama fallback."""
     language = _resolve_language(messages, language)
 
     if config.nvidia_api_key:
         try:
             response = await ask_nvidia(
-                config.nvidia_api_key, config.nvidia_base_url,
-                config.nvidia_model, messages, language,
+                config.nvidia_api_key,
+                config.nvidia_base_url,
+                config.nvidia_model,
+                messages,
+                language,
             )
             return format_markdown_to_html(response), f"NVIDIA ({config.nvidia_model})"
         except Exception as e:
@@ -256,9 +306,13 @@ _MAX_AGENT_ITERATIONS = 5  # protection against an infinite loop of tool calls
 
 
 async def ask_nvidia_raw(
-        api_key: str, base_url: str, model: str,
-        messages: list[dict], tools: list[dict] | None = None, language: str = "ua",
-        tool_choice: str = "auto",
+    api_key: str,
+    base_url: str,
+    model: str,
+    messages: list[dict],
+    tools: list[dict] | None = None,
+    language: str = "ua",
+    tool_choice: str = "auto",
 ) -> dict:
     payload = {
         "model": model,
@@ -274,7 +328,9 @@ async def ask_nvidia_raw(
 
     data = await _post_json(
         f"{base_url.rstrip('/')}/chat/completions",
-        payload, _nvidia_headers(api_key), _AGENT_CALL_TIMEOUT,
+        payload,
+        _nvidia_headers(api_key),
+        _AGENT_CALL_TIMEOUT,
     )
     return data["choices"][0]["message"]
 
@@ -325,8 +381,13 @@ def _find_ungrounded_names(final_text: str, known_names: set[str]) -> list[str]:
     candidates = [m for m in mentioned if len(m) >= 3]
     return [m for m in candidates if not any(m in known or known in m for known in known_names)]
 
+
 async def get_ai_agent_response(
-        config, session, user_id: int, messages: list[dict], language: str = "ua",
+    config,
+    session,
+    user_id: int,
+    messages: list[dict],
+    language: str = "ua",
 ) -> tuple[str, str, dict | None]:
     start_time = time.monotonic()
     language = _resolve_language(messages, language)
@@ -335,9 +396,13 @@ async def get_ai_agent_response(
         text, model = await get_ai_response(config, messages, language)
         latency_ms = int((time.monotonic() - start_time) * 1000)
         await _log_metric(
-            session, user_id, model_used=model,
-            tool_choice=None, tool_names=None,
-            latency_ms=latency_ms, status="success",
+            session,
+            user_id,
+            model_used=model,
+            tool_choice=None,
+            tool_names=None,
+            latency_ms=latency_ms,
+            status="success",
         )
         return strip_html_tags(text), model, None
 
@@ -348,30 +413,42 @@ async def get_ai_agent_response(
         )
         latency_ms = int((time.monotonic() - start_time) * 1000)
         await _log_metric(
-            session, user_id, model_used=model,
-            tool_choice=meta["tool_choice"], tool_names=meta["tool_names"],
-            latency_ms=latency_ms, status="success",
+            session,
+            user_id,
+            model_used=model,
+            tool_choice=meta["tool_choice"],
+            tool_names=meta["tool_names"],
+            latency_ms=latency_ms,
+            status="success",
         )
         return text, model, confirmation
     except asyncio.TimeoutError:
         latency_ms = int((time.monotonic() - start_time) * 1000)
         logger.error(
-            f"Agent loop exceeded the overall time limit "
-            f"({_AGENT_TOTAL_TIMEOUT_SECONDS}s) for user_id={user_id}"
+            f"Agent loop exceeded the overall time limit ({_AGENT_TOTAL_TIMEOUT_SECONDS}s) for user_id={user_id}"
         )
         await _log_metric(
-            session, user_id, model_used="none",
-            tool_choice=None, tool_names=None,
-            latency_ms=latency_ms, status="timeout",
+            session,
+            user_id,
+            model_used="none",
+            tool_choice=None,
+            tool_names=None,
+            latency_ms=latency_ms,
+            status="timeout",
             error_message=f"Exceeded {_AGENT_TOTAL_TIMEOUT_SECONDS}s limit",
         )
         return get_text(language, "ai_err_api"), "none", None
 
 
 async def _log_metric(
-        session, user_id: int, model_used: str,
-        tool_choice: str | None, tool_names: list[str] | None,
-        latency_ms: int, status: str, error_message: str | None = None,
+    session,
+    user_id: int,
+    model_used: str,
+    tool_choice: str | None,
+    tool_names: list[str] | None,
+    latency_ms: int,
+    status: str,
+    error_message: str | None = None,
 ) -> None:
     """
     Best-effort metric logging — a failure here (e.g. a stale session) must
@@ -379,16 +456,25 @@ async def _log_metric(
     """
     try:
         await crud.log_ai_metric(
-            session, user_id=user_id, model_used=model_used,
-            tool_choice=tool_choice, tool_names=tool_names,
-            latency_ms=latency_ms, status=status, error_message=error_message,
+            session,
+            user_id=user_id,
+            model_used=model_used,
+            tool_choice=tool_choice,
+            tool_names=tool_names,
+            latency_ms=latency_ms,
+            status=status,
+            error_message=error_message,
         )
     except Exception as e:
         logger.warning(f"Failed to log AI metric for user_id={user_id}: {e}")
 
 
 async def _run_agent_loop(
-        config, session, user_id: int, messages: list[dict], language: str,
+    config,
+    session,
+    user_id: int,
+    messages: list[dict],
+    language: str,
 ) -> tuple[str, str, dict | None, dict]:
     conversation = list(messages)
     last_user_text = messages[-1].get("content", "") if messages else ""
@@ -399,19 +485,19 @@ async def _run_agent_loop(
 
     try:
         for iteration in range(_MAX_AGENT_ITERATIONS):
-            force_tool = (
-                iteration == 0
-                and not retried_for_grounding
-                and _looks_like_action_request(last_user_text)
-            )
+            force_tool = iteration == 0 and not retried_for_grounding and _looks_like_action_request(last_user_text)
             tool_choice = "required" if force_tool else "auto"
             if first_tool_choice is None:
                 first_tool_choice = tool_choice
 
             assistant_message = await ask_nvidia_raw(
-                config.nvidia_api_key, config.nvidia_base_url,
-                config.nvidia_model, conversation, tools=TOOL_SCHEMAS,
-                language=language, tool_choice=tool_choice,
+                config.nvidia_api_key,
+                config.nvidia_base_url,
+                config.nvidia_model,
+                conversation,
+                tools=TOOL_SCHEMAS,
+                language=language,
+                tool_choice=tool_choice,
             )
 
             logger.debug(f"Raw NIM response (user_id={user_id}, iteration={iteration}): {assistant_message}")
@@ -428,28 +514,35 @@ async def _run_agent_loop(
                         f"the tool result: {ungrounded}. Making one retry."
                     )
                     conversation.append({"role": "assistant", "content": final_text})
-                    conversation.append({
-                        "role": "user",
-                        "content": (
-                            "System note: your previous answer mentioned data "
-                            "that does not match the actual tool results. "
-                            "Please re-answer using ONLY the exact names and "
-                            "values from the tool results above."
-                        ),
-                    })
+                    conversation.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "System note: your previous answer mentioned data "
+                                "that does not match the actual tool results. "
+                                "Please re-answer using ONLY the exact names and "
+                                "values from the tool results above."
+                            ),
+                        }
+                    )
                     retried_for_grounding = True
                     continue
 
-                meta: dict[str, str | list[str] | None] = {"tool_choice": first_tool_choice, "tool_names": called_tool_names}
+                meta: dict[str, str | list[str] | None] = {
+                    "tool_choice": first_tool_choice,
+                    "tool_names": called_tool_names,
+                }
                 return final_text, f"NVIDIA Agent ({config.nvidia_model})", None, meta
 
             tool_calls = _dedupe_tool_calls(tool_calls)
 
-            conversation.append({
-                "role": "assistant",
-                "content": assistant_message.get("content"),
-                "tool_calls": tool_calls,
-            })
+            conversation.append(
+                {
+                    "role": "assistant",
+                    "content": assistant_message.get("content"),
+                    "tool_calls": tool_calls,
+                }
+            )
 
             for call in tool_calls:
                 tool_name = call["function"]["name"]
@@ -469,17 +562,24 @@ async def _run_agent_loop(
 
                 if result.get("requires_confirmation"):
                     meta = {"tool_choice": first_tool_choice, "tool_names": called_tool_names}
-                    return "", f"NVIDIA Agent ({config.nvidia_model})", {
-                        "target_type": result["target_type"],
-                        "target_id": result["target_id"],
-                        "target_name": result["target_name"],
-                    }, meta
+                    return (
+                        "",
+                        f"NVIDIA Agent ({config.nvidia_model})",
+                        {
+                            "target_type": result["target_type"],
+                            "target_id": result["target_id"],
+                            "target_name": result["target_name"],
+                        },
+                        meta,
+                    )
 
-                conversation.append({
-                    "role": "tool",
-                    "tool_call_id": call["id"],
-                    "content": json.dumps(result, ensure_ascii=False),
-                })
+                conversation.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call["id"],
+                        "content": json.dumps(result, ensure_ascii=False),
+                    }
+                )
 
         logger.error(f"The agent did not produce a final answer within {_MAX_AGENT_ITERATIONS} iterations")
         meta = {"tool_choice": first_tool_choice, "tool_names": called_tool_names}

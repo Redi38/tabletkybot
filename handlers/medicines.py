@@ -72,9 +72,7 @@ async def _base_ctx(call: CallbackQuery, session: AsyncSession) -> tuple[Message
     return call.message, lang
 
 
-async def _valid_medicine_ctx(
-        call: CallbackQuery, session: AsyncSession
-) -> tuple[Message, str, int, Medicine] | None:
+async def _valid_medicine_ctx(call: CallbackQuery, session: AsyncSession) -> tuple[Message, str, int, Medicine] | None:
     base = await _base_ctx(call, session)
     if not base or not call.data:
         return None
@@ -118,38 +116,50 @@ class RestockMedicine(StatesGroup):
 
 # ── Keyboards ─────────────────────────────────────────────────────────────
 def medicine_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text=get_text(language, "btn_add"), callback_data="med_add", style="success"),
-            InlineKeyboardButton(text=get_text(language, "btn_list"), callback_data="med_list", style="primary"),
-        ],
-        [InlineKeyboardButton(text=get_text(language, "btn_stats"), callback_data="med_stats", style="primary")],
-        [InlineKeyboardButton(text=get_text(language, "btn_report"), callback_data="med_reports", style="primary")],
-        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_back")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=get_text(language, "btn_add"), callback_data="med_add", style="success"),
+                InlineKeyboardButton(text=get_text(language, "btn_list"), callback_data="med_list", style="primary"),
+            ],
+            [InlineKeyboardButton(text=get_text(language, "btn_stats"), callback_data="med_stats", style="primary")],
+            [InlineKeyboardButton(text=get_text(language, "btn_report"), callback_data="med_reports", style="primary")],
+            [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_back")],
+        ]
+    )
 
 
 def medicine_back_only_kb(language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_menu")]
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_menu")]]
+    )
 
 
 def med_reports_kb(language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text=get_text(language, "btn_gen_excel"), callback_data="report_excel", style="primary"),
-            InlineKeyboardButton(text=get_text(language, "btn_gen_csv"), callback_data="report_csv", style="primary"),
-        ],
-        [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_menu")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_gen_excel"), callback_data="report_excel", style="primary"
+                ),
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_gen_csv"), callback_data="report_csv", style="primary"
+                ),
+            ],
+            [InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_menu")],
+        ]
+    )
 
 
 def track_stock_kb(language: str = "ua") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=get_text(language, "btn_yes"), callback_data="track_stock_yes"),
-        InlineKeyboardButton(text=get_text(language, "btn_no"), callback_data="track_stock_no"),
-    ]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=get_text(language, "btn_yes"), callback_data="track_stock_yes"),
+                InlineKeyboardButton(text=get_text(language, "btn_no"), callback_data="track_stock_no"),
+            ]
+        ]
+    )
 
 
 # ── Navigation ─────────────────────────────────────────────────────────────
@@ -158,7 +168,9 @@ async def medicines_menu(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return
     language = await crud.get_user_language(session, message.from_user.id)
-    await message.answer(get_text(language, "med_menu_title"), reply_markup=medicine_menu_kb(language), parse_mode="HTML")
+    await message.answer(
+        get_text(language, "med_menu_title"), reply_markup=medicine_menu_kb(language), parse_mode="HTML"
+    )
 
 
 @router.callback_query(F.data == "med_menu")
@@ -296,8 +308,11 @@ async def add_timezone(message: Message, state: FSMContext, session: AsyncSessio
 
 @router.callback_query(F.data.startswith("track_stock_"))
 async def add_track_stock(
-        call: CallbackQuery, state: FSMContext, session: AsyncSession, bot: Bot,
-        session_factory: async_sessionmaker,
+    call: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+    bot: Bot,
+    session_factory: async_sessionmaker,
 ) -> None:
     ctx = await _base_ctx(call, session)
     if not ctx or not call.data:
@@ -326,8 +341,11 @@ async def add_stock_amount(message: Message, state: FSMContext) -> None:
 
 @router.message(AddMedicine.stock_threshold)
 async def add_stock_threshold(
-        message: Message, state: FSMContext, session: AsyncSession, bot: Bot,
-        session_factory: async_sessionmaker,
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    bot: Bot,
+    session_factory: async_sessionmaker,
 ) -> None:
     if not message.text:
         return
@@ -341,19 +359,29 @@ async def add_stock_threshold(
 
 
 async def _save_new_medicine(
-        message: Message, state: FSMContext, session: AsyncSession, bot: Bot,
-        lang: str, stock_amount: int | None, threshold: int | None,
-        session_factory: async_sessionmaker,
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    bot: Bot,
+    lang: str,
+    stock_amount: int | None,
+    threshold: int | None,
+    session_factory: async_sessionmaker,
 ) -> None:
     data = await state.get_data()
     user_id = message.chat.id
     total_doses = data["duration"] * len(data["time"])
 
     medicine = await crud.add_medicine(
-        session=session, user_id=user_id,
-        name=data["name"], form=data["form"], dosage=data["dosage"],
-        schedules_list=data["time"], course_duration=total_doses,
-        stock_amount=stock_amount, low_stock_threshold=threshold,
+        session=session,
+        user_id=user_id,
+        name=data["name"],
+        form=data["form"],
+        dosage=data["dosage"],
+        schedules_list=data["time"],
+        course_duration=total_doses,
+        stock_amount=stock_amount,
+        low_stock_threshold=threshold,
     )
     if not medicine:
         return
@@ -362,10 +390,13 @@ async def _save_new_medicine(
     await state.clear()
     times_str = ", ".join(data["time"])
     username = message.from_user.username if message.from_user else None
-    logger.info(f"User {user_id} (@{username}) added medicine '{medicine.name}' (id={medicine.id}), schedule={times_str}")
+    logger.info(
+        f"User {user_id} (@{username}) added medicine '{medicine.name}' (id={medicine.id}), schedule={times_str}"
+    )
     await message.answer(
         get_text(lang, "med_added", name=str(medicine.name), time=times_str, duration=str(data["duration"])),
-        parse_mode="HTML", reply_markup=medicine_menu_kb(lang),
+        parse_mode="HTML",
+        reply_markup=medicine_menu_kb(lang),
     )
 
 
@@ -380,7 +411,11 @@ async def list_medicines(call: CallbackQuery, session: AsyncSession) -> None:
 
     if not medicines:
         buttons = [
-            [InlineKeyboardButton(text=get_text(lang, "btn_archive_list"), callback_data="med_archive_list", style="primary")],
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_archive_list"), callback_data="med_archive_list", style="primary"
+                )
+            ],
             [InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="med_menu")],
         ]
         await msg.edit_text(get_text(lang, "med_empty"), reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -397,10 +432,14 @@ async def list_medicines(call: CallbackQuery, session: AsyncSession) -> None:
             f"{get_text(lang, 'med_dose')}: {med.dosage}\n   ⏰ {schedules_str} | "
             f"{remaining_info}{stock_info}\n\n"
         )
-        buttons.append([
-            InlineKeyboardButton(text=f"✏️ {med.name}", callback_data=f"edit_med_{med.id}", style="primary"),
-            InlineKeyboardButton(text=get_text(lang, "btn_archive"), callback_data=f"med_archive_ask_{med.id}", style="danger"),
-        ])
+        buttons.append(
+            [
+                InlineKeyboardButton(text=f"✏️ {med.name}", callback_data=f"edit_med_{med.id}", style="primary"),
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_archive"), callback_data=f"med_archive_ask_{med.id}", style="danger"
+                ),
+            ]
+        )
 
     buttons.append([InlineKeyboardButton(text=get_text(lang, "btn_archive_list"), callback_data="med_archive_list")])
     buttons.append([InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="med_menu")])
@@ -442,6 +481,7 @@ async def medicine_stats(call: CallbackQuery, session: AsyncSession) -> None:
     text = "\n".join(lines)
     await msg.edit_text(text, reply_markup=medicine_back_only_kb(lang), parse_mode="HTML")
 
+
 # ── Archive and Removal ─────────────────────────────────────────────────────
 @router.callback_query(F.data == "med_archive_list")
 async def list_archived_medicines(call: CallbackQuery, session: AsyncSession) -> None:
@@ -463,10 +503,14 @@ async def list_archived_medicines(call: CallbackQuery, session: AsyncSession) ->
             f"💊 <b>{med.name}</b>\n   {get_text(lang, 'med_form')}: {med.form} | "
             f"{get_text(lang, 'med_dose')}: {med.dosage}\n   ⏰ {time_str}{stock_info}\n\n"
         )
-        buttons.append([
-            InlineKeyboardButton(text=f"🔄 {med.name}", callback_data=f"med_restore_ask_{med.id}", style="primary"),
-            InlineKeyboardButton(text=get_text(lang, "btn_archive_del"), callback_data=f"med_del_{med.id}", style="danger"),
-        ])
+        buttons.append(
+            [
+                InlineKeyboardButton(text=f"🔄 {med.name}", callback_data=f"med_restore_ask_{med.id}", style="primary"),
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_archive_del"), callback_data=f"med_del_{med.id}", style="danger"
+                ),
+            ]
+        )
     buttons.append([InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="med_list")])
     await msg.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
 
@@ -477,11 +521,19 @@ async def archive_medicine_ask(call: CallbackQuery, session: AsyncSession) -> No
     if not ctx:
         return
     msg, lang, medicine_id, medicine = ctx
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=get_text(lang, "btn_archive"), callback_data=f"med_archive_confirm_{medicine_id}")],
-        [InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="med_list")],
-    ])
-    await msg.edit_text(get_text(lang, "med_archive_confirm", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML")
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_archive"), callback_data=f"med_archive_confirm_{medicine_id}"
+                )
+            ],
+            [InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="med_list")],
+        ]
+    )
+    await msg.edit_text(
+        get_text(lang, "med_archive_confirm", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML"
+    )
 
 
 @router.callback_query(F.data.startswith("med_archive_confirm_"))
@@ -493,7 +545,9 @@ async def archive_medicine_exec(call: CallbackQuery, session: AsyncSession) -> N
     await crud.update_medicine_field(session, medicine_id, "is_active", False)
     remove_reminders(medicine_id)
     await clear_stock_alert_pending(call.from_user.id, medicine_id)
-    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) archived medicine '{medicine.name}' (id={medicine_id})")
+    logger.info(
+        f"User {call.from_user.id} (@{call.from_user.username}) archived medicine '{medicine.name}' (id={medicine_id})"
+    )
     await call.answer(get_text(lang, "edit_success"))
     await list_medicines(call, session)
 
@@ -504,11 +558,21 @@ async def delete_medicine(call: CallbackQuery, session: AsyncSession) -> None:
     if not ctx:
         return
     msg, lang, medicine_id, medicine = ctx
-    buttons = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=get_text(lang, "btn_confirm_del"), callback_data=f"med_confirm_del_{medicine_id}", style="danger")],
-        [InlineKeyboardButton(text=get_text(lang, "btn_cancel_del"), callback_data="med_list", style="primary")],
-    ])
-    await msg.edit_text(get_text(lang, "med_del_prompt", name=str(medicine.name)), reply_markup=buttons, parse_mode="HTML")
+    buttons = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_confirm_del"),
+                    callback_data=f"med_confirm_del_{medicine_id}",
+                    style="danger",
+                )
+            ],
+            [InlineKeyboardButton(text=get_text(lang, "btn_cancel_del"), callback_data="med_list", style="primary")],
+        ]
+    )
+    await msg.edit_text(
+        get_text(lang, "med_del_prompt", name=str(medicine.name)), reply_markup=buttons, parse_mode="HTML"
+    )
 
 
 @router.callback_query(F.data.startswith("med_confirm_del_"))
@@ -519,7 +583,9 @@ async def confirm_delete_medicine(call: CallbackQuery, session: AsyncSession) ->
     _, lang, medicine_id, medicine = ctx
     await crud.delete_medicine(session, medicine_id)
     remove_reminders(medicine_id)
-    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) deleted medicine '{medicine.name}' (id={medicine_id})")
+    logger.info(
+        f"User {call.from_user.id} (@{call.from_user.username}) deleted medicine '{medicine.name}' (id={medicine_id})"
+    )
     await call.answer(get_text(lang, "med_deleted", name=str(medicine.name)))
     await list_medicines(call, session)
 
@@ -538,8 +604,11 @@ async def extend_course_start(call: CallbackQuery, state: FSMContext, session: A
 
 @router.message(ExtendMedicine.waiting_for_days)
 async def extend_course_save(
-        message: Message, state: FSMContext, session: AsyncSession, bot: Bot,
-        session_factory: async_sessionmaker,
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    bot: Bot,
+    session_factory: async_sessionmaker,
 ) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ua")
@@ -573,17 +642,50 @@ async def edit_medicine_menu(call: CallbackQuery, session: AsyncSession) -> None
 
     buttons = [
         [InlineKeyboardButton(text=get_text(lang, "btn_edit_name"), callback_data=f"edit_field_name_{medicine_id}")],
-        [InlineKeyboardButton(text=get_text(lang, "btn_edit_dosage"), callback_data=f"edit_field_dosage_{medicine_id}")],
-        [InlineKeyboardButton(text=get_text(lang, "btn_edit_time"), callback_data=f"edit_field_schedules_{medicine_id}")],
-        [InlineKeyboardButton(text=get_text(lang, "btn_edit_duration"), callback_data=f"edit_field_course_duration_{medicine_id}")],
+        [
+            InlineKeyboardButton(
+                text=get_text(lang, "btn_edit_dosage"), callback_data=f"edit_field_dosage_{medicine_id}"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=get_text(lang, "btn_edit_time"), callback_data=f"edit_field_schedules_{medicine_id}"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=get_text(lang, "btn_edit_duration"), callback_data=f"edit_field_course_duration_{medicine_id}"
+            )
+        ],
     ]
     if medicine.stock_amount is not None:
-        buttons.append([InlineKeyboardButton(text=get_text(lang, "btn_edit_stock"), callback_data=f"edit_field_stock_amount_{medicine_id}")])
-        buttons.append([InlineKeyboardButton(text=get_text(lang, "btn_edit_threshold"), callback_data=f"edit_field_low_stock_threshold_{medicine_id}")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_edit_stock"), callback_data=f"edit_field_stock_amount_{medicine_id}"
+                )
+            ]
+        )
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_edit_threshold"),
+                    callback_data=f"edit_field_low_stock_threshold_{medicine_id}",
+                )
+            ]
+        )
     else:
-        buttons.append([InlineKeyboardButton(text=get_text(lang, "btn_enable_stock"), callback_data=f"edit_field_stock_amount_{medicine_id}")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_enable_stock"), callback_data=f"edit_field_stock_amount_{medicine_id}"
+                )
+            ]
+        )
     buttons.append([InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="med_list")])
-    await msg.edit_text(get_text(lang, "edit_what"), reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
+    await msg.edit_text(
+        get_text(lang, "edit_what"), reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML"
+    )
 
 
 @router.callback_query(F.data.startswith("edit_field_"))
@@ -600,8 +702,11 @@ async def edit_field_start(call: CallbackQuery, state: FSMContext, session: Asyn
 
 @router.message(EditMedicine.waiting_value)
 async def edit_field_save(
-        message: Message, state: FSMContext, session: AsyncSession, bot: Bot,
-        session_factory: async_sessionmaker,
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    bot: Bot,
+    session_factory: async_sessionmaker,
 ) -> None:
     if not message.from_user or not message.text:
         return
@@ -643,7 +748,9 @@ async def edit_field_save(
         tz = await crud.get_user_timezone(session, message.from_user.id)
         add_reminders_for_medicine(bot, medicine, str(tz), message.from_user.id, lang, session_factory=session_factory)
 
-    logger.info(f"User {message.from_user.id} (@{message.from_user.username}) edited field '{field}' of medicine (id={medicine_id})")
+    logger.info(
+        f"User {message.from_user.id} (@{message.from_user.username}) edited field '{field}' of medicine (id={medicine_id})"
+    )
 
     await state.clear()
     await message.answer(get_text(lang, "edit_success"), reply_markup=medicine_menu_kb(lang))
@@ -673,11 +780,23 @@ async def process_medicine_status(call: CallbackQuery, state: FSMContext, sessio
 
     if action == "take" and medicine.stock_amount is not None and medicine.stock_amount <= 0:
         await state.update_data(medicine_id=medicine_id, lang=lang)
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=get_text(lang, "btn_restock_yes"), callback_data=f"restock_yes_{medicine_id}")],
-            [InlineKeyboardButton(text=get_text(lang, "btn_restock_no"), callback_data=f"restock_no_{medicine_id}")],
-        ])
-        await _safe_edit_text(msg, get_text(lang, "alert_empty_but_time", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML")
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=get_text(lang, "btn_restock_yes"), callback_data=f"restock_yes_{medicine_id}"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=get_text(lang, "btn_restock_no"), callback_data=f"restock_no_{medicine_id}"
+                    )
+                ],
+            ]
+        )
+        await _safe_edit_text(
+            msg, get_text(lang, "alert_empty_but_time", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML"
+        )
         return
 
     db_status = "taken" if action == "take" else "skipped"
@@ -687,29 +806,71 @@ async def process_medicine_status(call: CallbackQuery, state: FSMContext, sessio
     threshold = result.get("low_stock_threshold")
 
     if remaining <= 0:
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=get_text(lang, "btn_course_continue"), callback_data=f"med_extend_ask_{medicine_id}", style="success")],
-            [InlineKeyboardButton(text=get_text(lang, "btn_course_finish"), callback_data=f"med_archive_confirm_{medicine_id}", style="primary")],
-        ])
-        await _safe_edit_text(msg, get_text(lang, "course_finished_ask", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML")
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=get_text(lang, "btn_course_continue"),
+                        callback_data=f"med_extend_ask_{medicine_id}",
+                        style="success",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=get_text(lang, "btn_course_finish"),
+                        callback_data=f"med_archive_confirm_{medicine_id}",
+                        style="primary",
+                    )
+                ],
+            ]
+        )
+        await _safe_edit_text(
+            msg, get_text(lang, "course_finished_ask", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML"
+        )
     else:
         success_key = "med_taken" if action == "take" else "med_skipped"
         await _safe_edit_text(msg, get_text(lang, success_key, days=remaining), parse_mode="HTML")
 
         if action == "take" and stock is not None:
             if stock == 0:
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text=get_text(lang, "btn_add_stock"), callback_data=f"restock_ask_{medicine_id}", style="success")],
-                    [InlineKeyboardButton(text=get_text(lang, "btn_archive"), callback_data=f"med_archive_confirm_{medicine_id}", style="danger")],
-                ])
-                await msg.answer(get_text(lang, "alert_empty_stock", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML")
+                kb = InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text=get_text(lang, "btn_add_stock"),
+                                callback_data=f"restock_ask_{medicine_id}",
+                                style="success",
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text=get_text(lang, "btn_archive"),
+                                callback_data=f"med_archive_confirm_{medicine_id}",
+                                style="danger",
+                            )
+                        ],
+                    ]
+                )
+                await msg.answer(
+                    get_text(lang, "alert_empty_stock", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML"
+                )
                 await save_stock_alert_pending(call.from_user.id, medicine_id, str(medicine.name), lang)
             elif threshold is not None and stock <= threshold:
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text=get_text(lang, "btn_add_stock"), callback_data=f"restock_ask_{medicine_id}")],
-                    [InlineKeyboardButton(text=get_text(lang, "btn_remind_later"), callback_data="delete_message")],
-                ])
-                await msg.answer(get_text(lang, "alert_low_stock", name=str(medicine.name), amount=stock), reply_markup=kb, parse_mode="HTML")
+                kb = InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text=get_text(lang, "btn_add_stock"), callback_data=f"restock_ask_{medicine_id}"
+                            )
+                        ],
+                        [InlineKeyboardButton(text=get_text(lang, "btn_remind_later"), callback_data="delete_message")],
+                    ]
+                )
+                await msg.answer(
+                    get_text(lang, "alert_low_stock", name=str(medicine.name), amount=stock),
+                    reply_markup=kb,
+                    parse_mode="HTML",
+                )
 
 
 @router.callback_query(F.data == "delete_message")
@@ -763,7 +924,9 @@ async def restock_save(message: Message, state: FSMContext, session: AsyncSessio
         new_stock = result.get("stock_amount", new_stock)
 
     if message.from_user:
-        logger.info(f"User {message.from_user.id} (@{message.from_user.username}) restocked medicine (id={medicine_id}) by {amount}, new stock={new_stock}")
+        logger.info(
+            f"User {message.from_user.id} (@{message.from_user.username}) restocked medicine (id={medicine_id}) by {amount}, new stock={new_stock}"
+        )
 
     await state.clear()
     await message.answer(get_text(lang, "restock_success", amount=new_stock), parse_mode="HTML")

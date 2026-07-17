@@ -4,6 +4,7 @@ Tests for services/geo_service.py
 resolve_timezone_from_place() hits Nominatim over the network, so the
 geolocator itself is always mocked - we never make real HTTP calls in tests.
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,8 +24,7 @@ async def test_resolve_timezone_success():
     """Successful geocode + timezonefinder lookup returns the IANA name."""
     fake_location = FakeLocation(latitude=50.0755, longitude=14.4378)  # Prague
 
-    with patch.object(geo_service, "_geolocator") as mock_geolocator, \
-         patch.object(geo_service, "_tf") as mock_tf:
+    with patch.object(geo_service, "_geolocator") as mock_geolocator, patch.object(geo_service, "_tf") as mock_tf:
         mock_geolocator.geocode = MagicMock(return_value=fake_location)
         mock_tf.timezone_at = MagicMock(return_value="Europe/Prague")
 
@@ -38,8 +38,7 @@ async def test_resolve_timezone_success():
 @pytest.mark.asyncio
 async def test_resolve_timezone_place_not_found():
     """Nominatim returns None (no match) -> function returns None, no crash."""
-    with patch.object(geo_service, "_geolocator") as mock_geolocator, \
-         patch.object(geo_service, "_tf") as mock_tf:
+    with patch.object(geo_service, "_geolocator") as mock_geolocator, patch.object(geo_service, "_tf") as mock_tf:
         mock_geolocator.geocode = MagicMock(return_value=None)
 
         result = await geo_service.resolve_timezone_from_place("Асдфасдф Йцукй")
@@ -53,8 +52,7 @@ async def test_resolve_timezone_no_tz_for_coordinates():
     """Coordinates resolve (e.g. open ocean) but timezonefinder finds nothing."""
     fake_location = FakeLocation(latitude=0.0, longitude=-30.0)
 
-    with patch.object(geo_service, "_geolocator") as mock_geolocator, \
-         patch.object(geo_service, "_tf") as mock_tf:
+    with patch.object(geo_service, "_geolocator") as mock_geolocator, patch.object(geo_service, "_tf") as mock_tf:
         mock_geolocator.geocode = MagicMock(return_value=fake_location)
         mock_tf.timezone_at = MagicMock(return_value=None)
 
@@ -94,9 +92,11 @@ async def test_resolve_timezone_runs_geocode_in_executor():
     """geocode() must not block the event loop - it should go through run_in_executor."""
     fake_location = FakeLocation(latitude=1.0, longitude=2.0)
 
-    with patch.object(geo_service, "_geolocator") as mock_geolocator, \
-         patch.object(geo_service, "_tf") as mock_tf, \
-         patch("asyncio.get_event_loop") as mock_get_loop:
+    with (
+        patch.object(geo_service, "_geolocator") as mock_geolocator,
+        patch.object(geo_service, "_tf") as mock_tf,
+        patch("asyncio.get_event_loop") as mock_get_loop,
+    ):
         mock_loop = MagicMock()
 
         async def fake_run_in_executor(executor, func, *args):

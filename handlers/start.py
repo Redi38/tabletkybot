@@ -21,8 +21,10 @@ logger = logging.getLogger(__name__)
 def get_main_keyboard(language: str = "ua") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=get_text(language, "btn_medicines")),
-             KeyboardButton(text=get_text(language, "btn_prescriptions"))],
+            [
+                KeyboardButton(text=get_text(language, "btn_medicines")),
+                KeyboardButton(text=get_text(language, "btn_prescriptions")),
+            ],
             [KeyboardButton(text=get_text(language, "btn_settings"))],
         ],
         resize_keyboard=True,
@@ -37,8 +39,10 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext) 
     await state.clear()
 
     user = await get_or_create_user(
-        session, message.from_user.id,
-        message.from_user.username, message.from_user.full_name,
+        session,
+        message.from_user.id,
+        message.from_user.username,
+        message.from_user.full_name,
     )
     language = user.language or "ua"
 
@@ -57,8 +61,10 @@ async def cmd_help(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return
     user = await get_or_create_user(
-        session, message.from_user.id,
-        message.from_user.username, message.from_user.full_name,
+        session,
+        message.from_user.id,
+        message.from_user.username,
+        message.from_user.full_name,
     )
     language = user.language or "ua"
     logger.info(f"User {message.from_user.id} (@{message.from_user.username}) requested /help")
@@ -75,8 +81,10 @@ async def set_language(call: CallbackQuery, session: AsyncSession) -> None:
         return
     language = call.data.split("_", 1)[1]
     await get_or_create_user(
-        session, call.from_user.id,
-        call.from_user.username, call.from_user.full_name,
+        session,
+        call.from_user.id,
+        call.from_user.username,
+        call.from_user.full_name,
     )
     await update_user_language(session, call.from_user.id, language)
     logger.info(f"User {call.from_user.id} (@{call.from_user.username}) changed language to '{language}'")
