@@ -29,7 +29,6 @@ def settings_keyboard(language: str = "ua") -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=get_text(language, "btn_change_name"), callback_data="set_name", style="primary")],
         [InlineKeyboardButton(text=get_text(language, "btn_change_tz"), callback_data="set_tz", style="primary")],
         [InlineKeyboardButton(text=get_text(language, "btn_lang"), callback_data="set_lang", style="primary")],
-        [InlineKeyboardButton(text=get_text(language, "btn_feedback"), callback_data="set_feedback", style="primary")],
     ])
 
 
@@ -87,8 +86,10 @@ async def edit_name_save(message: Message, state: FSMContext, session: AsyncSess
         session, message.from_user.id,
         message.from_user.username, message.from_user.full_name,
     )
+    old_name = user.full_name
     user.full_name = new_name
     await session.flush()
+    logger.info(f"User {message.from_user.id} (@{message.from_user.username}) changed name: '{old_name}' -> '{new_name}'")
     await state.clear()
     await message.answer(get_text(lang, "name_updated"))
 
@@ -113,6 +114,7 @@ async def edit_tz_save(message: Message, state: FSMContext, session: AsyncSessio
     tz_name = await resolve_timezone_from_place(place_text)
 
     if not tz_name:
+        logger.warning(f"User {message.from_user.id} (@{message.from_user.username}) entered unresolvable place: '{place_text}'")
         await message.answer(get_text(lang, "err_timezone_place"), parse_mode="HTML")
         return
 
@@ -121,6 +123,10 @@ async def edit_tz_save(message: Message, state: FSMContext, session: AsyncSessio
     for med in medicines:
         add_reminders_for_medicine(bot=bot, medicine=med, timezone=tz_name,
                                    chat_id=message.from_user.id, language=lang)
+    logger.info(
+        f"User {message.from_user.id} (@{message.from_user.username}) set timezone to '{tz_name}' "
+        f"(from input '{place_text}'), rescheduled {len(medicines)} medicine(s)"
+    )
     await state.clear()
     await message.answer(get_text(lang, "tz_updated_with_name", tz=format_timezone_display(tz_name)), parse_mode="HTML")
 
@@ -141,7 +147,6 @@ def language_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="English", callback_data="lang_en", style="primary"),
         InlineKeyboardButton(text="Русский", callback_data="lang_ru", style="primary"),
     ]])
-
 
 # ── Feedback ──────────────────────────────────────────────────
 @router.callback_query(F.data == "set_feedback")

@@ -1,3 +1,5 @@
+import logging
+
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
@@ -13,6 +15,7 @@ from database.crud import get_or_create_user, update_user_language
 from locales.texts import btn_variants, get_text
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 
 def get_main_keyboard(language: str = "ua") -> ReplyKeyboardMarkup:
@@ -32,11 +35,15 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext) 
     if not message.from_user:
         return
     await state.clear()
+
     user = await get_or_create_user(
         session, message.from_user.id,
         message.from_user.username, message.from_user.full_name,
     )
     language = user.language or "ua"
+
+    logger.info(f"User {message.from_user.id} (@{message.from_user.username}) started the bot")
+
     await message.answer(
         get_text(language, "start_text", name=user.full_name),
         reply_markup=get_main_keyboard(language),
@@ -54,6 +61,7 @@ async def cmd_help(message: Message, session: AsyncSession) -> None:
         message.from_user.username, message.from_user.full_name,
     )
     language = user.language or "ua"
+    logger.info(f"User {message.from_user.id} (@{message.from_user.username}) requested /help")
     await message.answer(
         get_text(language, "help_text"),
         parse_mode="HTML",
@@ -71,5 +79,6 @@ async def set_language(call: CallbackQuery, session: AsyncSession) -> None:
         call.from_user.username, call.from_user.full_name,
     )
     await update_user_language(session, call.from_user.id, language)
+    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) changed language to '{language}'")
     await call.message.answer(get_text(language, "lang_changed"), reply_markup=get_main_keyboard(language))
     await call.answer()

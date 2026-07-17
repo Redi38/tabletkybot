@@ -411,6 +411,13 @@ async def edit_valid_from_save(message: Message, state: FSMContext, session: Asy
     await crud.update_prescription_field(session, prescription_id, "valid_from", new_date)
     await crud.update_prescription_field(session, prescription_id, "expires_at", new_expires)
 
+    if message.from_user:
+        logger.info(
+            f"User {message.from_user.id} (@{message.from_user.username}) edited valid_from for "
+            f"prescription '{prescription.medicine_name}' (id={prescription_id}) to {new_date}, "
+            f"new expires_at={new_expires}"
+        )
+
     await state.clear()
     await message.answer(get_text(lang, "presc_updated"), reply_markup=prescription_menu_kb(lang), parse_mode="HTML")
 
@@ -443,6 +450,12 @@ async def edit_duration_save(call: CallbackQuery, session: AsyncSession) -> None
     new_expires = prescription.valid_from + timedelta(days=days)
     await crud.update_prescription_field(session, prescription_id, "expires_at", new_expires)
 
+    if call.from_user:
+        logger.info(
+            f"User {call.from_user.id} (@{call.from_user.username}) changed duration to {days} days for "
+            f"prescription '{prescription.medicine_name}' (id={prescription_id}), new expires_at={new_expires}"
+        )
+
     await msg.edit_text(get_text(lang, "presc_updated"), reply_markup=prescription_menu_kb(lang), parse_mode="HTML")
     await call.answer()
 
@@ -470,6 +483,13 @@ async def edit_quantity_save(message: Message, state: FSMContext, session: Async
         await message.answer(get_text(lang, "err_stock"), parse_mode="HTML")
         return
     await crud.update_prescription_field(session, data["prescription_id"], "max_quantity", qty)
+
+    if message.from_user:
+        logger.info(
+            f"User {message.from_user.id} (@{message.from_user.username}) changed max_quantity to {qty} "
+            f"for prescription (id={data['prescription_id']})"
+        )
+
     await state.clear()
     await message.answer(get_text(lang, "presc_updated"), reply_markup=prescription_menu_kb(lang), parse_mode="HTML")
 
@@ -685,6 +705,8 @@ async def finish_keep(call: CallbackQuery, session: AsyncSession) -> None:
     if not ctx:
         return
     msg, lang = ctx
+    if call.from_user:
+        logger.info(f"User {call.from_user.id} (@{call.from_user.username}) kept a fully-purchased prescription active")
     await msg.edit_text(get_text(lang, "presc_kept_active"), parse_mode="HTML")
     await call.answer()
 
