@@ -34,6 +34,11 @@ def settings_keyboard(language: str = "ua") -> InlineKeyboardMarkup:
             ],
             [InlineKeyboardButton(text=get_text(language, "btn_change_tz"), callback_data="set_tz", style="primary")],
             [InlineKeyboardButton(text=get_text(language, "btn_lang"), callback_data="set_lang", style="primary")],
+            [
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_feedback"), callback_data="set_feedback", style="primary"
+                )
+            ],
         ]
     )
 

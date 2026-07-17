@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.requests import Request as StarletteRequest
 from wtforms.validators import AnyOf, DataRequired, Length, NumberRange, Regexp
 
+from admin.auth import AdminAuth
 from config import load_config
 from database import crud
 from database.models import ChatHistory, Medicine, MedicineRecord, MedicineSchedule, Prescription, User
@@ -117,7 +118,25 @@ class DashboardAdmin(BaseAdmin):
 
 
 # Initialize SQLAdmin (our subclass instead of the base Admin)
-admin = DashboardAdmin(app, engine, title="MedBot Dashboard", templates_dir="templates")
+authentication_backend = AdminAuth(
+    secret_key=config.admin_panel_session_secret,
+    username=config.admin_panel_username,
+    password_hash=config.admin_panel_password_hash,
+)
+admin = DashboardAdmin(
+    app,
+    engine,
+    title="MedBot Dashboard",
+    templates_dir="templates",
+    authentication_backend=authentication_backend,
+)
+
+if not config.admin_panel_password_hash:
+    logger.warning(
+        "ADMIN_PANEL_PASSWORD_HASH is not set — the admin panel login form will reject "
+        "every attempt until a password hash is configured. Generate one with: "
+        "`python -m admin.auth`."
+    )
 
 
 # ─── Function to notify the bot of changes ──────────────────────────────────

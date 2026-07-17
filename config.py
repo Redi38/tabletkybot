@@ -46,6 +46,10 @@ class Config:
     nvidia_riva_function_id: str = "b702f636-f60c-4a3d-a6f4-f3568c13bd7d"
     # Feedback
     admin_chat_id: int | None = None
+    # Admin panel auth
+    admin_panel_username: str = "admin"
+    admin_panel_password_hash: str = ""
+    admin_panel_session_secret: str = "change_me"
 
     @property
     def database_url(self) -> str:
@@ -71,13 +75,21 @@ def load_config() -> Config:
     webhook_host = os.getenv("WEBHOOK_HOST")
 
     if not bot_token:
-        raise ValueError("BOT_TOKEN не знайдено у змінних середовища")
+        raise ValueError("BOT_TOKEN not found in environment variables")
     if not nvidia_api_key:
-        raise ValueError("NVIDIA_API_KEY не знайдено у змінних середовища")
+        raise ValueError("NVIDIA_API_KEY not found in environment variables")
     if not webhook_host:
-        raise ValueError("WEBHOOK_HOST не знайдено у змінних середовища")
+        raise ValueError("WEBHOOK_HOST not found in environment variables")
 
     admin_chat_id_raw = os.getenv("ADMIN_CHAT_ID")
+
+    admin_panel_password_hash = os.getenv("ADMIN_PANEL_PASSWORD_HASH", "")
+    admin_panel_session_secret = os.getenv("ADMIN_PANEL_SESSION_SECRET", "change_me")
+    if admin_panel_password_hash and admin_panel_session_secret == "change_me":
+        raise ValueError(
+            "ADMIN_PANEL_SESSION_SECRET must be changed to your own random value "
+            '(e.g.: python -c "import secrets; print(secrets.token_hex(32))")'
+        )
 
     return Config(
         bot_token=bot_token,
@@ -109,4 +121,7 @@ def load_config() -> Config:
         backup_retention_days=int(os.getenv("BACKUP_RETENTION_DAYS", "14")),
         nvidia_riva_function_id=os.getenv("NVIDIA_RIVA_FUNCTION_ID", "b702f636-f60c-4a3d-a6f4-f3568c13bd7d"),
         admin_chat_id=int(admin_chat_id_raw) if admin_chat_id_raw else None,
+        admin_panel_username=os.getenv("ADMIN_PANEL_USERNAME", "admin"),
+        admin_panel_password_hash=admin_panel_password_hash,
+        admin_panel_session_secret=admin_panel_session_secret,
     )
