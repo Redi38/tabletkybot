@@ -18,7 +18,12 @@ from config import load_config
 from database.db import init_db
 from handlers import ai_agent, errors, medicines, prescriptions, report, settings, start
 from middleware.db_middleware import DatabaseMiddleware
-from middleware.logging_context import CorrelationIdFilter, CorrelationIdMiddleware, correlation_scope
+from middleware.logging_context import (
+    ActionLoggingMiddleware,
+    CorrelationIdFilter,
+    CorrelationIdMiddleware,
+    correlation_scope,
+)
 from services.backup_service import run_database_backup
 from services.scheduler import (
     check_prescription_reminders,
@@ -163,6 +168,7 @@ async def main() -> None:
     dp["session_factory"] = session_factory
 
     dp.update.middleware(CorrelationIdMiddleware())
+    dp.update.middleware(ActionLoggingMiddleware())
     dp.update.middleware(DatabaseMiddleware(session_factory))
 
     dp.include_router(errors.router)

@@ -2,8 +2,8 @@
 
 TEXTS = {
     "ua": {
-        "btn_gen_csv": "📄 Сформувати CSV",
-        "btn_gen_excel": "📊 Сформувати Excel",
+        "btn_gen_csv": "📄 CSV",
+        "btn_gen_excel": "📊 Excel",
         "excel_days_0_30": "0-30 днів",
         "excel_days_121_150": "121-150 днів",
         "excel_days_151_180": "151-180 днів",
@@ -39,8 +39,8 @@ TEXTS = {
         "report_menu_title": "📊 <b>Меню звітів</b>\n\nОберіть формат звіту:",
     },
     "en": {
-        "btn_gen_csv": "📄 Generate CSV",
-        "btn_gen_excel": "📊 Generate Excel",
+        "btn_gen_csv": "📄 CSV",
+        "btn_gen_excel": "📊 Excel",
         "excel_days_0_30": "0-30 days",
         "excel_days_121_150": "121-150 days",
         "excel_days_151_180": "151-180 days",
@@ -76,8 +76,8 @@ TEXTS = {
         "report_menu_title": "📊 <b>Reports Menu</b>\n\nChoose report format:",
     },
     "ru": {
-        "btn_gen_csv": "📄 Сформировать CSV",
-        "btn_gen_excel": "📊 Сформировать Excel",
+        "btn_gen_csv": "📄 CSV",
+        "btn_gen_excel": "📊 Excel",
         "excel_days_0_30": "0-30 дней",
         "excel_days_121_150": "121-150 дней",
         "excel_days_151_180": "151-180 дней",
