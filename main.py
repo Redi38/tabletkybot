@@ -14,10 +14,11 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from config import load_config
 from database.db import init_db
+from database.models import User
 from handlers import ai_agent, errors, medicines, prescriptions, report, settings, start
 from middleware.db_middleware import DatabaseMiddleware
 from middleware.logging_context import (
@@ -29,6 +30,7 @@ from middleware.logging_context import (
 from services.backup_service import run_database_backup
 from services.scheduler import (
     check_prescription_reminders,
+    get_active_pending_reminders,
     init_redis,
     resume_pending_reminders,
     scheduler,
@@ -115,6 +117,42 @@ def build_sync_handler(bot: Bot, session_factory, sync_secret: str):
             return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     return handle_sync
+
+
+def build_scheduled_jobs_handler(session_factory, sync_secret: str):
+
+    async def handle_scheduled_jobs(request: web.Request) -> web.Response:
+        provided = request.headers.get("X-Sync-Secret", "")
+        if not sync_secret or not hmac.compare_digest(provided, sync_secret):
+            logger.warning(
+                f"Rejected /api/scheduled-jobs request from {request.remote}: invalid or missing X-Sync-Secret"
+            )
+            return web.json_response({"status": "error", "message": "unauthorized"}, status=401)
+
+        active = await get_active_pending_reminders()
+
+        jobs = []
+        if active:
+            chat_ids = {r["chat_id"] for r in active}
+            async with session_factory() as session:
+                result = await session.execute(select(User).where(User.id.in_(chat_ids)))
+                names_by_id = {u.id: (u.full_name or u.username or str(u.id)) for u in result.scalars().all()}
+
+            for r in active:
+                jobs.append(
+                    {
+                        "medicine_id": r["medicine_id"],
+                        "medicine_name": r["medicine_name"],
+                        "chat_id": r["chat_id"],
+                        "user_name": names_by_id.get(r["chat_id"], str(r["chat_id"])),
+                        "sent_at": r["sent_at"],
+                    }
+                )
+
+        jobs.sort(key=lambda j: j["sent_at"] or "")
+        return web.json_response({"status": "success", "count": len(jobs), "jobs": jobs})
+
+    return handle_scheduled_jobs
 
 
 def build_health_handler(session_factory, redis_url: str):
@@ -284,6 +322,9 @@ async def main() -> None:
     # ── Internal HTTP server for /api/sync and /health (port 8080) ────────
     internal_app = web.Application()
     internal_app.router.add_post("/api/sync", build_sync_handler(bot, session_factory, config.sync_secret))
+    internal_app.router.add_get(
+        "/api/scheduled-jobs", build_scheduled_jobs_handler(session_factory, config.sync_secret)
+    )
     internal_app.router.add_get("/health", build_health_handler(session_factory, config.redis_url))
 
     internal_runner = web.AppRunner(internal_app, access_log=None)

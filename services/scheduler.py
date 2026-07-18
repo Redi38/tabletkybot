@@ -103,6 +103,26 @@ async def _get_all_pending_reminders() -> list[tuple[int, int, dict]]:
     return result
 
 
+async def get_active_pending_reminders() -> list[dict]:
+    """
+    Returns currently "active" reminders: ones already sent to the user
+    (a message with take/skip buttons was delivered) that haven't been
+    acknowledged yet. This is a small subset of the full reminder schedule
+    — most scheduled reminders simply haven't fired yet and aren't "active"
+    in this sense. Used by the admin panel's Reminder Queue page.
+    """
+    pending = await _get_all_pending_reminders()
+    return [
+        {
+            "chat_id": chat_id,
+            "medicine_id": medicine_id,
+            "medicine_name": data.get("medicine_name"),
+            "sent_at": data.get("sent_at"),
+        }
+        for chat_id, medicine_id, data in pending
+    ]
+
+
 async def _delete_pending_reminders_for_medicine(medicine_id: int) -> None:
     if not _redis_client:
         return

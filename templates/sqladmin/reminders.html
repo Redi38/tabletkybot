@@ -1,0 +1,115 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block head %}
+    {{ super() }} <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+{% endblock %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+    .custom-font { font-family: 'Nunito', sans-serif !important; }
+    .reminders-empty { color: #6c757d; text-align: center; padding: 2rem; }
+    .reminders-error { color: #ff6b6b; text-align: center; padding: 2rem; }
+    .sent-long-ago { color: #d63939; font-weight: 600; }
+</style>
+
+<div class="page-wrapper custom-font">
+    <div class="page-body">
+        <div class="container-xl mt-4">
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h2 class="card-title mb-0"><b>Reminder Queue</b></h2>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="reminders-count" class="badge bg-blue-lt"></span>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadReminders()">Refresh</button>
+                        <div class="form-check form-switch ms-2 mb-0">
+                            <input class="form-check-input" type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh()">
+                            <label class="form-check-label" for="autoRefreshToggle">Auto-refresh (30s)</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="text-secondary mb-3">
+                        Reminders already sent to a user that they haven't acknowledged (take/skip) yet.
+                        Reminders that are simply scheduled for later aren't shown here — only ones actively
+                        waiting on a response right now.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-vcenter card-table">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Medicine</th>
+                                    <th>Sent at (UTC)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reminders-body">
+                                <tr><td colspan="3" class="reminders-empty">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+let autoRefreshInterval = null;
+
+async function loadReminders() {
+    const body = document.getElementById('reminders-body');
+    const countBadge = document.getElementById('reminders-count');
+    body.innerHTML = '<tr><td colspan="3" class="reminders-empty">Loading…</td></tr>';
+
+    try {
+        const resp = await fetch('/api/admin/scheduled-jobs');
+        const data = await resp.json();
+
+        if (!resp.ok || data.status === 'error') {
+            body.innerHTML = `<tr><td colspan="3" class="reminders-error">${data.message || 'Failed to load'}</td></tr>`;
+            countBadge.textContent = '';
+            return;
+        }
+
+        countBadge.textContent = data.count + ' waiting for a response';
+
+        if (data.jobs.length === 0) {
+            body.innerHTML = '<tr><td colspan="3" class="reminders-empty">No reminders currently awaiting a response</td></tr>';
+            return;
+        }
+
+        const now = new Date();
+        body.innerHTML = data.jobs.map(job => {
+            const sentAt = job.sent_at ? new Date(job.sent_at) : null;
+            const longAgo = sentAt && (now - sentAt) > 60 * 60 * 1000; // over an hour with no response
+            const sentAtStr = sentAt ? sentAt.toISOString().replace('T', ' ').slice(0, 19) : '—';
+            return `<tr>
+                <td>${job.user_name ?? job.chat_id}</td>
+                <td>${job.medicine_name ?? '—'}</td>
+                <td class="${longAgo ? 'sent-long-ago' : ''}">${sentAtStr}</td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        body.innerHTML = `<tr><td colspan="3" class="reminders-error">Request failed: ${err}</td></tr>`;
+        countBadge.textContent = '';
+    }
+}
+
+function toggleAutoRefresh() {
+    const enabled = document.getElementById('autoRefreshToggle').checked;
+    if (enabled) {
+        loadReminders();
+        autoRefreshInterval = setInterval(loadReminders, 30000);
+    } else if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
+loadReminders();
+</script>
+{% endblock %}

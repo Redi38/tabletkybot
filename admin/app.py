@@ -492,7 +492,54 @@ class LogsView(BaseView):
         )
 
 
+@app.get("/api/admin/scheduled-jobs")
+async def get_scheduled_jobs() -> dict:
+    """
+    Proxies to the bot's internal /api/scheduled-jobs — the admin panel runs
+    in a separate process/container and has no direct access to the bot's
+    in-memory APScheduler queue, so this is the only way to see it.
+    """
+    base_url = os.getenv("WEBHOOK_BASE_URL", "http://bot:8080")
+    url = f"{base_url}/api/scheduled-jobs"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                headers={"X-Sync-Secret": config.sync_secret},
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as resp:
+                data = await resp.json()
+                if resp.status != 200:
+                    return {"status": "error", "message": data.get("message", "Failed to fetch scheduled jobs")}
+                return data
+    except Exception as e:
+        logger.warning(f"Failed to fetch scheduled jobs from the bot: {e}")
+        return {"status": "error", "message": f"Could not reach the bot: {e}"}
+
+
+class ReminderQueueView(BaseView):
+    """
+    Custom page in the Admin Panel sidebar. Data is loaded via JS through
+    /api/admin/scheduled-jobs, which proxies to the bot's live in-memory
+    APScheduler queue — this is what's actually about to fire, not just
+    what's configured in the Intake Schedules table.
+    """
+
+    name = "Reminder Queue"
+    icon = "fa-solid fa-bell"
+
+    @expose("/admin/reminders-view", methods=["GET"])
+    async def reminders_page(self, request: Request):
+        return await self.templates.TemplateResponse(
+            request,
+            "sqladmin/reminders.html",
+            context={"request": request},
+        )
+
+
 admin.add_view(AIMetricsView)
+admin.add_view(ReminderQueueView)
 admin.add_view(LogsView)
 
 
