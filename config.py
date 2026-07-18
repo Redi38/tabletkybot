@@ -50,6 +50,8 @@ class Config:
     admin_panel_username: str = "admin"
     admin_panel_password_hash: str = ""
     admin_panel_session_secret: str = "change_me"
+    # Internal admin<->bot sync endpoint auth
+    sync_secret: str = ""
 
     @property
     def database_url(self) -> str:
@@ -91,6 +93,8 @@ def load_config() -> Config:
             '(e.g.: python -c "import secrets; print(secrets.token_hex(32))")'
         )
 
+    sync_secret = os.getenv("SYNC_SECRET", "")
+
     return Config(
         bot_token=bot_token,
         webhook_host=webhook_host,
@@ -124,4 +128,5 @@ def load_config() -> Config:
         admin_panel_username=os.getenv("ADMIN_PANEL_USERNAME", "admin"),
         admin_panel_password_hash=admin_panel_password_hash,
         admin_panel_session_secret=admin_panel_session_secret,
+        sync_secret=sync_secret,
     )

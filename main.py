@@ -1,4 +1,5 @@
 import asyncio
+import hmac
 import logging
 import os
 import ssl
@@ -38,7 +39,11 @@ from services.scheduler import (
 
 # ─── Logging: simultaneously to docker logs and to a file (for the Admin Panel) ──
 LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
-os.makedirs(LOG_DIR, exist_ok=True)
+try:
+    os.makedirs(LOG_DIR, exist_ok=True)
+except OSError:
+    LOG_DIR = os.path.join(os.getcwd(), "logs")
+    os.makedirs(LOG_DIR, exist_ok=True)
 
 _log_formatter = logging.Formatter(
     fmt="%(asctime)s | %(levelname)s | [%(cid)s] | %(name)s | %(message)s",
@@ -67,8 +72,22 @@ logger = logging.getLogger(__name__)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 
-def build_sync_handler(bot: Bot, session_factory):
-    async def handle_sync(request):
+def build_sync_handler(bot: Bot, session_factory, sync_secret: str):
+    if not sync_secret:
+        logger.warning(
+            "SYNC_SECRET is not set — the internal /api/sync endpoint will reject every "
+            "request until it is configured. Generate one with: "
+            'python -c "import secrets; print(secrets.token_hex(32))"'
+        )
+
+    async def handle_sync(request: web.Request) -> web.Response:
+        # Server-to-server auth: the admin panel sends this secret in a
+        # header on every call.
+        provided = request.headers.get("X-Sync-Secret", "")
+        if not sync_secret or not hmac.compare_digest(provided, sync_secret):
+            logger.warning(f"Rejected /api/sync request from {request.remote}: invalid or missing X-Sync-Secret")
+            return web.json_response({"status": "error", "message": "unauthorized"}, status=401)
+
         try:
             data = await request.json()
             action = data.get("action")
@@ -263,7 +282,7 @@ async def main() -> None:
 
     # ── Internal HTTP server for /api/sync and /health (port 8080) ────────
     internal_app = web.Application()
-    internal_app.router.add_post("/api/sync", build_sync_handler(bot, session_factory))
+    internal_app.router.add_post("/api/sync", build_sync_handler(bot, session_factory, config.sync_secret))
     internal_app.router.add_get("/health", build_health_handler(session_factory, config.redis_url))
 
     internal_runner = web.AppRunner(internal_app, access_log=None)

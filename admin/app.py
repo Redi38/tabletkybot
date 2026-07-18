@@ -150,6 +150,7 @@ async def notify_bot(action_name: str, medicine_id: int):
             await session.post(
                 webhook_url,
                 json={"action": action_name, "medicine_id": medicine_id},
+                headers={"X-Sync-Secret": config.sync_secret},
                 timeout=aiohttp.ClientTimeout(total=2),
             )
             logger.info(f"Bot notified: {action_name} for medicine ID {medicine_id}")
