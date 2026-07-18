@@ -4,6 +4,7 @@ import logging
 import os
 import ssl
 import sys
+import tempfile
 from logging.handlers import RotatingFileHandler
 
 import redis.asyncio as aioredis
@@ -42,7 +43,7 @@ LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
 try:
     os.makedirs(LOG_DIR, exist_ok=True)
 except OSError:
-    LOG_DIR = os.path.join(os.getcwd(), "logs")
+    LOG_DIR = os.path.join(tempfile.gettempdir(), "medbot_logs")
     os.makedirs(LOG_DIR, exist_ok=True)
 
 _log_formatter = logging.Formatter(
