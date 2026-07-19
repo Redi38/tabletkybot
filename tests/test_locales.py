@@ -129,3 +129,52 @@ def test_real_feedback_admin_header_formats_all_placeholders():
     assert "redi_dev" in result
     assert "123" in result
     assert "test feedback" in result
+
+
+class TestDataLang:
+    def test_returns_lang_when_present(self):
+        assert texts.data_lang({"lang": "en"}) == "en"
+
+    def test_defaults_to_ua_when_missing(self):
+        assert texts.data_lang({}) == "ua"
+
+    def test_ignores_unrelated_keys(self):
+        assert texts.data_lang({"medicine_id": 5, "lang": "ru"}) == "ru"
+
+
+class TestUserLang:
+    def test_returns_language_when_set(self):
+        class FakeUser:
+            language = "en"
+
+        assert texts.user_lang(FakeUser()) == "en"
+
+    def test_defaults_to_ua_when_none(self):
+        class FakeUser:
+            language = None
+
+        assert texts.user_lang(FakeUser()) == "ua"
+
+    def test_defaults_to_ua_when_empty_string(self):
+        class FakeUser:
+            language = ""
+
+        assert texts.user_lang(FakeUser()) == "ua"
+
+
+class TestGetLang:
+    async def test_reads_lang_from_fsm_state(self):
+        class FakeState:
+            async def get_data(self):
+                return {"lang": "en"}
+
+        result = await texts.get_lang(FakeState())
+        assert result == "en"
+
+    async def test_defaults_to_ua_when_state_has_no_lang(self):
+        class FakeState:
+            async def get_data(self):
+                return {}
+
+        result = await texts.get_lang(FakeState())
+        assert result == "ua"

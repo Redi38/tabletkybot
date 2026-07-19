@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
-from locales.texts import get_text
+from locales.texts import data_lang, get_text
 
 from .keyboards import edit_duration_kb, edit_field_kb, prescription_menu_kb
 from .states import EditPrescription
@@ -50,7 +50,7 @@ async def edit_valid_from_save(message: Message, state: FSMContext, session: Asy
     if not message.text:
         return
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     new_date = parse_date(message.text)
     if not new_date:
         await message.answer(get_text(lang, "err_date"), parse_mode="HTML")
@@ -136,7 +136,7 @@ async def edit_quantity_save(message: Message, state: FSMContext, session: Async
     if not message.text:
         return
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     qty = parse_optional_int(message.text)
     if qty == -1:
         await message.answer(get_text(lang, "err_stock"), parse_mode="HTML")

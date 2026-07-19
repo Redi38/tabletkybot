@@ -6,7 +6,7 @@ from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
-from locales.texts import btn_variants, get_text
+from locales.texts import btn_variants, get_text, user_lang
 from services.report_service import create_csv_report, create_excel_report
 
 router = Router()
@@ -39,7 +39,7 @@ async def _generate_and_send_report(call: CallbackQuery, session: AsyncSession, 
     if not call.from_user or not isinstance(call.message, Message):
         return
     user = await crud.get_or_create_user(session, call.from_user.id, call.from_user.username, call.from_user.full_name)
-    lang = str(user.language) if user.language else "ua"
+    lang = user_lang(user)
 
     records = await crud.get_medicine_records_for_report(session, call.from_user.id)
     if not records:

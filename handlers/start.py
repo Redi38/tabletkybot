@@ -12,13 +12,13 @@ from aiogram.types import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.crud import get_or_create_user, update_user_language
-from locales.texts import btn_variants, get_text
+from locales.texts import DEFAULT_LANG, btn_variants, get_text, user_lang
 
 router = Router()
 logger = logging.getLogger(__name__)
 
 
-def get_main_keyboard(language: str = "ua") -> ReplyKeyboardMarkup:
+def get_main_keyboard(language: str = DEFAULT_LANG) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -44,7 +44,7 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext) 
         message.from_user.username,
         message.from_user.full_name,
     )
-    language = user.language or "ua"
+    language = user_lang(user)
 
     logger.info(f"User {message.from_user.id} (@{message.from_user.username}) started the bot")
 
@@ -66,7 +66,7 @@ async def cmd_help(message: Message, session: AsyncSession) -> None:
         message.from_user.username,
         message.from_user.full_name,
     )
-    language = user.language or "ua"
+    language = user_lang(user)
     logger.info(f"User {message.from_user.id} (@{message.from_user.username}) requested /help")
     await message.answer(
         get_text(language, "help_text"),

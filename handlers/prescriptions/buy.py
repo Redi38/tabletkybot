@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
-from locales.texts import get_text
+from locales.texts import data_lang, get_text
 
 from .keyboards import stock_ask_kb
 from .states import BuyPrescription
@@ -42,7 +42,7 @@ async def buy_amount_entered(message: Message, state: FSMContext, session: Async
     if not message.text:
         return
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     prescription_id = data["prescription_id"]
 
     amount = parse_optional_int(message.text)

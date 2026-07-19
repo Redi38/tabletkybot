@@ -6,7 +6,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
-from locales.texts import btn_variants, get_text
+from locales.texts import btn_variants, get_text, user_lang
 
 from .keyboards import prescription_menu_kb
 from .utils import _base_ctx
@@ -45,6 +45,6 @@ async def back_to_main_menu(call: CallbackQuery, state: FSMContext, session: Asy
     msg, _ = ctx
     await state.clear()
     user = await crud.get_or_create_user(session, call.from_user.id, call.from_user.username, call.from_user.full_name)
-    lang = str(user.language) if user.language else "ua"
+    lang = user_lang(user)
     await msg.edit_text(get_text(lang, "start_text", name=str(user.full_name)), parse_mode="HTML")
     await call.answer()

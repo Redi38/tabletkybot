@@ -6,7 +6,7 @@ from aiogram.types import ErrorEvent, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.crud import get_user_language
-from locales.texts import get_text
+from locales.texts import DEFAULT_LANG, get_text
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -23,12 +23,12 @@ async def global_error_handler(event: ErrorEvent, session: AsyncSession | None =
     elif event.update.callback_query and event.update.callback_query.from_user:
         user_id = event.update.callback_query.from_user.id
 
-    language = "ua"
+    language = DEFAULT_LANG
     if session is not None and user_id is not None:
         try:
             language = await get_user_language(session, user_id)
         except Exception:
-            language = "ua"
+            language = DEFAULT_LANG
 
     error_text = get_text(language, "generic_error")
 

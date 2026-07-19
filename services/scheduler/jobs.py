@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from database.models import Medicine, User
-from locales.texts import get_text
+from locales.texts import DEFAULT_LANG, get_text, user_lang
 
 from .redis_state import (
     _delete_pending_reminder,
@@ -283,7 +283,7 @@ def add_reminders_for_medicine(
     medicine: Medicine,
     timezone: str,
     chat_id: int,
-    language: str = "ua",
+    language: str = DEFAULT_LANG,
     is_sync: bool = False,
     session_factory: async_sessionmaker | None = None,
 ) -> None:
@@ -366,7 +366,7 @@ async def sync_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
             medicine=med,
             timezone=user.timezone or "Europe/Kyiv",
             chat_id=user.id,
-            language=user.language or "ua",
+            language=user_lang(user),
             is_sync=True,
             session_factory=session_factory,
         )
@@ -402,7 +402,7 @@ async def sync_single_reminder(bot: Bot, session_factory: async_sessionmaker, me
             medicine_name=med.name,
             chat_id=user.id,
             course_duration=med.course_duration,
-            language=user.language or "ua",
+            language=user_lang(user),
             timezone=user.timezone or "Europe/Kyiv",
             is_manual=True,
         )
@@ -414,7 +414,7 @@ async def sync_single_reminder(bot: Bot, session_factory: async_sessionmaker, me
         medicine=med,
         timezone=user.timezone or "Europe/Kyiv",
         chat_id=user.id,
-        language=user.language or "ua",
+        language=user_lang(user),
         is_sync=True,
         session_factory=session_factory,
     )

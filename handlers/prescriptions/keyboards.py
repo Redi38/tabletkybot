@@ -2,10 +2,10 @@
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from locales.texts import get_text
+from locales.texts import DEFAULT_LANG, get_text
 
 
-def prescription_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
+def prescription_menu_kb(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -17,19 +17,19 @@ def prescription_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
     )
 
 
-def prescription_back_only_kb(language: str = "ua") -> InlineKeyboardMarkup:
+def prescription_back_only_kb(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_menu")]]
     )
 
 
-def back_to_list_kb(language: str = "ua") -> InlineKeyboardMarkup:
+def back_to_list_kb(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="presc_list")]]
     )
 
 
-def duration_kb(language: str = "ua") -> InlineKeyboardMarkup:
+def duration_kb(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -40,7 +40,7 @@ def duration_kb(language: str = "ua") -> InlineKeyboardMarkup:
     )
 
 
-def edit_duration_kb(prescription_id: int, language: str = "ua") -> InlineKeyboardMarkup:
+def edit_duration_kb(prescription_id: int, language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -55,7 +55,7 @@ def edit_duration_kb(prescription_id: int, language: str = "ua") -> InlineKeyboa
     )
 
 
-def edit_field_kb(prescription_id: int, language: str = "ua") -> InlineKeyboardMarkup:
+def edit_field_kb(prescription_id: int, language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -84,7 +84,7 @@ def edit_field_kb(prescription_id: int, language: str = "ua") -> InlineKeyboardM
     )
 
 
-def archived_prescription_row(prescription_id: int, language: str = "ua") -> list[InlineKeyboardButton]:
+def archived_prescription_row(prescription_id: int, language: str = DEFAULT_LANG) -> list[InlineKeyboardButton]:
     return [
         InlineKeyboardButton(
             text=get_text(language, "btn_restore_presc"),
@@ -99,7 +99,7 @@ def archived_prescription_row(prescription_id: int, language: str = "ua") -> lis
     ]
 
 
-def stock_ask_kb(prescription_id: int, amount: int, language: str = "ua") -> InlineKeyboardMarkup:
+def stock_ask_kb(prescription_id: int, amount: int, language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [

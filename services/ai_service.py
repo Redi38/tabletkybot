@@ -8,7 +8,7 @@ import aiohttp
 
 from config import Config
 from database import crud
-from locales.texts import get_text
+from locales.texts import DEFAULT_LANG, get_text
 from services.ai_tools import TOOL_SCHEMAS, execute_tool
 
 logger = logging.getLogger(__name__)
@@ -149,7 +149,7 @@ def _looks_like_action_request(text: str) -> bool:
     return any(kw in lowered for kw in _ACTION_KEYWORDS)
 
 
-def system_prompt(language: str = "ua") -> str:
+def system_prompt(language: str = DEFAULT_LANG) -> str:
     html_instruction = (
         "You MUST format your response using ONLY Telegram-supported HTML tags: "
         "<b>bold</b> for headings/key terms, <i>italic</i>, and <code>code</code>. "
@@ -240,7 +240,7 @@ async def ask_nvidia(
     base_url: str,
     model: str,
     messages: list[dict],
-    language: str = "ua",
+    language: str = DEFAULT_LANG,
 ) -> str:
     payload = {
         "model": model,
@@ -263,7 +263,7 @@ async def ask_ollama(
     ollama_url: str,
     model: str,
     messages: list[dict],
-    language: str = "ua",
+    language: str = DEFAULT_LANG,
 ) -> str:
     payload = {
         "model": model,
@@ -277,7 +277,7 @@ async def ask_ollama(
     raise ValueError(f"Unexpected Ollama response: {data}")
 
 
-async def get_ai_response(config: Config, messages: list[dict], language: str = "ua") -> tuple[str, str]:
+async def get_ai_response(config: Config, messages: list[dict], language: str = DEFAULT_LANG) -> tuple[str, str]:
     """Text request: NVIDIA → Ollama fallback."""
     language = _resolve_language(messages, language)
 
@@ -311,7 +311,7 @@ async def ask_nvidia_raw(
     model: str,
     messages: list[dict],
     tools: list[dict] | None = None,
-    language: str = "ua",
+    language: str = DEFAULT_LANG,
     tool_choice: str = "auto",
 ) -> dict:
     payload = {
@@ -387,7 +387,7 @@ async def get_ai_agent_response(
     session,
     user_id: int,
     messages: list[dict],
-    language: str = "ua",
+    language: str = DEFAULT_LANG,
 ) -> tuple[str, str, dict | None]:
     start_time = time.monotonic()
     language = _resolve_language(messages, language)

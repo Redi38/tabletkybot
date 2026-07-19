@@ -18,7 +18,7 @@ from config import Config
 from database import crud
 from database.crud import get_or_create_user, get_user_language
 from handlers.start import get_main_keyboard
-from locales.texts import get_text
+from locales.texts import DEFAULT_LANG, get_text, user_lang
 from services.ai_service import format_markdown_to_html, get_ai_agent_response, strip_html_tags
 from services.scheduler import remove_reminders
 from services.voice_service import transcribe_voice
@@ -27,7 +27,7 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
-def build_removal_confirm_kb(confirmation: dict, language: str = "ua") -> InlineKeyboardMarkup:
+def build_removal_confirm_kb(confirmation: dict, language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     """Archive / Delete / Back buttons for the AI agent."""
     target_type = confirmation["target_type"]  # "medicine" or "prescription"
     target_id = confirmation["target_id"]
@@ -141,7 +141,7 @@ async def handle_voice(
         message.from_user.username,
         message.from_user.full_name,
     )
-    language = user.language or "ua"
+    language = user_lang(user)
 
     await bot.send_chat_action(message.chat.id, "typing")
 
@@ -189,7 +189,7 @@ async def fallback_handler(
         message.from_user.username,
         message.from_user.full_name,
     )
-    language = user.language or "ua"
+    language = user_lang(user)
 
     await _process_ai_text(message, message.text, session, config, bot, language)
 

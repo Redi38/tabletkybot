@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
-from locales.texts import get_text
+from locales.texts import data_lang, get_lang, get_text
 
 from .keyboards import duration_kb, prescription_menu_kb
 from .states import RestorePrescription
@@ -35,7 +35,7 @@ async def restore_start(call: CallbackQuery, state: FSMContext, session: AsyncSe
 async def restore_valid_from(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     valid_from = parse_date(message.text)
     if not valid_from:
         await message.answer(get_text(lang, "err_date"), parse_mode="HTML")
@@ -54,7 +54,7 @@ async def restore_duration(call: CallbackQuery, state: FSMContext) -> None:
     if not isinstance(call.message, Message) or not call.data:
         return
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     days = int(str(call.data).split("_")[-1])
     valid_from = date.fromisoformat(data["valid_from"])
     expires_at = valid_from + timedelta(days=days)
@@ -69,7 +69,7 @@ async def restore_quantity(message: Message, state: FSMContext, session: AsyncSe
     if not message.text:
         return
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     qty = parse_optional_int(message.text)
     if qty == -1:
         await message.answer(get_text(lang, "err_stock"), parse_mode="HTML")

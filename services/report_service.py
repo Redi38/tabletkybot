@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.filters import FilterColumn
 from openpyxl.worksheet.worksheet import Worksheet
 
-from locales.texts import get_text
+from locales.texts import DEFAULT_LANG, get_text
 
 
 # ── Helper functions ─────────────────────────────────────────────────────
@@ -175,7 +175,7 @@ def _build_medicine_stats_sheet(
 
 # ── Main report generators ──────────────────────────────────────────────
 def create_excel_report(
-    records: list[tuple], lang: str = "ua", user_name: str = "", user_tz: str = "Europe/Kyiv"
+    records: list[tuple], lang: str = DEFAULT_LANG, user_name: str = "", user_tz: str = "Europe/Kyiv"
 ) -> io.BytesIO:
     """Generates an Excel report of medicine intake (History + Statistics)."""
     wb = openpyxl.Workbook()
@@ -366,7 +366,7 @@ def create_excel_report(
 
 
 def create_csv_report(
-    records: list[tuple], lang: str = "ua", user_name: str = "", user_tz: str = "Europe/Kyiv"
+    records: list[tuple], lang: str = DEFAULT_LANG, user_name: str = "", user_tz: str = "Europe/Kyiv"
 ) -> io.BytesIO:
     """Generates a lightweight CSV report of medicine intake."""
     output = io.StringIO()

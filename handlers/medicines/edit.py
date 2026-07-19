@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from database import crud
-from locales.texts import get_text
+from locales.texts import data_lang, get_text
 from services.scheduler import add_reminders_for_medicine
 
 from .keyboards import medicine_menu_kb
@@ -98,7 +98,7 @@ async def edit_field_save(
     if not message.from_user or not message.text:
         return
     data = await state.get_data()
-    medicine_id, field, lang = data["medicine_id"], data["field"], data.get("lang", "ua")
+    medicine_id, field, lang = data["medicine_id"], data["field"], data_lang(data)
     new_value = message.text.strip()
 
     if field == "schedules":

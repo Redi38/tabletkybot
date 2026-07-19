@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
-from locales.texts import get_text
+from locales.texts import data_lang, get_text
 from services.scheduler import clear_stock_alert_pending
 
 from .states import RestockMedicine
@@ -48,7 +48,7 @@ async def restock_save(message: Message, state: FSMContext, session: AsyncSessio
         return
     data = await state.get_data()
     medicine_id = data["medicine_id"]
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     needs_take = data.get("needs_take", False)
 
     amount = parse_int(message.text.strip())

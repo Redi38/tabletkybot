@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from database import crud
-from locales.texts import get_text
+from locales.texts import data_lang, get_lang, get_text
 from services.geo_service import format_timezone_display, resolve_timezone_from_place
 from services.scheduler import add_reminders_for_medicine
 
@@ -36,7 +36,7 @@ async def add_start(call: CallbackQuery, state: FSMContext, session: AsyncSessio
 async def add_name(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     await state.update_data(name=message.text.strip())
     await message.answer(get_text(lang, "add_form"), parse_mode="HTML")
     await state.set_state(AddMedicine.form)
@@ -46,7 +46,7 @@ async def add_name(message: Message, state: FSMContext) -> None:
 async def add_form(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     await state.update_data(form=message.text.strip())
     await message.answer(get_text(lang, "add_dosage"), parse_mode="HTML")
     await state.set_state(AddMedicine.dosage)
@@ -56,7 +56,7 @@ async def add_form(message: Message, state: FSMContext) -> None:
 async def add_dosage(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     await state.update_data(dosage=message.text.strip())
     await message.answer(get_text(lang, "add_time"), parse_mode="HTML")
     await state.set_state(AddMedicine.time)
@@ -66,7 +66,7 @@ async def add_dosage(message: Message, state: FSMContext) -> None:
 async def add_time(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     parsed_times = parse_times(message.text)
     if not parsed_times:
         await message.answer(get_text(lang, "err_time"), parse_mode="HTML")
@@ -80,7 +80,7 @@ async def add_time(message: Message, state: FSMContext) -> None:
 async def add_duration(message: Message, state: FSMContext, session: AsyncSession) -> None:
     if not message.text or not message.from_user:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     days = parse_int(message.text.strip())
     if days is None or days == 0:
         await message.answer(get_text(lang, "err_duration"))
@@ -102,7 +102,7 @@ async def add_duration(message: Message, state: FSMContext, session: AsyncSessio
 async def add_timezone(message: Message, state: FSMContext, session: AsyncSession) -> None:
     if not message.text or not message.from_user:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     place_text = message.text.strip()
 
     tz_name = await resolve_timezone_from_place(place_text)
@@ -141,7 +141,7 @@ async def add_track_stock(
 async def add_stock_amount(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     amount = parse_int(message.text.strip())
     if amount is None:
         await message.answer(get_text(lang, "err_stock"))
@@ -162,7 +162,7 @@ async def add_stock_threshold(
     if not message.text:
         return
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     threshold = parse_int(message.text.strip())
     if threshold is None:
         await message.answer(get_text(lang, "err_invalid_number"))

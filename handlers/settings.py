@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import Config
 from database import crud
-from locales.texts import btn_variants, get_text
+from locales.texts import DEFAULT_LANG, btn_variants, data_lang, get_text, user_lang
 from services.geo_service import format_timezone_display, resolve_timezone_from_place
 from services.scheduler import add_reminders_for_medicine
 
@@ -24,7 +24,7 @@ class SettingsState(StatesGroup):
     lang = State()
 
 
-def settings_keyboard(language: str = "ua") -> InlineKeyboardMarkup:
+def settings_keyboard(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -55,7 +55,7 @@ async def _msg_ctx(message: Message, state: FSMContext) -> tuple[str, str] | Non
     if not message.text or not message.from_user:
         return None
     data = await state.get_data()
-    return message.text.strip(), data.get("lang", "ua")
+    return message.text.strip(), data_lang(data)
 
 
 @router.message(F.text.in_(btn_variants("btn_settings")))
@@ -68,7 +68,7 @@ async def settings_menu(message: Message, session: AsyncSession) -> None:
         message.from_user.username,
         message.from_user.full_name,
     )
-    lang = user.language or "ua"
+    lang = user_lang(user)
     tz_display = format_timezone_display(user.timezone) or get_text(lang, "not_set")
     await message.answer(
         get_text(lang, "settings_title", name=str(user.full_name), tz=tz_display),

@@ -2,10 +2,10 @@
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from locales.texts import get_text
+from locales.texts import DEFAULT_LANG, get_text
 
 
-def medicine_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
+def medicine_menu_kb(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -19,13 +19,13 @@ def medicine_menu_kb(language: str = "ua") -> InlineKeyboardMarkup:
     )
 
 
-def medicine_back_only_kb(language: str = "ua") -> InlineKeyboardMarkup:
+def medicine_back_only_kb(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=get_text(language, "btn_back"), callback_data="med_menu")]]
     )
 
 
-def med_reports_kb(language: str = "ua") -> InlineKeyboardMarkup:
+def med_reports_kb(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -41,7 +41,7 @@ def med_reports_kb(language: str = "ua") -> InlineKeyboardMarkup:
     )
 
 
-def track_stock_kb(language: str = "ua") -> InlineKeyboardMarkup:
+def track_stock_kb(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [

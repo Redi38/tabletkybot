@@ -6,7 +6,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from database import crud
-from locales.texts import get_text
+from locales.texts import data_lang, get_text
 from services.scheduler import add_reminders_for_medicine
 
 from .states import ExtendMedicine
@@ -36,7 +36,7 @@ async def extend_course_save(
     session_factory: async_sessionmaker,
 ) -> None:
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     days = parse_int(message.text.strip()) if message.text else None
     if days is None:
         await message.answer(get_text(lang, "err_duration"))

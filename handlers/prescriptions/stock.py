@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
-from locales.texts import get_text
+from locales.texts import data_lang, get_text
 
 from .states import AddPurchaseToStock
 from .utils import _base_ctx, _valid_prescription_ctx, parse_positive_int
@@ -49,7 +49,7 @@ async def stock_pack_size_entered(message: Message, state: FSMContext, session: 
     if not message.text or not message.from_user:
         return
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
 
     pack_size = parse_positive_int(message.text)
     if pack_size is None:
@@ -80,7 +80,7 @@ async def stock_medicine_picked(call: CallbackQuery, state: FSMContext, session:
     if not isinstance(call.message, Message) or not call.data:
         return
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     total = data["total"]
     medicine_id = int(str(call.data).split("_")[-1])
 

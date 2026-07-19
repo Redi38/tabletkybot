@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import User
+from locales.texts import DEFAULT_LANG
 
 
 # ─── Users ────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ async def update_user_language(session: AsyncSession, user_id: int, language: st
 
 async def get_user_language(session: AsyncSession, user_id: int) -> str:
     user = await _get_user(session, user_id)
-    return str(user.language) if user and user.language else "ua"
+    return str(user.language) if user and user.language else DEFAULT_LANG
 
 
 async def get_user_timezone(session: AsyncSession, user_id: int) -> str:

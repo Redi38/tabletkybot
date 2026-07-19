@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
-from locales.texts import get_text
+from locales.texts import data_lang, get_lang, get_text
 
 from .keyboards import duration_kb, prescription_menu_kb
 from .states import AddPrescription
@@ -34,7 +34,7 @@ async def add_start(call: CallbackQuery, state: FSMContext, session: AsyncSessio
 async def add_name(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     await state.update_data(name=message.text.strip())
     await message.answer(get_text(lang, "add_presc_valid_from"), parse_mode="HTML")
     await state.set_state(AddPrescription.valid_from)
@@ -44,7 +44,7 @@ async def add_name(message: Message, state: FSMContext) -> None:
 async def add_valid_from(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     valid_from = parse_date(message.text)
     if not valid_from:
         await message.answer(get_text(lang, "err_date"), parse_mode="HTML")
@@ -63,7 +63,7 @@ async def duration_chosen(call: CallbackQuery, state: FSMContext) -> None:
     if not isinstance(call.message, Message) or not call.data:
         return
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     days = int(str(call.data).split("_")[-1])
 
     valid_from = date.fromisoformat(data["valid_from"])
@@ -79,7 +79,7 @@ async def duration_chosen(call: CallbackQuery, state: FSMContext) -> None:
 async def add_quantity(message: Message, state: FSMContext) -> None:
     if not message.text:
         return
-    lang = (await state.get_data()).get("lang", "ua")
+    lang = await get_lang(state)
     qty = parse_optional_int(message.text)
     if qty == -1:
         await message.answer(get_text(lang, "err_stock"), parse_mode="HTML")
@@ -94,7 +94,7 @@ async def add_reminder(message: Message, state: FSMContext, session: AsyncSessio
     if not message.text or not message.from_user:
         return
     data = await state.get_data()
-    lang = data.get("lang", "ua")
+    lang = data_lang(data)
     text = message.text.strip()
 
     reminder_days = 3
