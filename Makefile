@@ -1,4 +1,4 @@
-.PHONY: help ci lint format typecheck test security docker-build clean
+.PHONY: help ci lint format typecheck test security docker-build clean up down restart logs ps
 
 # Env vars used by the `test` target — same placeholders as .github/workflows/ci.yml,
 # so tests run the same way locally as they do in CI without needing a real .env.
@@ -37,6 +37,20 @@ security: ## Run pip-audit against requirements.txt (mirrors the "security" CI j
 
 docker-build: ## Build the Docker image (mirrors the "docker-build" CI job)
 	docker build -t medbot-ci-test .
+
+up: ## Rebuild and (re)start all containers in the background (docker compose up -d --build)
+	docker compose up -d --build
+
+down: ## Stop and remove all containers (volumes are kept)
+	docker compose down
+
+restart: down up ## Shortcut for `make down` followed by `make up`
+
+logs: ## Tail logs from all containers (Ctrl+C to stop)
+	docker compose logs -f --tail 100
+
+ps: ## Show container status (e.g. check medbot_core is healthy)
+	docker compose ps
 
 clean: ## Remove local test/coverage/cache artifacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage.xml
