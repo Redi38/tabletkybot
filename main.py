@@ -29,6 +29,7 @@ from middleware.logging_context import (
 )
 from services.backup_service import run_database_backup
 from services.scheduler import (
+    archive_expired_prescriptions,
     check_prescription_reminders,
     get_active_pending_reminders,
     init_redis,
@@ -84,8 +85,7 @@ def build_sync_handler(bot: Bot, session_factory, sync_secret: str):
         )
 
     async def handle_sync(request: web.Request) -> web.Response:
-        # Server-to-server auth: the admin panel sends this secret in a
-        # header on every call.
+        # Server-to-server auth: the admin panel sends this secret in a header on every call.
         provided = request.headers.get("X-Sync-Secret", "")
         if not sync_secret or not hmac.compare_digest(provided, sync_secret):
             logger.warning(f"Rejected /api/sync request from {request.remote}: invalid or missing X-Sync-Secret")
@@ -252,6 +252,10 @@ async def main() -> None:
         with correlation_scope("job:check_prescription_reminders"):
             await check_prescription_reminders(bot, session_factory)
 
+    async def _tagged_archive_expired_prescriptions(bot, session_factory):
+        with correlation_scope("job:archive_expired_prescriptions"):
+            await archive_expired_prescriptions(bot, session_factory)
+
     async def _tagged_backup(config):
         with correlation_scope("job:db_backup_daily"):
             await run_database_backup(config)
@@ -271,6 +275,17 @@ async def main() -> None:
         minute=0,
         timezone="UTC",
         id="presc_reminder_check_hourly",
+        replace_existing=True,
+        kwargs={"bot": bot, "session_factory": session_factory},
+    )
+
+    scheduler.add_job(
+        _tagged_archive_expired_prescriptions,
+        trigger="cron",
+        hour=0,
+        minute=10,
+        timezone="UTC",
+        id="presc_archive_expired_daily",
         replace_existing=True,
         kwargs={"bot": bot, "session_factory": session_factory},
     )

@@ -1,15 +1,15 @@
 """
-Tests for services/scheduler.py, focused on the repeat-reminder lifecycle:
-adding a repeat job, cancelling it, and making sure cancellation is properly
-awaited (regression test for the sync-fire-and-forget -> async fix).
+Tests for the services/scheduler package, focused on the repeat-reminder
+lifecycle: adding a repeat job, cancelling it, and making sure cancellation
+is properly awaited (regression test for the sync-fire-and-forget -> async
+fix).
 """
 
-import importlib
 from unittest.mock import AsyncMock
 
 from services.scheduler import acquire_action_lock, cancel_repeat_reminder, remove_reminders
-
-scheduler_module = importlib.import_module("services.scheduler")
+from services.scheduler import jobs as scheduler_jobs_module
+from services.scheduler import redis_state as scheduler_redis_module
 
 
 class TestCancelRepeatReminder:
@@ -17,17 +17,17 @@ class TestCancelRepeatReminder:
         chat_id, medicine_id = 111, 42
         job_id = f"repeat_{medicine_id}_{chat_id}"
 
-        scheduler_module.scheduler.add_job(
+        scheduler_jobs_module.scheduler.add_job(
             lambda: None,
             trigger="interval",
             hours=1,
             id=job_id,
         )
-        assert scheduler_module.scheduler.get_job(job_id) is not None
+        assert scheduler_jobs_module.scheduler.get_job(job_id) is not None
 
         await cancel_repeat_reminder(chat_id, medicine_id)
 
-        assert scheduler_module.scheduler.get_job(job_id) is None
+        assert scheduler_jobs_module.scheduler.get_job(job_id) is None
 
     async def test_awaits_redis_delete(self, mock_redis):
         chat_id, medicine_id = 111, 42
@@ -54,19 +54,19 @@ class TestRemoveReminders:
         monkeypatch.setattr("asyncio.create_task", lambda coro: coro.close())
 
         medicine_id = 10
-        scheduler_module.scheduler.add_job(
+        scheduler_jobs_module.scheduler.add_job(
             lambda: None,
             trigger="interval",
             hours=1,
             id=f"med_{medicine_id}_1",
         )
-        scheduler_module.scheduler.add_job(
+        scheduler_jobs_module.scheduler.add_job(
             lambda: None,
             trigger="interval",
             hours=1,
             id=f"repeat_{medicine_id}_555",
         )
-        scheduler_module.scheduler.add_job(
+        scheduler_jobs_module.scheduler.add_job(
             lambda: None,
             trigger="interval",
             hours=1,
@@ -75,7 +75,7 @@ class TestRemoveReminders:
 
         remove_reminders(medicine_id)
 
-        remaining_ids = {job.id for job in scheduler_module.scheduler.get_jobs()}
+        remaining_ids = {job.id for job in scheduler_jobs_module.scheduler.get_jobs()}
         assert f"med_{medicine_id}_1" not in remaining_ids
         assert f"repeat_{medicine_id}_555" not in remaining_ids
         assert "med_999_1" in remaining_ids
@@ -84,11 +84,11 @@ class TestRemoveReminders:
         monkeypatch.setattr("asyncio.create_task", lambda coro: coro.close())
 
         medicine_id = 10
-        scheduler_module._manual_reminder_today[medicine_id] = "some-date-placeholder"
+        scheduler_jobs_module._manual_reminder_today[medicine_id] = "some-date-placeholder"
 
         remove_reminders(medicine_id)
 
-        assert medicine_id not in scheduler_module._manual_reminder_today
+        assert medicine_id not in scheduler_jobs_module._manual_reminder_today
 
 
 class TestPendingReminderRedisHelpers:
@@ -106,7 +106,7 @@ class TestPendingReminderRedisHelpers:
         mock_redis.set = AsyncMock(side_effect=fake_set)
         mock_redis.get = AsyncMock(side_effect=fake_get)
 
-        await scheduler_module._save_pending_reminder(
+        await scheduler_redis_module._save_pending_reminder(
             chat_id=1,
             medicine_id=2,
             message_id=999,
@@ -115,7 +115,7 @@ class TestPendingReminderRedisHelpers:
             language="ua",
             timezone="Europe/Kyiv",
         )
-        result = await scheduler_module._get_pending_reminder(chat_id=1, medicine_id=2)
+        result = await scheduler_redis_module._get_pending_reminder(chat_id=1, medicine_id=2)
 
         assert result["medicine_name"] == "Aspirin"
         assert result["course_duration"] == 5
@@ -123,14 +123,14 @@ class TestPendingReminderRedisHelpers:
     async def test_get_pending_reminder_returns_none_on_malformed_json(self, mock_redis):
         mock_redis.get = AsyncMock(return_value="not-valid-json{")
 
-        result = await scheduler_module._get_pending_reminder(chat_id=1, medicine_id=2)
+        result = await scheduler_redis_module._get_pending_reminder(chat_id=1, medicine_id=2)
 
         assert result is None
 
     async def test_get_pending_reminder_returns_none_when_missing(self, mock_redis):
         mock_redis.get = AsyncMock(return_value=None)
 
-        result = await scheduler_module._get_pending_reminder(chat_id=1, medicine_id=2)
+        result = await scheduler_redis_module._get_pending_reminder(chat_id=1, medicine_id=2)
 
         assert result is None
 
@@ -161,9 +161,7 @@ class TestAcquireActionLock:
         assert kwargs.get("ex") == 3
 
     async def test_fails_open_when_redis_not_configured(self, mock_redis):
-        import services.scheduler as scheduler_module
-
-        scheduler_module._redis_client = None
+        scheduler_redis_module._redis_client = None
 
         acquired = await acquire_action_lock(chat_id=1, medicine_id=2)
 

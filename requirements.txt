@@ -7,7 +7,7 @@ openpyxl
 PyMuPDF
 python-dotenv
 pytz
-redis
+redis>=8.0.1
 requests
 sqladmin
 SQLAlchemy

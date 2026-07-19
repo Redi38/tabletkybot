@@ -4,7 +4,6 @@ from cryptography.fernet import Fernet
 
 os.environ.setdefault("ENCRYPTION_KEY", Fernet.generate_key().decode())
 
-import importlib
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,23 +11,23 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from database.models import Base
-
-scheduler_module = importlib.import_module("services.scheduler")
+from services.scheduler import jobs as scheduler_jobs_module
+from services.scheduler import redis_state as scheduler_redis_module
 
 
 @pytest.fixture(autouse=True)
 def _reset_scheduler_state():
     """
-    scheduler.py keeps module-level global state (the APScheduler instance,
-    _redis_client, _manual_reminder_today). Without resetting these between
-    tests, jobs and mocked clients leak across test cases and cause
-    order-dependent failures.
+    The scheduler package keeps module-level global state (the APScheduler
+    instance and _manual_reminder_today in jobs.py, _redis_client in
+    redis_state.py). Without resetting these between tests, jobs and mocked
+    clients leak across test cases and cause order-dependent failures.
     """
     yield
-    for job in list(scheduler_module.scheduler.get_jobs()):
-        scheduler_module.scheduler.remove_job(job.id)
-    scheduler_module._manual_reminder_today.clear()
-    scheduler_module._redis_client = None
+    for job in list(scheduler_jobs_module.scheduler.get_jobs()):
+        scheduler_jobs_module.scheduler.remove_job(job.id)
+    scheduler_jobs_module._manual_reminder_today.clear()
+    scheduler_redis_module._redis_client = None
 
 
 @pytest.fixture
@@ -43,7 +42,7 @@ def mock_redis():
             yield key
 
     client.scan_iter = _empty_scan_iter
-    scheduler_module._redis_client = client
+    scheduler_redis_module._redis_client = client
     return client
 
 
