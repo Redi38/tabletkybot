@@ -77,7 +77,7 @@ class ReminderQueueView(BaseView):
     name = "Reminder Queue"
     icon = "fa-solid fa-bell"
 
-    @expose("/admin/reminders-view", methods=["GET"])
+    @expose("/reminders-view", methods=["GET"])
     async def reminders_page(self, request: Request):
         return await self.templates.TemplateResponse(
             request,

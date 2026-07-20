@@ -126,7 +126,7 @@ class LogsView(BaseView):
     name = "Logs"
     icon = "fa-solid fa-file-lines"
 
-    @expose("/admin/logs-view", methods=["GET"])
+    @expose("/logs-view", methods=["GET"])
     async def logs_page(self, request: Request):
         return await self.templates.TemplateResponse(
             request,

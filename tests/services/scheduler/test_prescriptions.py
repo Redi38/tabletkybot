@@ -1,5 +1,10 @@
 """
 Tests for services/scheduler/prescriptions.py::archive_expired_prescriptions.
+
+This function had zero test coverage before, which is exactly how it went
+unnoticed that it was never wired into any scheduler job (see main.py —
+it's now registered as "presc_archive_expired_daily"). These tests cover
+the function's own behavior; they don't test the job registration itself.
 """
 
 from contextlib import asynccontextmanager

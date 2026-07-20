@@ -30,7 +30,7 @@ typecheck: ## Run mypy (mirrors the "typecheck" CI job)
 	mypy . --ignore-missing-imports
 
 test: ## Run pytest with coverage (mirrors the "test" CI job). Needs Postgres+Redis reachable via the vars above.
-	pytest -v --tb=short --cov=services --cov=database --cov-report=term-missing --cov-report=xml
+	python3 -m pytest -v --tb=short --cov=services --cov=database --cov-report=term-missing --cov-report=xml
 
 security: ## Run pip-audit against requirements.txt (mirrors the "security" CI job)
 	pip-audit -r requirements.txt

@@ -56,7 +56,7 @@ class AIMetricsView(BaseView):
     name = "AI Metrics"
     icon = "fa-solid fa-chart-line"
 
-    @expose("/admin/ai-metrics-view", methods=["GET"])
+    @expose("/ai-metrics-view", methods=["GET"])
     async def ai_metrics_page(self, request: Request):
         return await self.templates.TemplateResponse(
             request,

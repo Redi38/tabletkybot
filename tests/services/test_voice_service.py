@@ -1,5 +1,10 @@
 """
-Tests for services/voice_service.py.
+Tests for services/voice_service.py (previously 0% test coverage).
+
+subprocess.run (ffmpeg) and riva.client (Auth/ASRService) are mocked —
+these tests never shell out to a real ffmpeg binary or call NVIDIA's Riva
+API. asyncio.to_thread itself is not mocked: it's allowed to actually run
+the (now-mocked) sync functions in a thread pool.
 """
 
 import os

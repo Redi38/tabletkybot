@@ -1,5 +1,10 @@
 """
-Tests for services/backup_service.py.
+Tests for services/backup_service.py (previously 0% test coverage).
+
+subprocess.run and boto3.client are mocked — these tests never touch a
+real pg_dump binary or real S3-compatible storage. asyncio.to_thread
+itself is not mocked: it's allowed to actually run the (now-mocked) sync
+functions in a thread pool, exercising the real threading/await plumbing.
 """
 
 import os

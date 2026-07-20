@@ -3,6 +3,9 @@ import os
 from cryptography.fernet import Fernet
 
 os.environ.setdefault("ENCRYPTION_KEY", Fernet.generate_key().decode())
+os.environ.setdefault("BOT_TOKEN", "test_token_placeholder")
+os.environ.setdefault("NVIDIA_API_KEY", "test_key_placeholder")
+os.environ.setdefault("WEBHOOK_HOST", "https://example.com")
 
 from unittest.mock import AsyncMock, MagicMock
 

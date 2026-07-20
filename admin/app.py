@@ -1,6 +1,7 @@
 """
 Admin panel composition root: logging setup, config/engine/session factory,
-the FastAPI app instance, health check, and the sqladmin Admin instance.
+the FastAPI app instance, health check, and the sqladmin Admin instance
+(with auth wired in).
 """
 
 import logging
@@ -21,7 +22,8 @@ from config import load_config
 from database import crud
 
 # ─── Admin panel file logging ──────
-LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
+_default_log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+LOG_DIR = os.getenv("LOG_DIR", _default_log_dir)
 os.makedirs(LOG_DIR, exist_ok=True)
 
 _log_formatter = logging.Formatter(

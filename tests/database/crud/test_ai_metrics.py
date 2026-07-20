@@ -1,6 +1,8 @@
 """
 Tests for database/crud/ai_metrics.py against a real (in-memory SQLite)
 async session. See the `db_session` fixture in conftest.py.
+
+Previously had zero test coverage.
 """
 
 from datetime import datetime, timedelta, timezone
