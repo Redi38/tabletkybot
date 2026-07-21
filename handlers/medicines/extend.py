@@ -2,7 +2,7 @@
 
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from database import crud
@@ -54,4 +54,22 @@ async def extend_course_save(
     tz = await crud.get_user_timezone(session, message.from_user.id)
     add_reminders_for_medicine(bot, medicine, str(tz), message.from_user.id, lang, session_factory=session_factory)
     await state.clear()
-    await message.answer(get_text(lang, "med_restored", name=str(medicine.name), days=days), parse_mode="HTML")
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_mark_taken_now"),
+                    callback_data=f"mark_taken_now_{medicine_id}",
+                    style="success",
+                ),
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_list"),
+                    callback_data="med_list",
+                    style="primary",
+                ),
+            ]
+        ]
+    )
+    await message.answer(
+        get_text(lang, "med_restored", name=str(medicine.name), days=days), reply_markup=kb, parse_mode="HTML"
+    )

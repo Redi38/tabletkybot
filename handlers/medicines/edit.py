@@ -28,6 +28,13 @@ async def edit_medicine_menu(call: CallbackQuery, session: AsyncSession) -> None
     msg, lang, medicine_id, medicine = ctx
 
     buttons = [
+        [
+            InlineKeyboardButton(
+                text=get_text(lang, "btn_mark_taken_now"),
+                callback_data=f"mark_taken_now_{medicine_id}",
+                style="success",
+            )
+        ],
         [InlineKeyboardButton(text=get_text(lang, "btn_edit_name"), callback_data=f"edit_field_name_{medicine_id}")],
         [
             InlineKeyboardButton(

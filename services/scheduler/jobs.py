@@ -25,7 +25,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.orm import selectinload
 
-from database.models import Medicine, User
+from database.models import Medicine, MedicineSchedule, User
 from locales.texts import DEFAULT_LANG, get_text, user_lang
 
 from .redis_state import (
@@ -44,7 +44,7 @@ scheduler = AsyncIOScheduler()
 
 _MED_JOB_PREFIX = "med_"
 
-_manual_reminder_today: dict[int, date_type] = {}
+_manual_reminder_today: dict[tuple[int, int], date_type] = {}
 
 
 def _local_today(tz_name: str) -> date_type:
@@ -57,6 +57,34 @@ def _local_today(tz_name: str) -> date_type:
 
 def _med_job_id(medicine_id: int, schedule_id: int) -> str:
     return f"{_MED_JOB_PREFIX}{medicine_id}_{schedule_id}"
+
+
+def _next_schedule_id_for_today(schedules: list[MedicineSchedule], tz_name: str) -> int | None:
+    """
+    Finds the soonest schedule (by time-of-day) that hasn't happened yet
+    today, in the user's own timezone. Used when a reminder is sent
+    manually (from the Admin Panel) so the one-time "already reminded"
+    suppression can target that specific upcoming dose slot.
+    Returns None if every schedule for today has already passed (nothing
+    left to suppress).
+    """
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = ZoneInfo("Europe/Kyiv")
+    now_time = datetime.now(tz).time()
+    candidates = []
+    for sched in schedules:
+        try:
+            hour, minute = map(int, sched.scheduled_time.split(":"))
+        except ValueError:
+            continue
+        if (hour, minute) > (now_time.hour, now_time.minute):
+            candidates.append((hour, minute, sched.id))
+    if not candidates:
+        return None
+    candidates.sort()
+    return candidates[0][2]
 
 
 def get_reminder_keyboard(medicine_id: int, language: str) -> InlineKeyboardMarkup:
@@ -79,6 +107,7 @@ async def send_reminder(
     language: str,
     timezone: str = "Europe/Kyiv",
     is_manual: bool = False,
+    schedule_id: int | None = None,
     session_factory: async_sessionmaker | None = None,
 ) -> None:
     # ── Auto-archive check ──────────────────────────────────────────────
@@ -113,12 +142,14 @@ async def send_reminder(
     today = _local_today(timezone)
 
     if is_manual:
-        _manual_reminder_today[medicine_id] = today
-    elif _manual_reminder_today.get(medicine_id) == today:
+        if schedule_id is not None:
+            _manual_reminder_today[(medicine_id, schedule_id)] = today
+    elif schedule_id is not None and _manual_reminder_today.get((medicine_id, schedule_id)) == today:
         logger.info(
-            f"Skipping the regular reminder for med_{medicine_id} — already sent manually today via the Admin Panel"
+            f"Skipping the regular reminder for med_{medicine_id} schedule_{schedule_id} "
+            f"— already sent manually today via the Admin Panel"
         )
-        _manual_reminder_today.pop(medicine_id, None)
+        _manual_reminder_today.pop((medicine_id, schedule_id), None)
         return
 
     try:
@@ -266,7 +297,8 @@ def remove_reminders(medicine_id: int) -> None:
             except Exception as e:
                 logger.error(f"Error removing reminder {job.id}: {e}")
 
-    _manual_reminder_today.pop(medicine_id, None)
+    for key in [k for k in _manual_reminder_today if k[0] == medicine_id]:
+        _manual_reminder_today.pop(key, None)
 
     try:
         asyncio.create_task(_delete_pending_reminders_for_medicine(medicine_id))
@@ -317,6 +349,7 @@ def add_reminders_for_medicine(
                     "course_duration": medicine.course_duration,
                     "language": language,
                     "timezone": timezone,
+                    "schedule_id": sched.id,
                     "session_factory": session_factory,
                 },
             )
@@ -396,6 +429,7 @@ async def sync_single_reminder(bot: Bot, session_factory: async_sessionmaker, me
     med, user = row
 
     if action == "send_now":
+        schedule_id = _next_schedule_id_for_today(med.schedules, user.timezone or "Europe/Kyiv")
         await send_reminder(
             bot=bot,
             medicine_id=med.id,
@@ -405,6 +439,7 @@ async def sync_single_reminder(bot: Bot, session_factory: async_sessionmaker, me
             language=user_lang(user),
             timezone=user.timezone or "Europe/Kyiv",
             is_manual=True,
+            schedule_id=schedule_id,
         )
         logger.info(f"Immediate reminder sent for med_{medicine_id} (requested from the Admin Panel)")
         return
