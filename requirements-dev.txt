@@ -4,3 +4,4 @@ pytest-mock==3.14.0
 pytest-cov==7.1.0
 aiosqlite==0.22.1
 httpx2==2.7.0
+pre-commit==4.0.1

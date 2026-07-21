@@ -1,4 +1,4 @@
-.PHONY: help ci lint format typecheck test security docker-build clean up down restart logs ps
+.PHONY: help ci lint format typecheck test security docker-build clean up down restart logs ps pre-commit-install
 
 # Env vars used by the `test` target — same placeholders as .github/workflows/ci.yml,
 # so tests run the same way locally as they do in CI without needing a real .env.
@@ -18,6 +18,10 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 ci: lint typecheck test security docker-build ## Run every CI job locally, in the same order as GitHub Actions
+
+pre-commit-install: ## One-time setup: install the pre-commit git hook (run this after cloning)
+	pip install -r requirements-dev.txt
+	pre-commit install
 
 lint: ## Run ruff lint + format check (mirrors the "lint" CI job)
 	ruff check .

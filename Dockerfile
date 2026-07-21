@@ -8,3 +8,5 @@ COPY . .
 RUN useradd --uid 1000 --create-home --shell /bin/bash appuser \
     && chown -R appuser:appuser /app
 USER appuser
+
+CMD ["python", "main.py"]
