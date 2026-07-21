@@ -10,6 +10,7 @@ import redis.asyncio as aioredis
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramNetworkError, TelegramRetryAfter
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
@@ -195,6 +196,53 @@ def build_health_handler(session_factory, redis_url: str):
     return handle_health
 
 
+async def _set_webhook_with_retry(
+    bot: Bot,
+    *,
+    url: str,
+    cert_data: bytes,
+    secret_token: str,
+    drop_pending_updates: bool,
+    allowed_updates,
+    max_attempts: int = 6,
+    base_delay: float = 2.0,
+    max_delay: float = 60.0,
+) -> None:
+    """Call bot.set_webhook with exponential backoff.
+
+    Telegram's API (or the network path to it) can be briefly unavailable right
+    when the container starts. Without a retry, that single failed call would
+    raise out of main() and crash the whole process before it ever handles an
+    update. We keep trying with a capped exponential backoff instead of giving
+    up after the first hiccup.
+    """
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            await bot.set_webhook(
+                url=url,
+                certificate=types.BufferedInputFile(cert_data, filename="webhook.pem"),
+                secret_token=secret_token,
+                drop_pending_updates=drop_pending_updates,
+                allowed_updates=allowed_updates,
+            )
+            return
+        except TelegramRetryAfter as e:
+            # Telegram explicitly tells us how long to wait.
+            delay = float(e.retry_after)
+            logger.warning(f"⚠️ set_webhook rate-limited by Telegram, retrying in {delay:.0f}s (attempt {attempt})")
+        except TelegramNetworkError as e:
+            if attempt >= max_attempts:
+                logger.critical(f"❌ set_webhook failed after {attempt} attempts, giving up: {e}")
+                raise
+            delay = min(base_delay * (2 ** (attempt - 1)), max_delay)
+            logger.warning(
+                f"⚠️ set_webhook network error (attempt {attempt}/{max_attempts}): {e}. Retrying in {delay:.0f}s"
+            )
+        await asyncio.sleep(delay)
+
+
 async def main() -> None:
     config = load_config()
 
@@ -298,8 +346,6 @@ async def main() -> None:
     )
 
     # ── Public HTTPS server for the Telegram webhook (port 8443) ──────────
-    # Started *before* set_webhook below: otherwise Telegram could start
-    # delivering updates to a URL nothing is listening on yet.
     app = web.Application()
 
     SimpleRequestHandler(
@@ -323,11 +369,12 @@ async def main() -> None:
     with open(config.webhook_cert, "rb") as f:
         cert_data = f.read()
 
-    await bot.set_webhook(
+    await _set_webhook_with_retry(
+        bot,
         url=config.webhook_url,
-        certificate=types.BufferedInputFile(cert_data, filename="webhook.pem"),
+        cert_data=cert_data,
         secret_token=config.webhook_secret,
-        drop_pending_updates=True,
+        drop_pending_updates=config.webhook_drop_pending_updates,
         allowed_updates=dp.resolve_used_update_types(),
     )
     logger.info(f"✅ Webhook set: {config.webhook_url}")

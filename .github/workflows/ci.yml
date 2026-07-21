@@ -83,6 +83,7 @@ jobs:
       BOT_TOKEN: "test_token_placeholder"
       NVIDIA_API_KEY: "test_key_placeholder"
       WEBHOOK_HOST: "https://example.com"
+      WEBHOOK_SECRET: "test_webhook_secret"
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
       POSTGRES_DB: test_db

@@ -17,6 +17,7 @@ class Config:
     webhook_port: int = 8443
     webhook_cert: str = "webhook.pem"
     webhook_key: str = "webhook.key"
+    webhook_drop_pending_updates: bool = True
     # NVIDIA API
     nvidia_api_key: str | None = None
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
@@ -112,6 +113,8 @@ def load_config() -> Config:
         webhook_port=int(os.getenv("WEBHOOK_PORT", "8443")),
         webhook_cert=os.getenv("WEBHOOK_CERT", "webhook.pem"),
         webhook_key=os.getenv("WEBHOOK_KEY", "webhook.key"),
+        webhook_drop_pending_updates=os.getenv("WEBHOOK_DROP_PENDING_UPDATES", "true").strip().lower()
+        in ("1", "true", "yes", "on"),
         nvidia_api_key=nvidia_api_key,
         nvidia_base_url=os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"),
         nvidia_model=os.getenv("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct"),
