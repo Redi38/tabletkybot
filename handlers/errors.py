@@ -1,8 +1,17 @@
 import logging
+from asyncio import TimeoutError
 
 from aiogram import Router
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import (
+    TelegramAPIError,
+    TelegramBadRequest,
+    TelegramForbiddenError,
+    TelegramNetworkError,
+    TelegramRetryAfter,
+    TelegramServerError,
+)
 from aiogram.types import ErrorEvent, Message
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.crud import get_user_language
@@ -15,7 +24,23 @@ logger = logging.getLogger(__name__)
 @router.errors()
 async def global_error_handler(event: ErrorEvent, session: AsyncSession | None = None) -> None:
     """Global handler for all exceptions."""
-    logger.error(f"Critical error triggered by {event.update.event_type}: {event.exception}", exc_info=True)
+    exception = event.exception
+    event_type = event.update.event_type
+    if isinstance(exception, TelegramRetryAfter):
+        logger.warning("Telegram rate limit for %s; retry after %s seconds", event_type, exception.retry_after)
+        return
+    if isinstance(exception, TelegramForbiddenError):
+        logger.info("Telegram denied delivery for %s (the user likely blocked the bot)", event_type)
+        return
+    if isinstance(exception, TelegramBadRequest):
+        logger.warning("Invalid Telegram request for %s: %s", event_type, exception)
+        return
+    if isinstance(exception, (TelegramNetworkError, TelegramServerError, TimeoutError)):
+        logger.warning("Temporary transport failure for %s: %s", event_type, exception, exc_info=True)
+    elif isinstance(exception, SQLAlchemyError):
+        logger.error("Database failure while handling %s", event_type, exc_info=True)
+    else:
+        logger.error("Critical error triggered by %s: %s", event_type, exception, exc_info=True)
 
     user_id: int | None = None
     if event.update.message and event.update.message.from_user:
@@ -42,4 +67,4 @@ async def global_error_handler(event: ErrorEvent, session: AsyncSession | None =
             else:
                 await event.update.callback_query.answer(error_text, show_alert=True)
     except TelegramAPIError:
-        pass
+        logger.debug("Could not deliver the error message", exc_info=True)

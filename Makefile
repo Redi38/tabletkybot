@@ -5,6 +5,7 @@
 export BOT_TOKEN ?= test_token_placeholder
 export NVIDIA_API_KEY ?= test_key_placeholder
 export WEBHOOK_HOST ?= https://example.com
+export WEBHOOK_SECRET ?= test_webhook_secret
 export POSTGRES_USER ?= test_user
 export POSTGRES_PASSWORD ?= test_password
 export POSTGRES_DB ?= test_db
@@ -47,7 +48,7 @@ down: ## Stop and remove all containers (volumes are kept)
 restart: down up ## Shortcut for `make down` followed by `make up`
 
 logs: ## Tail logs from all containers (Ctrl+C to stop)
-	docker compose logs -f --tail 100
+	@docker compose logs -f --tail 100; status=$$?; [ $$status -eq 130 ] || exit $$status
 
 ps: ## Show container status (e.g. check medbot_core is healthy)
 	docker compose ps

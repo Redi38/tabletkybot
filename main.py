@@ -297,20 +297,9 @@ async def main() -> None:
         kwargs={"config": config},
     )
 
-    # Read the certificate for Telegram
-    with open(config.webhook_cert, "rb") as f:
-        cert_data = f.read()
-
-    await bot.set_webhook(
-        url=config.webhook_url,
-        certificate=types.BufferedInputFile(cert_data, filename="webhook.pem"),
-        secret_token=config.webhook_secret,
-        drop_pending_updates=True,
-        allowed_updates=dp.resolve_used_update_types(),
-    )
-    logger.info(f"✅ Webhook set: {config.webhook_url}")
-
     # ── Public HTTPS server for the Telegram webhook (port 8443) ──────────
+    # Started *before* set_webhook below: otherwise Telegram could start
+    # delivering updates to a URL nothing is listening on yet.
     app = web.Application()
 
     SimpleRequestHandler(
@@ -329,6 +318,19 @@ async def main() -> None:
     site = web.TCPSite(runner, "0.0.0.0", config.webhook_port, ssl_context=ssl_context)
     await site.start()
     logger.info(f"🌐 Public webhook server started on port {config.webhook_port}")
+
+    # Read the certificate for Telegram
+    with open(config.webhook_cert, "rb") as f:
+        cert_data = f.read()
+
+    await bot.set_webhook(
+        url=config.webhook_url,
+        certificate=types.BufferedInputFile(cert_data, filename="webhook.pem"),
+        secret_token=config.webhook_secret,
+        drop_pending_updates=True,
+        allowed_updates=dp.resolve_used_update_types(),
+    )
+    logger.info(f"✅ Webhook set: {config.webhook_url}")
 
     # ── Internal HTTP server for /api/sync and /health (port 8080) ────────
     internal_app = web.Application()

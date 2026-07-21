@@ -95,11 +95,20 @@ def load_config() -> Config:
 
     sync_secret = os.getenv("SYNC_SECRET", "")
 
+    webhook_secret = os.getenv("WEBHOOK_SECRET", "change_me")
+    if webhook_secret == "change_me":
+        raise ValueError(
+            "WEBHOOK_SECRET must be changed to your own random value "
+            '(e.g.: python -c "import secrets; print(secrets.token_hex(32))"). '
+            "It is compared against Telegram's X-Telegram-Bot-Api-Secret-Token header on every "
+            "incoming webhook request, so a default/guessable value defeats that check."
+        )
+
     return Config(
         bot_token=bot_token,
         webhook_host=webhook_host,
         webhook_path=os.getenv("WEBHOOK_PATH", "/webhook"),
-        webhook_secret=os.getenv("WEBHOOK_SECRET", "change_me"),
+        webhook_secret=webhook_secret,
         webhook_port=int(os.getenv("WEBHOOK_PORT", "8443")),
         webhook_cert=os.getenv("WEBHOOK_CERT", "webhook.pem"),
         webhook_key=os.getenv("WEBHOOK_KEY", "webhook.key"),
