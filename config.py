@@ -15,8 +15,8 @@ class Config:
     webhook_path: str = "/webhook"
     webhook_secret: str = "change_me"
     webhook_port: int = 8443
-    webhook_cert: str = "webhook.pem"
-    webhook_key: str = "webhook.key"
+    webhook_cert: str = "certs/webhook.pem"
+    webhook_key: str = "certs/webhook.key"
     webhook_drop_pending_updates: bool = True
     # NVIDIA API
     nvidia_api_key: str | None = None
@@ -111,8 +111,8 @@ def load_config() -> Config:
         webhook_path=os.getenv("WEBHOOK_PATH", "/webhook"),
         webhook_secret=webhook_secret,
         webhook_port=int(os.getenv("WEBHOOK_PORT", "8443")),
-        webhook_cert=os.getenv("WEBHOOK_CERT", "webhook.pem"),
-        webhook_key=os.getenv("WEBHOOK_KEY", "webhook.key"),
+        webhook_cert=os.getenv("WEBHOOK_CERT", "certs/webhook.pem"),
+        webhook_key=os.getenv("WEBHOOK_KEY", "certs/webhook.key"),
         webhook_drop_pending_updates=os.getenv("WEBHOOK_DROP_PENDING_UPDATES", "true").strip().lower()
         in ("1", "true", "yes", "on"),
         nvidia_api_key=nvidia_api_key,

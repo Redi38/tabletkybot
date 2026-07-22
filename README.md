@@ -8,7 +8,7 @@ A production-ready Telegram bot for medication schedule and prescription managem
 
 [t.me/tabletkybot](https://t.me/tabletkybot)
 
-![QR Code](qr.jpg)
+![QR Code](assets/qr.jpg)
 
 ---
 
@@ -60,7 +60,9 @@ A production-ready Telegram bot for medication schedule and prescription managem
 tgbot/
 ├── main.py                    # Bot entry point, webhook + internal sync server, scheduler jobs
 ├── config.py                  # Configuration loader (.env)
-├── requirements.txt
+├── requirements/
+│   ├── base.txt               # Runtime dependencies
+│   └── dev.txt                # Test/lint/type-check dependencies
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
@@ -136,7 +138,7 @@ docker compose down
 
 ```bash
 # 1. Install dependencies
-pip install -r requirements.txt
+pip install -r requirements/base.txt
 
 # 2. Create database
 psql -U postgres

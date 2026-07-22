@@ -20,3 +20,11 @@ exclude = [
 [[tool.mypy.overrides]]
 module = "services.scheduler"
 disable_error_code = ["misc"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--import-mode=importlib"
+pythonpath = ["."]

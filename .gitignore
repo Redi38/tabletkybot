@@ -1,6 +1,5 @@
 .env
-webhook.key
-webhook.pem
+certs/
 backup.sql
 .idea/
 __pycache__/

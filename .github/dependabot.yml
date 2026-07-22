@@ -1,8 +1,8 @@
 version: 2
 updates:
-  # Python dependencies (requirements.txt)
+  # Python dependencies (requirements/base.txt)
   - package-ecosystem: "pip"
-    directory: "/"
+    directory: "/requirements"
     schedule:
       interval: "weekly"
       day: "monday"

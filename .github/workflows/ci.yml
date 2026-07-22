@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install -r requirements/dev.txt
 
       - name: Lint with ruff
         run: ruff check .
@@ -45,8 +45,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
 
       - name: Type check with mypy
         run: mypy . --ignore-missing-imports
@@ -105,8 +105,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
 
       - name: Run tests with coverage
         run: pytest -v --tb=short --cov=services --cov=database --cov-report=term-missing --cov-report=xml
@@ -130,8 +130,8 @@ jobs:
 
       - name: Run pip-audit
         run: |
-          pip install -r requirements-dev.txt
-          pip-audit -r requirements.txt
+          pip install -r requirements/dev.txt
+          pip-audit -r requirements/base.txt
 
   docker-build:
     runs-on: ubuntu-latest
