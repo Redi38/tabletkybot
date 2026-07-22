@@ -1,5 +1,10 @@
 .PHONY: help ci lint format typecheck test security docker-build clean up down restart logs ps pre-commit-install
 
+# All targets call tools via this path instead of relying on `$PATH`, so `make ci`
+# (and friends) work the same whether or not you've run `source venv/bin/activate`
+# in the current shell.
+VENV_BIN := venv/bin
+
 # Env vars used by the `test` target — same placeholders as .github/workflows/ci.yml,
 # so tests run the same way locally as they do in CI without needing a real .env.
 export BOT_TOKEN ?= test_token_placeholder
@@ -17,28 +22,31 @@ export REDIS_PORT ?= 6379
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
+check-venv:
+	@test -x $(VENV_BIN)/python3 || (echo "❌ venv not found at ./$(VENV_BIN). Create it first: uv venv --python 3.14 venv && venv/bin/pip install -r requirements.txt -r requirements-dev.txt" && exit 1)
+
 ci: lint typecheck test security docker-build ## Run every CI job locally, in the same order as GitHub Actions
 
-pre-commit-install: ## One-time setup: install the pre-commit git hook (run this after cloning)
-	pip install -r requirements-dev.txt
-	pre-commit install
+pre-commit-install: check-venv ## One-time setup: install the pre-commit git hook (run this after cloning)
+	$(VENV_BIN)/pip install -r requirements-dev.txt
+	$(VENV_BIN)/pre-commit install
 
-lint: ## Run ruff lint + format check (mirrors the "lint" CI job)
-	ruff check .
-	ruff format --check .
+lint: check-venv ## Run ruff lint + format check (mirrors the "lint" CI job)
+	$(VENV_BIN)/ruff check .
+	$(VENV_BIN)/ruff format --check .
 
-format: ## Auto-fix lint issues and reformat code (not run in CI, but fixes what `lint` complains about)
-	ruff check --fix .
-	ruff format .
+format: check-venv ## Auto-fix lint issues and reformat code (not run in CI, but fixes what `lint` complains about)
+	$(VENV_BIN)/ruff check --fix .
+	$(VENV_BIN)/ruff format .
 
-typecheck: ## Run mypy (mirrors the "typecheck" CI job)
-	mypy . --ignore-missing-imports
+typecheck: check-venv ## Run mypy (mirrors the "typecheck" CI job)
+	$(VENV_BIN)/mypy . --ignore-missing-imports
 
-test: ## Run pytest with coverage (mirrors the "test" CI job). Needs Postgres+Redis reachable via the vars above.
-	python3 -m pytest -v --tb=short --cov=services --cov=database --cov-report=term-missing --cov-report=xml
+test: check-venv ## Run pytest with coverage (mirrors the "test" CI job). Needs Postgres+Redis reachable via the vars above.
+	$(VENV_BIN)/python3 -m pytest -v --tb=short --cov=services --cov=database --cov-report=term-missing --cov-report=xml
 
-security: ## Run pip-audit against requirements.txt (mirrors the "security" CI job)
-	pip-audit -r requirements.txt
+security: check-venv ## Run pip-audit against requirements.txt (mirrors the "security" CI job)
+	$(VENV_BIN)/pip-audit -r requirements.txt
 
 docker-build: ## Build the Docker image (mirrors the "docker-build" CI job)
 	docker build -t medbot-ci-test .

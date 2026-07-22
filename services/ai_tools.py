@@ -23,7 +23,7 @@ def _to_int(value, min_value: int | None = None, max_value: int | None = None) -
     """
     try:
         result = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # fmt: skip
         return None
     if min_value is not None and result < min_value:
         return None

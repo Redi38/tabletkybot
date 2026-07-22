@@ -39,6 +39,8 @@ async def global_error_handler(event: ErrorEvent, session: AsyncSession | None =
         logger.warning("Temporary transport failure for %s: %s", event_type, exception, exc_info=True)
     elif isinstance(exception, SQLAlchemyError):
         logger.error("Database failure while handling %s", event_type, exc_info=True)
+    elif isinstance(exception, (OSError, ConnectionError)):
+        logger.warning("Database unreachable while handling %s: %s", event_type, exception, exc_info=True)
     else:
         logger.error("Critical error triggered by %s: %s", event_type, exception, exc_info=True)
 

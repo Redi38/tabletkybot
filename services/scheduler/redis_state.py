@@ -89,7 +89,7 @@ async def _get_all_pending_reminders() -> list[tuple[int, int, dict]]:
             if raw:
                 data = json.loads(raw)
                 result.append((int(chat_id_str), int(medicine_id_str), data))
-        except (ValueError, json.JSONDecodeError):
+        except (ValueError, json.JSONDecodeError):  # fmt: skip
             continue
     return result
 

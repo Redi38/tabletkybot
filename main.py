@@ -103,7 +103,7 @@ def build_sync_handler(bot: Bot, session_factory, sync_secret: str):
 
             return web.json_response({"status": "success", "message": "Synchronized"})
 
-        except (web.HTTPBadRequest, asyncio.exceptions.TimeoutError, ValueError):
+        except (web.HTTPBadRequest, asyncio.exceptions.TimeoutError, ValueError):  # fmt: skip
             with correlation_scope("adminsync:fallback-full"):
                 logger.info("⚡ Received a non-JSON signal. Running a full synchronization...")
                 await sync_reminders(bot, session_factory)
@@ -408,5 +408,5 @@ async def main() -> None:
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt, SystemExit):  # fmt: skip
         logger.info("Bot stopped by user")

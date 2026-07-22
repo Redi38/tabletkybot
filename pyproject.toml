@@ -1,16 +1,21 @@
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
 ignore = ["E501"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 ignore_missing_imports = true
 explicit_package_bases = true
 mypy_path = "."
+exclude = [
+    "^venv/",
+    "^\\.venv/",
+    "^\\.git/",
+]
 
 [[tool.mypy.overrides]]
 module = "services.scheduler"
