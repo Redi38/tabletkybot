@@ -20,11 +20,20 @@ class UserAdmin(ModelView, model=User):
     name = "User"
     name_plural = "Users"
     icon = "fa-solid fa-users"
-    column_list = [User.id, User.full_name, User.username, User.language, User.timezone, User.created_at]
+    column_list = [
+        User.id,
+        User.full_name,
+        User.username,
+        User.language,
+        User.timezone,
+        User.repeat_reminders_enabled,
+        User.created_at,
+    ]
 
     column_searchable_list = ["full_name", "username"]
     column_filters = [
-        StaticValuesFilter(User.language, values=[("ua", "Ukrainian"), ("en", "English"), ("ru", "Russian")])
+        StaticValuesFilter(User.language, values=[("ua", "Ukrainian"), ("en", "English"), ("ru", "Russian")]),
+        BooleanFilter(User.repeat_reminders_enabled),
     ]
     column_default_sort = ("created_at", True)
 

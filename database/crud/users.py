@@ -60,3 +60,18 @@ async def get_user_language(session: AsyncSession, user_id: int) -> str:
 async def get_user_timezone(session: AsyncSession, user_id: int) -> str:
     user = await _get_user(session, user_id)
     return str(user.timezone) if user and user.timezone else "Europe/Kyiv"
+
+
+async def get_repeat_reminders_enabled(session: AsyncSession, user_id: int) -> bool:
+    user = await _get_user(session, user_id)
+    return bool(user.repeat_reminders_enabled) if user else True
+
+
+async def toggle_repeat_reminders(session: AsyncSession, user_id: int) -> bool:
+    """Flip the repeat-reminders flag and return the new value."""
+    user = await _get_user(session, user_id)
+    if user is None:
+        return True
+    user.repeat_reminders_enabled = not user.repeat_reminders_enabled
+    await session.flush()
+    return bool(user.repeat_reminders_enabled)

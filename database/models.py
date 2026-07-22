@@ -42,6 +42,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(128))
     language: Mapped[str] = mapped_column(String(8), default="ua")
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+    repeat_reminders_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     medicines: Mapped[list["Medicine"]] = relationship(back_populates="user", cascade="all, delete-orphan")

@@ -46,8 +46,10 @@ from .stats import (
 from .users import (
     get_all_users,
     get_or_create_user,
+    get_repeat_reminders_enabled,
     get_user_language,
     get_user_timezone,
+    toggle_repeat_reminders,
     update_user_language,
     update_user_timezone,
 )
@@ -59,6 +61,8 @@ __all__ = [
     "update_user_language",
     "get_user_language",
     "get_user_timezone",
+    "get_repeat_reminders_enabled",
+    "toggle_repeat_reminders",
     "add_medicine",
     "get_user_medicines",
     "get_medicine_by_id",

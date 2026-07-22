@@ -24,7 +24,10 @@ class SettingsState(StatesGroup):
     lang = State()
 
 
-def settings_keyboard(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
+def settings_keyboard(language: str = DEFAULT_LANG, repeat_reminders_enabled: bool = True) -> InlineKeyboardMarkup:
+    repeat_btn_text = get_text(
+        language, "btn_repeat_reminders_on" if repeat_reminders_enabled else "btn_repeat_reminders_off"
+    )
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -34,6 +37,7 @@ def settings_keyboard(language: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
             ],
             [InlineKeyboardButton(text=get_text(language, "btn_change_tz"), callback_data="set_tz", style="primary")],
             [InlineKeyboardButton(text=get_text(language, "btn_lang"), callback_data="set_lang", style="primary")],
+            [InlineKeyboardButton(text=repeat_btn_text, callback_data="toggle_repeat_reminders", style="primary")],
             [
                 InlineKeyboardButton(
                     text=get_text(language, "btn_feedback"), callback_data="set_feedback", style="primary"
@@ -72,7 +76,7 @@ async def settings_menu(message: Message, session: AsyncSession) -> None:
     tz_display = format_timezone_display(user.timezone) or get_text(lang, "not_set")
     await message.answer(
         get_text(lang, "settings_title", name=str(user.full_name), tz=tz_display),
-        reply_markup=settings_keyboard(lang),
+        reply_markup=settings_keyboard(lang, bool(user.repeat_reminders_enabled)),
         parse_mode="HTML",
     )
 
@@ -178,6 +182,23 @@ async def feedback_start(call: CallbackQuery, state: FSMContext, session: AsyncS
     msg, lang = ctx
     await msg.edit_text(get_text(lang, "ask_feedback"), parse_mode="HTML")
     await state.set_state(SettingsState.waiting_feedback)
+
+
+@router.callback_query(F.data == "toggle_repeat_reminders")
+async def toggle_repeat_reminders(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+    ctx = await _settings_ctx(call, state, session)
+    if not ctx or not call.from_user:
+        return
+    msg, lang = ctx
+    new_value = await crud.toggle_repeat_reminders(session, call.from_user.id)
+    user = await crud.get_or_create_user(session, call.from_user.id, call.from_user.username, call.from_user.full_name)
+    tz_display = format_timezone_display(user.timezone) or get_text(lang, "not_set")
+    await msg.edit_text(
+        get_text(lang, "settings_title", name=str(user.full_name), tz=tz_display),
+        reply_markup=settings_keyboard(lang, new_value),
+        parse_mode="HTML",
+    )
+    await call.answer()
 
 
 @router.message(SettingsState.waiting_feedback)

@@ -171,14 +171,25 @@ async def send_reminder(
             timezone,
         )
 
-        scheduler.add_job(
-            send_repeat_reminder,
-            trigger="interval",
-            hours=1,
-            id=f"repeat_{medicine_id}_{chat_id}",
-            replace_existing=True,
-            kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": chat_id},
-        )
+        repeat_enabled = True
+        if session_factory is not None:
+            from database import crud
+
+            async with session_factory() as session:
+                repeat_enabled = await crud.get_repeat_reminders_enabled(session, chat_id)
+
+        if repeat_enabled:
+            scheduler.add_job(
+                send_repeat_reminder,
+                trigger="interval",
+                hours=1,
+                id=f"repeat_{medicine_id}_{chat_id}",
+                replace_existing=True,
+                misfire_grace_time=300,
+                kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": chat_id},
+            )
+        else:
+            logger.info(f"Repeat reminders disabled by user {chat_id} — not scheduling repeat_{medicine_id}_{chat_id}")
     except Exception as e:
         logger.error(f"Error sending reminder to user {chat_id}: {e}")
 
@@ -276,6 +287,7 @@ async def resume_pending_reminders(bot: Bot) -> None:
             id=job_id,
             replace_existing=True,
             next_run_time=next_run_time,
+            misfire_grace_time=300,
             kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": chat_id},
         )
         restored += 1
