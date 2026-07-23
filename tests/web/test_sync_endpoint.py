@@ -1,5 +1,5 @@
 """Tests for the internal /api/sync endpoint's shared-secret authentication
-(main.py::build_sync_handler)."""
+(web/internal_api.py::build_sync_handler)."""
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -7,7 +7,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-import main as main_module
+import web.internal_api as main_module
 
 
 @pytest.fixture

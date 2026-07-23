@@ -1,5 +1,5 @@
 """Tests for the internal /api/scheduled-jobs endpoint
-(main.py::build_scheduled_jobs_handler)."""
+(web/internal_api.py::build_scheduled_jobs_handler)."""
 
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
@@ -9,7 +9,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-import main as main_module
+import web.internal_api as main_module
 from database.models import Base, User
 
 
