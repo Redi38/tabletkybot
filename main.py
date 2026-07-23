@@ -288,21 +288,29 @@ async def main() -> None:
         await sync_reminders(bot, session_factory)
         await resume_pending_reminders(bot)
 
+    async def _timed_job(name: str, coro) -> None:
+        start = asyncio.get_event_loop().time()
+        try:
+            await coro
+        finally:
+            elapsed = asyncio.get_event_loop().time() - start
+            logger.info(f"Job '{name}' finished in {elapsed:.2f}s")
+
     async def _tagged_sync_reminders(bot, session_factory):
         with correlation_scope("job:sync_reminders_hourly"):
-            await sync_reminders(bot, session_factory)
+            await _timed_job("sync_reminders_hourly", sync_reminders(bot, session_factory))
 
     async def _tagged_check_prescriptions(bot, session_factory):
         with correlation_scope("job:check_prescription_reminders"):
-            await check_prescription_reminders(bot, session_factory)
+            await _timed_job("check_prescription_reminders", check_prescription_reminders(bot, session_factory))
 
     async def _tagged_archive_expired_prescriptions(bot, session_factory):
         with correlation_scope("job:archive_expired_prescriptions"):
-            await archive_expired_prescriptions(bot, session_factory)
+            await _timed_job("archive_expired_prescriptions", archive_expired_prescriptions(bot, session_factory))
 
     async def _tagged_backup(config):
         with correlation_scope("job:db_backup_daily"):
-            await run_database_backup(config)
+            await _timed_job("db_backup_daily", run_database_backup(config))
 
     scheduler.add_job(
         _tagged_sync_reminders,

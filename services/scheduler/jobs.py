@@ -335,7 +335,6 @@ def add_reminders_for_medicine(
         remove_reminders(medicine.id)
         return
 
-    existing_ids = {job.id for job in scheduler.get_jobs()}
     count = 0
 
     for sched in medicine.schedules:
@@ -343,7 +342,7 @@ def add_reminders_for_medicine(
             hour, minute = map(int, sched.scheduled_time.split(":"))
             job_id = _med_job_id(medicine.id, sched.id)
 
-            if job_id in existing_ids:
+            if scheduler.get_job(job_id) is not None:
                 count += 1
                 continue
 

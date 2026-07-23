@@ -21,21 +21,16 @@
             <div class="card shadow-sm mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h2 class="card-title mb-0"><b>Reminder Queue</b></h2>
-                    <div class="d-flex align-items-center gap-2">
-                        <span id="reminders-count" class="badge bg-blue-lt"></span>
-                        <button class="btn btn-sm btn-primary" onclick="loadReminders()">Refresh</button>
+                    <span id="reminders-count" class="badge bg-blue-lt"></span>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <button class="btn btn-primary" onclick="loadReminders()">Refresh</button>
                         <div class="form-check form-switch ms-2 mb-0">
                             <input class="form-check-input" type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh()">
                             <label class="form-check-label" for="autoRefreshToggle">Auto-refresh (30s)</label>
                         </div>
                     </div>
-                </div>
-                <div class="card-body">
-                    <p class="text-secondary mb-3">
-                        Reminders already sent to a user that they haven't acknowledged (take/skip) yet.
-                        Reminders that are simply scheduled for later aren't shown here — only ones actively
-                        waiting on a response right now.
-                    </p>
                     <div class="table-responsive">
                         <table class="table table-vcenter card-table">
                             <thead>

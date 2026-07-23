@@ -1,12 +1,12 @@
 """
 Tests for the services/scheduler package, focused on the repeat-reminder
 lifecycle: adding a repeat job, cancelling it, and making sure cancellation
-is properly awaited (regression test for the sync-fire-and-forget -> async
-fix).
+is properly awaited.
 """
 
 from unittest.mock import AsyncMock
 
+from database.models import Medicine, MedicineSchedule
 from services.scheduler import acquire_action_lock, cancel_repeat_reminder, remove_reminders
 from services.scheduler import jobs as scheduler_jobs_module
 from services.scheduler import redis_state as scheduler_redis_module
@@ -317,3 +317,153 @@ class TestManualReminderSuppressionTargetsSpecificSchedule:
             schedule_id=2,
         )
         mock_bot.send_message.assert_awaited_once()
+
+
+class _FakeSessionFactory:
+    """
+    Minimal stand-in for `async_sessionmaker` that hands back the same
+    already-open test `db_session` via `async with session_factory() as
+    session`, instead of opening a brand-new engine/connection.
+    """
+
+    def __init__(self, session):
+        self._session = session
+
+    def __call__(self):
+        return self
+
+    async def __aenter__(self):
+        return self._session
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+
+class TestSendReminderRepeatEnabledToggle:
+    """
+    Coverage for the "disable repeat reminders" user setting: send_reminder
+    should only schedule the hourly repeat_{medicine_id}_{chat_id} job when
+    the user has repeats enabled (the default), and must skip it — without
+    erroring — when they've turned it off.
+    """
+
+    async def test_schedules_repeat_job_when_no_session_factory_given(self, mock_redis, mock_bot):
+        # No session_factory -> repeat_enabled defaults to True (used by manual
+        # sends / callers that don't pass one), so the repeat job is still set up.
+        mock_bot.send_message.return_value.message_id = 123
+        await scheduler_jobs_module.send_reminder(
+            bot=mock_bot,
+            medicine_id=1,
+            medicine_name="Ibuprofen",
+            chat_id=100,
+            course_duration=5,
+            language="en",
+        )
+        assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is not None
+
+    async def test_schedules_repeat_job_when_user_has_repeats_enabled(self, mock_redis, mock_bot, db_session):
+        from database import crud
+
+        await crud.get_or_create_user(db_session, 100, "a", "A")
+        mock_bot.send_message.return_value.message_id = 123
+
+        await scheduler_jobs_module.send_reminder(
+            bot=mock_bot,
+            medicine_id=1,
+            medicine_name="Ibuprofen",
+            chat_id=100,
+            course_duration=5,
+            language="en",
+            session_factory=_FakeSessionFactory(db_session),
+        )
+        assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is not None
+
+    async def test_skips_repeat_job_when_user_disabled_repeats(self, mock_redis, mock_bot, db_session):
+        from database import crud
+
+        await crud.get_or_create_user(db_session, 100, "a", "A")
+        await crud.toggle_repeat_reminders(db_session, 100)  # turn off
+        mock_bot.send_message.return_value.message_id = 123
+
+        await scheduler_jobs_module.send_reminder(
+            bot=mock_bot,
+            medicine_id=1,
+            medicine_name="Ibuprofen",
+            chat_id=100,
+            course_duration=5,
+            language="en",
+            session_factory=_FakeSessionFactory(db_session),
+        )
+
+        # The reminder itself must still be sent — only the hourly repeat is skipped.
+        mock_bot.send_message.assert_awaited_once()
+        assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is None
+
+
+class TestAddRemindersForMedicineIdempotency:
+    """
+    Regression coverage for the O(n^2) fix: add_reminders_for_medicine used
+    to rebuild `{job.id for job in scheduler.get_jobs()}` from scratch on
+    every call, which meant sync_reminders() re-scanned the *entire* job
+    list once per medicine. It's now a direct scheduler.get_job(job_id)
+    lookup instead — these tests pin the observable behaviour (idempotent,
+    still adds genuinely-new jobs, still skips inactive medicines).
+    """
+
+    def _medicine(self, medicine_id=1, schedule_times=("09:00",), is_active=True):
+        medicine = Medicine(
+            id=medicine_id,
+            user_id=100,
+            name="Ibuprofen",
+            dosage="200mg",
+            course_duration=5,
+            is_active=is_active,
+        )
+        medicine.schedules = [
+            MedicineSchedule(id=idx + 1, medicine_id=medicine_id, scheduled_time=t)
+            for idx, t in enumerate(schedule_times)
+        ]
+        return medicine
+
+    def test_creates_one_job_per_schedule(self, mock_redis, mock_bot):
+        medicine = self._medicine(schedule_times=("09:00", "21:00"))
+
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+
+        assert scheduler_jobs_module.scheduler.get_job("med_1_1") is not None
+        assert scheduler_jobs_module.scheduler.get_job("med_1_2") is not None
+
+    def test_second_call_is_a_no_op_for_already_scheduled_jobs(self, mock_redis, mock_bot):
+        medicine = self._medicine(schedule_times=("09:00",))
+
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+        jobs_after_first_call = {job.id for job in scheduler_jobs_module.scheduler.get_jobs()}
+
+        # Calling again (as sync_reminders() does on every full sync) must not
+        # duplicate or otherwise disturb the already-scheduled job.
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+        jobs_after_second_call = {job.id for job in scheduler_jobs_module.scheduler.get_jobs()}
+
+        assert jobs_after_second_call == jobs_after_first_call == {"med_1_1"}
+
+    def test_adds_only_the_genuinely_new_schedule(self, mock_redis, mock_bot):
+        medicine = self._medicine(schedule_times=("09:00",))
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+
+        # A new schedule slot gets added to the same medicine (e.g. user added a dose)
+        medicine.schedules.append(MedicineSchedule(id=2, medicine_id=1, scheduled_time="21:00"))
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+
+        assert scheduler_jobs_module.scheduler.get_job("med_1_1") is not None
+        assert scheduler_jobs_module.scheduler.get_job("med_1_2") is not None
+
+    def test_inactive_medicine_removes_existing_reminders_instead(self, mock_redis, mock_bot, monkeypatch):
+        monkeypatch.setattr("asyncio.create_task", lambda coro: coro.close())
+        medicine = self._medicine(schedule_times=("09:00",), is_active=True)
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+        assert scheduler_jobs_module.scheduler.get_job("med_1_1") is not None
+
+        medicine.is_active = False
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+
+        assert scheduler_jobs_module.scheduler.get_job("med_1_1") is None

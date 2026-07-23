@@ -54,3 +54,29 @@ class TestUsers:
         # No such user at all -> falls back to "ua"
         lang = await crud.get_user_language(db_session, 999)
         assert lang == "ua"
+
+    async def test_get_repeat_reminders_enabled_defaults_true_for_new_user(self, db_session):
+        await crud.get_or_create_user(db_session, 1, "a", "A")
+        assert await crud.get_repeat_reminders_enabled(db_session, 1) is True
+
+    async def test_get_repeat_reminders_enabled_defaults_true_for_unknown_user(self, db_session):
+        # No such user at all -> fails open to True (repeats stay on by default)
+        assert await crud.get_repeat_reminders_enabled(db_session, 999) is True
+
+    async def test_toggle_repeat_reminders_flips_from_true_to_false(self, db_session):
+        await crud.get_or_create_user(db_session, 1, "a", "A")
+        new_value = await crud.toggle_repeat_reminders(db_session, 1)
+        assert new_value is False
+        assert await crud.get_repeat_reminders_enabled(db_session, 1) is False
+
+    async def test_toggle_repeat_reminders_flips_back_to_true(self, db_session):
+        await crud.get_or_create_user(db_session, 1, "a", "A")
+        await crud.toggle_repeat_reminders(db_session, 1)
+        new_value = await crud.toggle_repeat_reminders(db_session, 1)
+        assert new_value is True
+        assert await crud.get_repeat_reminders_enabled(db_session, 1) is True
+
+    async def test_toggle_repeat_reminders_nonexistent_user_defaults_true_no_error(self, db_session):
+        # Should silently no-op and report the "still on" default rather than raising
+        result = await crud.toggle_repeat_reminders(db_session, 999)
+        assert result is True

@@ -1,6 +1,7 @@
 import logging
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
@@ -88,5 +89,13 @@ async def set_language(call: CallbackQuery, session: AsyncSession) -> None:
     )
     await update_user_language(session, call.from_user.id, language)
     logger.info(f"User {call.from_user.id} (@{call.from_user.username}) changed language to '{language}'")
+
+    try:
+        await call.message.delete()
+    except TelegramBadRequest:
+        pass
+    except Exception as e:
+        logger.warning(f"Failed to delete the language-selection message for user {call.from_user.id}: {e}")
+
     await call.message.answer(get_text(language, "lang_changed"), reply_markup=get_main_keyboard(language))
     await call.answer()
