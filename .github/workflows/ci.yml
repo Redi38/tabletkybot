@@ -109,7 +109,7 @@ jobs:
           pip install -r requirements/dev.txt
 
       - name: Run tests with coverage
-        run: pytest -v --tb=short --cov=services --cov=database --cov-report=term-missing --cov-report=xml
+        run: pytest -v --tb=short --cov --cov-report=term-missing --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7

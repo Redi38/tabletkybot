@@ -1,4 +1,4 @@
-.PHONY: help ci lint format typecheck test security docker-build clean up down restart logs ps pre-commit-install
+.PHONY: help ci lint format typecheck test security docker-build clean up down restart logs ps
 
 # All targets call tools via this path instead of relying on `$PATH`, so `make ci`
 # (and friends) work the same whether or not you've run `source venv/bin/activate`
@@ -39,7 +39,7 @@ typecheck: check-venv ## Run mypy (mirrors the "typecheck" CI job)
 	$(VENV_BIN)/mypy . --ignore-missing-imports
 
 test: check-venv ## Run pytest with coverage (mirrors the "test" CI job). Needs Postgres+Redis reachable via the vars above.
-	$(VENV_BIN)/python3 -m pytest -v --tb=short --cov=services --cov=database --cov-report=term-missing --cov-report=xml
+	$(VENV_BIN)/python3 -m pytest -v --tb=short --cov --cov-report=term-missing --cov-report=xml
 
 security: check-venv ## Run pip-audit against requirements/base.txt (mirrors the "security" CI job)
 	$(VENV_BIN)/pip-audit -r requirements/base.txt

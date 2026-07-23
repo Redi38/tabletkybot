@@ -28,3 +28,18 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "--import-mode=importlib"
 pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "*/__init__.py",
+    ".venv/*",
+    "venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]

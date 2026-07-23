@@ -289,11 +289,11 @@ async def main() -> None:
         await resume_pending_reminders(bot)
 
     async def _timed_job(name: str, coro) -> None:
-        start = asyncio.get_event_loop().time()
+        start = asyncio.get_running_loop().time()
         try:
             await coro
         finally:
-            elapsed = asyncio.get_event_loop().time() - start
+            elapsed = asyncio.get_running_loop().time() - start
             logger.info(f"Job '{name}' finished in {elapsed:.2f}s")
 
     async def _tagged_sync_reminders(bot, session_factory):
