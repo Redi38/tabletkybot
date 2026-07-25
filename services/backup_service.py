@@ -25,8 +25,8 @@ def _build_s3_client(config):
         region_name=config.backup_s3_region,
         config=BotoConfig(
             signature_version="s3v4",
-            request_checksum_calculation="when_required",
-            response_checksum_validation="when_required",
+            request_checksum_calculation="when_supported",
+            response_checksum_validation="when_supported",
         ),
     )
 
