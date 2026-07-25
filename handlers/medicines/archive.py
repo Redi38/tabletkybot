@@ -10,7 +10,6 @@ from database import crud
 from locales.texts import get_text
 from services.scheduler import clear_stock_alert_pending, remove_reminders
 
-from .keyboards import medicine_back_only_kb
 from .listing import list_medicines
 from .utils import _base_ctx, _valid_medicine_ctx
 
@@ -27,7 +26,10 @@ async def list_archived_medicines(call: CallbackQuery, session: AsyncSession) ->
     msg, lang = ctx
     archived = await crud.get_archived_medicines(session, call.from_user.id)
     if not archived:
-        await msg.edit_text(get_text(lang, "med_archived_empty"), reply_markup=medicine_back_only_kb(lang))
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text=get_text(lang, "btn_back"), callback_data="med_list")]]
+        )
+        await msg.edit_text(get_text(lang, "med_archived_empty"), reply_markup=kb)
         return
 
     text = f"🗂 <b>{get_text(lang, 'med_archived_title')}</b>\n\n"

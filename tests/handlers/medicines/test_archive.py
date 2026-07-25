@@ -55,7 +55,11 @@ class TestListArchivedMedicines:
         await list_archived_medicines(call, db_session)
 
         message.edit_text.assert_awaited_once()
-        assert message.edit_text.call_args.kwargs["reply_markup"] is not None
+        kb = message.edit_text.call_args.kwargs["reply_markup"]
+        assert kb is not None
+        # Back from the (empty) archive screen must return to the medicines
+        # list, not jump a level up to the top-level medicines menu.
+        assert kb.inline_keyboard[0][0].callback_data == "med_list"
 
     async def test_lists_only_archived_medicines(self, db_session):
         await _add_medicine(db_session, name="Active One", is_active=True)

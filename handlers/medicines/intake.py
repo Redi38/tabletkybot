@@ -1,7 +1,8 @@
-"""Handlers for recording a dose as taken/skipped — both from a reminder's
-take_/skip_ buttons and from the user self-reporting via "Mark as taken
-today" (e.g. after restocking a medicine whose reminder time already
-passed today)."""
+"""Handlers for recording a dose as taken/skipped — from a reminder's
+take_/skip_ buttons, from the user self-reporting a missed dose via
+"Mark as taken today" (e.g. after restocking a medicine whose reminder
+time already passed today), and from self-reporting an early dose taken
+ahead of a still-pending reminder later the same day."""
 
 import logging
 
@@ -11,8 +12,16 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
+from database.models import Medicine
 from locales.texts import get_text
-from services.scheduler import acquire_action_lock, cancel_repeat_reminder, save_stock_alert_pending
+from services.scheduler import (
+    _local_today,
+    _manual_reminder_today,
+    _next_schedule_id_for_today,
+    acquire_action_lock,
+    cancel_repeat_reminder,
+    save_stock_alert_pending,
+)
 
 from .utils import _safe_edit_text, _valid_medicine_ctx
 
@@ -160,38 +169,84 @@ async def process_medicine_status(call: CallbackQuery, state: FSMContext, sessio
 
 
 # ── Mark as taken now (self-service, no reminder involved) ───────────────
-@router.callback_query(F.data.startswith("mark_taken_now_"))
-async def mark_taken_now(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+async def _mark_taken(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> tuple[Message, Medicine] | None:
     """
-    Lets the user log today's dose directly — e.g. after restocking a
-    medicine that got archived (and its scheduled reminder time already
-    passed today), or any time they simply missed pressing the button on
-    the original reminder. Skips the take_/skip_ confirmation entirely:
-    pressing this always means "taken".
+    Shared body for both self-service "mark as taken" flows below: logs
+    today's dose directly, skipping the take_/skip_ confirmation (pressing
+    either always means "taken").
     """
     await call.answer()
 
     ctx = await _valid_medicine_ctx(call, session)
     if not ctx:
-        return
+        return None
     msg, lang, medicine_id, medicine = ctx
 
     if not await acquire_action_lock(call.from_user.id, medicine_id):
-        return
-
-    logger.info(
-        f"User {call.from_user.id} (@{call.from_user.username}) marked '{medicine.name}' "
-        f"(id={medicine_id}) as taken directly (not via a reminder)"
-    )
+        return None
 
     await cancel_repeat_reminder(call.from_user.id, medicine_id)
 
     if medicine.stock_amount is not None and medicine.stock_amount <= 0:
         await _prompt_restock_before_take(msg, state, lang, medicine_id, str(medicine.name))
-        return
+        return None
 
     result = await crud.record_medicine_taken(session, medicine_id, status="taken")
     await _send_take_result_followup(msg, lang, medicine_id, str(medicine.name), result, "take", call.from_user.id)
+    return msg, medicine
+
+
+@router.callback_query(F.data.startswith("mark_taken_now_"))
+async def mark_taken_missed(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+    """
+    Catching up on a dose whose reminder time already passed today — e.g.
+    after restocking a medicine that got archived, or any time the user
+    simply missed pressing take/skip on the original reminder. No future
+    reminder needs suppressing here: archiving already removed every job
+    for this medicine, and restoring re-adds them via CronTrigger, which
+    naturally schedules today's already-passed slot for tomorrow instead
+    while keeping any later slot today intact.
+    """
+    if not call.from_user:
+        return
+    result = await _mark_taken(call, state, session)
+    if result is None:
+        return
+    _, medicine = result
+    logger.info(
+        f"User {call.from_user.id} (@{call.from_user.username}) marked '{medicine.name}' "
+        f"(id={medicine.id}) as taken directly (not via a reminder) — catching up on a missed dose"
+    )
+
+
+@router.callback_query(F.data.startswith("mark_taken_early_"))
+async def mark_taken_early(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+    """
+    Logging a dose taken ahead of its scheduled reminder later today (e.g.
+    took the pill at 12:00 with the bot's reminder set for 15:00). Unlike
+    the "missed dose" case, the medicine is still active with a live job
+    for the rest of today's schedule, so — to avoid a confusing (or, if
+    acted on, dose-doubling) duplicate reminder — the soonest not-yet-fired
+    schedule for today is suppressed once via the same one-time flag the
+    Admin Panel's manual "Send Now" uses.
+    """
+    if not call.from_user:
+        return
+
+    result = await _mark_taken(call, state, session)
+    if result is None:
+        return
+    _, medicine = result
+
+    tz = await crud.get_user_timezone(session, call.from_user.id)
+    schedule_id = _next_schedule_id_for_today(medicine.schedules, tz)
+    if schedule_id is not None:
+        _manual_reminder_today[(medicine.id, schedule_id)] = _local_today(tz)
+
+    logger.info(
+        f"User {call.from_user.id} (@{call.from_user.username}) marked '{medicine.name}' "
+        f"(id={medicine.id}) as taken early — suppressing schedule_id={schedule_id} for today"
+    )
 
 
 @router.callback_query(F.data == "delete_message")
