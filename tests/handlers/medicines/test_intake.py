@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 from aiogram.types import CallbackQuery, Message
 
 from database import crud
-from handlers.medicines.intake import mark_taken_now
+from handlers.medicines.intake import delete_alert_message, mark_taken_now, process_medicine_status
 
 
 def _fake_call(user_id: int, medicine_id: int, message_id: int = 1):
@@ -188,3 +188,186 @@ class TestMarkTakenNowUnknownMedicine:
         last_args, last_kwargs = call.answer.call_args
         assert last_kwargs.get("show_alert") is True
         message.edit_text.assert_not_awaited()
+
+
+def _fake_status_call(user_id: int, action: str, medicine_id: int, message_id: int = 1):
+    message = create_autospec(Message, instance=True)
+    message.message_id = message_id
+    message.edit_text = AsyncMock()
+    message.answer = AsyncMock()
+
+    call = create_autospec(CallbackQuery, instance=True)
+    call.data = f"{action}_{medicine_id}"
+    call.from_user = MagicMock(id=user_id, username="tester")
+    call.answer = AsyncMock()
+    call.message = message
+
+    return call, message
+
+
+class TestProcessMedicineStatusTake:
+    async def test_records_a_taken_dose(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="take", medicine_id=medicine.id)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        refreshed = await crud.get_medicine_by_id(db_session, medicine.id)
+        assert refreshed.course_duration == 9
+        message.edit_text.assert_awaited_once()
+
+    async def test_decrements_stock_when_tracked(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, stock_amount=10, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="take", medicine_id=medicine.id)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        refreshed = await crud.get_medicine_by_id(db_session, medicine.id)
+        assert refreshed.stock_amount == 9
+
+    async def test_redirects_to_restock_flow_when_stock_is_zero(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, stock_amount=0, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="take", medicine_id=medicine.id)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        refreshed = await crud.get_medicine_by_id(db_session, medicine.id)
+        assert refreshed.course_duration == 10  # not recorded — redirected instead
+        state.update_data.assert_awaited_once_with(medicine_id=medicine.id, lang="ua")
+        _, kwargs = message.edit_text.call_args
+        callback_datas = [btn.callback_data for row in kwargs["reply_markup"].inline_keyboard for btn in row]
+        assert f"restock_yes_{medicine.id}" in callback_datas
+        assert f"restock_no_{medicine.id}" in callback_datas
+
+    async def test_shows_continue_or_finish_prompt_on_last_dose(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, course_duration=1)
+        call, message = _fake_status_call(user_id=1, action="take", medicine_id=medicine.id)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        _, kwargs = message.edit_text.call_args
+        callback_datas = [btn.callback_data for row in kwargs["reply_markup"].inline_keyboard for btn in row]
+        assert f"med_extend_ask_{medicine.id}" in callback_datas
+        assert f"med_archive_confirm_{medicine.id}" in callback_datas
+
+    async def test_shows_empty_stock_alert_when_last_unit_taken(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, stock_amount=1, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="take", medicine_id=medicine.id)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        message.answer.assert_awaited_once()
+        _, kwargs = message.answer.call_args
+        callback_datas = [btn.callback_data for row in kwargs["reply_markup"].inline_keyboard for btn in row]
+        assert f"restock_ask_{medicine.id}" in callback_datas
+        assert f"med_archive_confirm_{medicine.id}" in callback_datas
+
+    async def test_cancels_any_pending_repeat_reminder(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="take", medicine_id=medicine.id)
+        state = _fake_state()
+
+        with patch("handlers.medicines.intake.cancel_repeat_reminder", AsyncMock()) as mock_cancel:
+            await process_medicine_status(call, state, db_session)
+
+        mock_cancel.assert_awaited_once_with(1, medicine.id)
+
+    async def test_respects_action_lock(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="take", medicine_id=medicine.id)
+        state = _fake_state()
+
+        with patch("handlers.medicines.intake.acquire_action_lock", AsyncMock(return_value=False)):
+            await process_medicine_status(call, state, db_session)
+
+        refreshed = await crud.get_medicine_by_id(db_session, medicine.id)
+        assert refreshed.course_duration == 10  # unchanged — nothing recorded
+        message.edit_text.assert_not_awaited()
+
+    async def test_acknowledges_the_callback_unconditionally(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="take", medicine_id=medicine.id)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        call.answer.assert_awaited_once()
+
+    async def test_noop_for_missing_medicine(self, db_session, mock_redis):
+        await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        call, message = _fake_status_call(user_id=1, action="take", medicine_id=99999)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        message.edit_text.assert_not_awaited()
+
+
+class TestProcessMedicineStatusSkip:
+    async def test_records_a_skipped_dose(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="skip", medicine_id=medicine.id)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        refreshed = await crud.get_medicine_by_id(db_session, medicine.id)
+        assert refreshed.course_duration == 10  # skip doesn't consume a course day
+        message.edit_text.assert_awaited_once()
+
+    async def test_does_not_decrement_stock(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, stock_amount=10, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="skip", medicine_id=medicine.id)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        refreshed = await crud.get_medicine_by_id(db_session, medicine.id)
+        assert refreshed.stock_amount == 10  # skip doesn't consume stock
+
+    async def test_no_stock_alert_ever_shown_for_a_skip(self, db_session, mock_redis):
+        """Even with zero stock, skipping shouldn't trigger the restock
+        detour (that's a take_-only concern) or a post-skip stock alert."""
+        medicine = await _add_medicine(db_session, stock_amount=1, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="skip", medicine_id=medicine.id)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        message.answer.assert_not_awaited()
+
+    async def test_skips_even_with_zero_stock_without_restock_prompt(self, db_session, mock_redis):
+        medicine = await _add_medicine(db_session, stock_amount=0, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="skip", medicine_id=medicine.id)
+        state = _fake_state()
+
+        await process_medicine_status(call, state, db_session)
+
+        refreshed = await crud.get_medicine_by_id(db_session, medicine.id)
+        assert refreshed.course_duration == 10  # recorded normally (skip is a no-op on course), no restock detour
+        state.update_data.assert_not_awaited()
+
+
+class TestDeleteAlertMessage:
+    async def test_deletes_the_message(self):
+        message = create_autospec(Message, instance=True)
+        message.delete = AsyncMock()
+        call = create_autospec(CallbackQuery, instance=True)
+        call.data = "delete_message"
+        call.message = message
+
+        await delete_alert_message(call)
+
+        message.delete.assert_awaited_once()
+
+    async def test_noop_when_call_message_is_not_a_message(self):
+        call = create_autospec(CallbackQuery, instance=True)
+        call.data = "delete_message"
+        call.message = None  # e.g. an InaccessibleMessage
+
+        await delete_alert_message(call)  # should not raise

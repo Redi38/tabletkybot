@@ -1,17 +1,20 @@
 """
-Tests for services/scheduler/prescriptions.py::archive_expired_prescriptions.
+Tests for services/scheduler/prescriptions.py::archive_expired_prescriptions
+and ::check_prescription_reminders.
 
-This function had zero test coverage before, which is exactly how it went
-unnoticed that it was never wired into any scheduler job (see main.py —
-it's now registered as "presc_archive_expired_daily"). These tests cover
-the function's own behavior; they don't test the job registration itself.
+archive_expired_prescriptions had zero test coverage before, which is
+exactly how it went unnoticed that it was never wired into any scheduler
+job (see main.py — it's now registered as "presc_archive_expired_daily").
+check_prescription_reminders had none either. These tests cover the
+functions' own behavior; they don't test job registration itself.
 """
 
 from contextlib import asynccontextmanager
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from database import crud
-from services.scheduler.prescriptions import archive_expired_prescriptions
+from services.scheduler import prescriptions as prescriptions_module
+from services.scheduler.prescriptions import archive_expired_prescriptions, check_prescription_reminders
 
 
 def _session_factory_for(db_session):
@@ -111,3 +114,189 @@ async def test_continues_after_a_notification_failure(db_session, mock_bot):
     refreshed2 = await crud.get_prescription_by_id(db_session, presc2.id)
     assert refreshed1.is_active is False
     assert refreshed2.is_active is False
+
+
+# ── check_prescription_reminders ──────────────────────────────────────
+#
+# The "is today the day, and is it 9am" check is timezone-sensitive, so
+# these tests freeze services.scheduler.prescriptions.datetime.now() to a
+# fixed instant (2026-07-20 09:00, naive) rather than depending on the
+# real wall clock.
+
+
+class _FrozenDateTime(datetime):
+    fixed = datetime(2026, 7, 20, 9, 0)
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls.fixed.replace(tzinfo=tz) if tz else cls.fixed
+
+
+def _freeze(monkeypatch, frozen=_FrozenDateTime):
+    monkeypatch.setattr(prescriptions_module, "datetime", frozen)
+
+
+async def test_reminder_sent_when_today_is_target_date_and_hour(db_session, mock_bot, monkeypatch):
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    # target = expires_at - reminder_days_before = 2026-07-23 - 3 = 2026-07-20 (frozen "today")
+    prescription = await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+
+    mock_bot.send_message.assert_awaited_once()
+    assert mock_bot.send_message.call_args.kwargs["chat_id"] == user.id
+    refreshed = await crud.get_prescription_by_id(db_session, prescription.id)
+    assert refreshed.reminder_sent is True
+
+
+async def test_no_reminder_when_target_date_not_reached(db_session, mock_bot, monkeypatch):
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 8, 1),  # target date is far in the future
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+
+    mock_bot.send_message.assert_not_awaited()
+
+
+async def test_no_reminder_outside_the_9am_hour(db_session, mock_bot, monkeypatch):
+    class _WrongHour(_FrozenDateTime):
+        fixed = datetime(2026, 7, 20, 14, 0)
+
+    _freeze(monkeypatch, _WrongHour)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+
+    mock_bot.send_message.assert_not_awaited()
+
+
+async def test_no_reminder_when_already_sent(db_session, mock_bot, monkeypatch):
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    prescription = await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await crud.mark_prescription_reminder_sent(db_session, prescription.id)
+    await db_session.commit()
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+
+    mock_bot.send_message.assert_not_awaited()
+
+
+async def test_falls_back_to_kyiv_timezone_when_user_timezone_is_invalid(db_session, mock_bot, monkeypatch):
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    await crud.update_user_timezone(db_session, user.id, "Not/AZone")
+    await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+
+    mock_bot.send_message.assert_awaited_once()
+
+
+async def test_reminder_message_uses_alert_keyboard_with_prescription_id(db_session, mock_bot, monkeypatch):
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    prescription = await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+
+    keyboard = mock_bot.send_message.call_args.kwargs["reply_markup"]
+    assert keyboard.inline_keyboard[0][0].callback_data == f"presc_buy_ask_{prescription.id}"
+
+
+async def test_does_not_mark_sent_when_send_message_fails(db_session, mock_bot, monkeypatch):
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    prescription = await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+    mock_bot.send_message.side_effect = Exception("Telegram is down")
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))  # should not raise
+
+    refreshed = await crud.get_prescription_by_id(db_session, prescription.id)
+    assert refreshed.reminder_sent is False
+
+
+async def test_processes_multiple_prescriptions_independently(db_session, mock_bot, monkeypatch):
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    matching = await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Matching",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="NotMatching",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 9, 1),
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+
+    mock_bot.send_message.assert_awaited_once()
+    refreshed = await crud.get_prescription_by_id(db_session, matching.id)
+    assert refreshed.reminder_sent is True

@@ -1,15 +1,27 @@
 """
-Tests for handlers/settings.py: the settings menu, the language-selection
-entry point, and the repeat-reminders on/off toggle.
+Tests for handlers/settings.py: the settings menu, name/timezone/language
+editing, feedback forwarding, and the repeat-reminders on/off toggle.
 """
 
-from unittest.mock import AsyncMock, MagicMock, create_autospec
+from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
+from config import Config
 from database import crud
-from handlers.settings import edit_lang_start, settings_keyboard, settings_menu, toggle_repeat_reminders
+from handlers.settings import (
+    edit_lang_start,
+    edit_name_save,
+    edit_name_start,
+    edit_tz_save,
+    edit_tz_start,
+    feedback_save,
+    feedback_start,
+    settings_keyboard,
+    settings_menu,
+    toggle_repeat_reminders,
+)
 
 
 def _fake_message_for_menu(user_id: int):
@@ -116,6 +128,166 @@ class TestToggleRepeatReminders:
         keyboard = message.edit_text.call_args.kwargs["reply_markup"]
         callback_data = [btn.callback_data for row in keyboard.inline_keyboard for btn in row]
         assert "toggle_repeat_reminders" in callback_data
+
+
+def _fake_text_message(user_id: int, text: str):
+    message = create_autospec(Message, instance=True)
+    message.text = text
+    message.from_user = MagicMock(id=user_id, username="tester", full_name="Test User")
+    message.answer = AsyncMock()
+    return message
+
+
+def _fake_state_with_data(data: dict):
+    state = create_autospec(FSMContext, instance=True)
+    state.update_data = AsyncMock()
+    state.set_state = AsyncMock()
+    state.clear = AsyncMock()
+    state.get_data = AsyncMock(return_value=data)
+    return state
+
+
+class TestEditNameStart:
+    async def test_prompts_for_new_name_and_sets_state(self, db_session):
+        await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        call, message = _fake_call(1, "set_name")
+        state = _fake_state()
+
+        await edit_name_start(call, state, db_session)
+
+        message.edit_text.assert_awaited_once()
+        state.set_state.assert_awaited_once()
+
+    async def test_noop_when_message_missing(self, db_session):
+        call, _ = _fake_call(1, "set_name")
+        call.message = None
+        state = _fake_state()
+
+        await edit_name_start(call, state, db_session)
+
+        state.set_state.assert_not_awaited()
+
+
+class TestEditNameSave:
+    async def test_updates_the_stored_name(self, db_session):
+        await crud.get_or_create_user(db_session, 1, "tester", "Old Name")
+        message = _fake_text_message(1, "New Name")
+        state = _fake_state_with_data({"lang": "en"})
+
+        await edit_name_save(message, state, db_session)
+
+        user = await crud.get_or_create_user(db_session, 1, "tester", "Old Name")
+        assert user.full_name == "New Name"
+        state.clear.assert_awaited_once()
+        message.answer.assert_awaited_once()
+
+    async def test_noop_when_text_missing(self, db_session):
+        message = _fake_text_message(1, "")
+        message.text = None
+        state = _fake_state_with_data({"lang": "en"})
+
+        await edit_name_save(message, state, db_session)
+
+        state.clear.assert_not_awaited()
+
+
+class TestEditTzStart:
+    async def test_prompts_for_new_timezone_and_sets_state(self, db_session):
+        await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        call, message = _fake_call(1, "set_tz")
+        state = _fake_state()
+
+        await edit_tz_start(call, state, db_session)
+
+        message.edit_text.assert_awaited_once()
+        state.set_state.assert_awaited_once()
+
+
+class TestEditTzSave:
+    async def test_rejects_unresolvable_place(self, db_session, mock_bot):
+        await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        message = _fake_text_message(1, "Nowhereville")
+        state = _fake_state_with_data({"lang": "en"})
+
+        with patch("handlers.settings.resolve_timezone_from_place", AsyncMock(return_value=None)):
+            await edit_tz_save(message, state, db_session, mock_bot)
+
+        message.answer.assert_awaited_once()
+        state.clear.assert_not_awaited()
+        user = await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        assert user.timezone is None
+
+    async def test_updates_timezone_and_reschedules_medicines(self, db_session, mock_bot):
+        await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        message = _fake_text_message(1, "Kyiv")
+        state = _fake_state_with_data({"lang": "en"})
+
+        with (
+            patch("handlers.settings.resolve_timezone_from_place", AsyncMock(return_value="Europe/Kyiv")),
+            patch("handlers.settings.add_reminders_for_medicine") as mock_add_reminders,
+        ):
+            await edit_tz_save(message, state, db_session, mock_bot)
+
+        user = await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        assert user.timezone == "Europe/Kyiv"
+        state.clear.assert_awaited_once()
+        message.answer.assert_awaited_once()
+        mock_add_reminders.assert_not_called()  # no active medicines for this user
+
+
+class TestFeedbackStart:
+    async def test_prompts_for_feedback_and_sets_state(self, db_session):
+        await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        call, message = _fake_call(1, "set_feedback")
+        state = _fake_state()
+
+        await feedback_start(call, state, db_session)
+
+        message.edit_text.assert_awaited_once()
+        state.set_state.assert_awaited_once()
+
+
+class TestFeedbackSave:
+    def _config(self, admin_chat_id):
+        return Config(bot_token="t", webhook_host="https://example.com", admin_chat_id=admin_chat_id)
+
+    async def test_warns_when_admin_chat_id_not_configured(self, mock_bot):
+        message = _fake_text_message(1, "great bot!")
+        state = _fake_state_with_data({"lang": "en"})
+
+        await feedback_save(message, state, mock_bot, self._config(None))
+
+        state.clear.assert_awaited_once()
+        mock_bot.send_message.assert_not_awaited()
+        message.answer.assert_awaited_once()
+
+    async def test_forwards_feedback_to_admin_on_success(self, mock_bot):
+        message = _fake_text_message(1, "great bot!")
+        state = _fake_state_with_data({"lang": "en"})
+
+        await feedback_save(message, state, mock_bot, self._config(12345))
+
+        mock_bot.send_message.assert_awaited_once()
+        assert mock_bot.send_message.call_args.kwargs["chat_id"] == 12345
+        message.answer.assert_awaited_once()
+
+    async def test_falls_back_to_error_message_when_send_fails(self, mock_bot):
+        message = _fake_text_message(1, "great bot!")
+        state = _fake_state_with_data({"lang": "en"})
+        mock_bot.send_message = AsyncMock(side_effect=RuntimeError("network down"))
+
+        await feedback_save(message, state, mock_bot, self._config(12345))
+
+        message.answer.assert_awaited_once()
+
+    async def test_noop_when_text_missing(self, mock_bot):
+        message = _fake_text_message(1, "")
+        message.text = None
+        state = _fake_state_with_data({"lang": "en"})
+
+        await feedback_save(message, state, mock_bot, self._config(12345))
+
+        state.clear.assert_not_awaited()
 
 
 class TestEditLangStart:
