@@ -263,7 +263,7 @@ def _fake_config(nvidia_api_key="test-key"):
 class TestAskNvidia:
     async def test_returns_message_content(self):
         response = {"choices": [{"message": {"content": "Hello there"}}]}
-        with patch("services.ai_service._post_json", AsyncMock(return_value=response)) as mock_post:
+        with patch("services.ai_service.client._post_json", AsyncMock(return_value=response)) as mock_post:
             result = await ask_nvidia(
                 "key", "https://nim.example.com/v1", "model-x", [{"role": "user", "content": "hi"}]
             )
@@ -277,7 +277,7 @@ class TestAskNvidia:
 
     async def test_strips_trailing_slash_from_base_url(self):
         response = {"choices": [{"message": {"content": "ok"}}]}
-        with patch("services.ai_service._post_json", AsyncMock(return_value=response)) as mock_post:
+        with patch("services.ai_service.client._post_json", AsyncMock(return_value=response)) as mock_post:
             await ask_nvidia("key", "https://nim.example.com/v1/", "model-x", [])
 
         url = mock_post.call_args.args[0]
@@ -287,14 +287,14 @@ class TestAskNvidia:
 class TestAskOllama:
     async def test_returns_message_content(self):
         response = {"message": {"content": "local reply"}}
-        with patch("services.ai_service._post_json", AsyncMock(return_value=response)):
+        with patch("services.ai_service.client._post_json", AsyncMock(return_value=response)):
             result = await ask_ollama("http://localhost:11434", "llama3", [{"role": "user", "content": "hi"}])
 
         assert result == "local reply"
 
     async def test_raises_on_unexpected_response_shape(self):
         response = {"unexpected": "shape"}
-        with patch("services.ai_service._post_json", AsyncMock(return_value=response)):
+        with patch("services.ai_service.client._post_json", AsyncMock(return_value=response)):
             with pytest.raises(ValueError):
                 await ask_ollama("http://localhost:11434", "llama3", [])
 
@@ -302,14 +302,14 @@ class TestAskOllama:
 class TestAskNvidiaRaw:
     async def test_returns_the_assistant_message(self):
         response = {"choices": [{"message": {"role": "assistant", "content": "hi", "tool_calls": None}}]}
-        with patch("services.ai_service._post_json", AsyncMock(return_value=response)):
+        with patch("services.ai_service.client._post_json", AsyncMock(return_value=response)):
             result = await ask_nvidia_raw("key", "https://nim.example.com/v1", "model-x", [])
 
         assert result == {"role": "assistant", "content": "hi", "tool_calls": None}
 
     async def test_includes_tools_and_tool_choice_when_tools_given(self):
         response = {"choices": [{"message": {"content": "hi"}}]}
-        with patch("services.ai_service._post_json", AsyncMock(return_value=response)) as mock_post:
+        with patch("services.ai_service.client._post_json", AsyncMock(return_value=response)) as mock_post:
             await ask_nvidia_raw(
                 "key", "https://nim.example.com/v1", "model-x", [], tools=[{"type": "function"}], tool_choice="required"
             )
@@ -320,7 +320,7 @@ class TestAskNvidiaRaw:
 
     async def test_omits_tools_key_when_no_tools_given(self):
         response = {"choices": [{"message": {"content": "hi"}}]}
-        with patch("services.ai_service._post_json", AsyncMock(return_value=response)) as mock_post:
+        with patch("services.ai_service.client._post_json", AsyncMock(return_value=response)) as mock_post:
             await ask_nvidia_raw("key", "https://nim.example.com/v1", "model-x", [])
 
         payload = mock_post.call_args.args[1]
@@ -331,7 +331,7 @@ class TestAskNvidiaRaw:
 class TestGetAiResponse:
     async def test_uses_nvidia_when_available(self):
         config = _fake_config()
-        with patch("services.ai_service.ask_nvidia", AsyncMock(return_value="**Hi**")):
+        with patch("services.ai_service.client.ask_nvidia", AsyncMock(return_value="**Hi**")):
             text, model = await get_ai_response(config, [{"role": "user", "content": "hi"}])
 
         assert text == "<b>Hi</b>"
@@ -340,8 +340,8 @@ class TestGetAiResponse:
     async def test_falls_back_to_ollama_when_nvidia_fails(self):
         config = _fake_config()
         with (
-            patch("services.ai_service.ask_nvidia", AsyncMock(side_effect=RuntimeError("down"))),
-            patch("services.ai_service.ask_ollama", AsyncMock(return_value="local reply")),
+            patch("services.ai_service.client.ask_nvidia", AsyncMock(side_effect=RuntimeError("down"))),
+            patch("services.ai_service.client.ask_ollama", AsyncMock(return_value="local reply")),
         ):
             text, model = await get_ai_response(config, [{"role": "user", "content": "hi"}])
 
@@ -351,8 +351,8 @@ class TestGetAiResponse:
     async def test_uses_ollama_directly_when_no_nvidia_key(self):
         config = _fake_config(nvidia_api_key=None)
         with (
-            patch("services.ai_service.ask_nvidia", AsyncMock()) as mock_nvidia,
-            patch("services.ai_service.ask_ollama", AsyncMock(return_value="local reply")),
+            patch("services.ai_service.client.ask_nvidia", AsyncMock()) as mock_nvidia,
+            patch("services.ai_service.client.ask_ollama", AsyncMock(return_value="local reply")),
         ):
             text, model = await get_ai_response(config, [{"role": "user", "content": "hi"}])
 
@@ -362,8 +362,8 @@ class TestGetAiResponse:
     async def test_returns_error_text_when_both_fail(self):
         config = _fake_config()
         with (
-            patch("services.ai_service.ask_nvidia", AsyncMock(side_effect=RuntimeError("down"))),
-            patch("services.ai_service.ask_ollama", AsyncMock(side_effect=RuntimeError("also down"))),
+            patch("services.ai_service.client.ask_nvidia", AsyncMock(side_effect=RuntimeError("down"))),
+            patch("services.ai_service.client.ask_ollama", AsyncMock(side_effect=RuntimeError("also down"))),
         ):
             text, model = await get_ai_response(config, [{"role": "user", "content": "hi"}], language="en")
 
@@ -374,7 +374,7 @@ class TestGetAiResponse:
 class TestLogMetric:
     async def test_calls_crud_log_ai_metric_with_given_fields(self):
         session = MagicMock()
-        with patch("services.ai_service.crud.log_ai_metric", AsyncMock()) as mock_log:
+        with patch("services.ai_service.agent.crud.log_ai_metric", AsyncMock()) as mock_log:
             await _log_metric(
                 session,
                 user_id=1,
@@ -398,7 +398,7 @@ class TestLogMetric:
 
     async def test_swallows_exception_instead_of_propagating(self):
         session = MagicMock()
-        with patch("services.ai_service.crud.log_ai_metric", AsyncMock(side_effect=RuntimeError("db gone"))):
+        with patch("services.ai_service.agent.crud.log_ai_metric", AsyncMock(side_effect=RuntimeError("db gone"))):
             await _log_metric(
                 session,
                 user_id=1,
@@ -416,8 +416,8 @@ class TestGetAiAgentResponse:
         session = MagicMock()
 
         with (
-            patch("services.ai_service.get_ai_response", AsyncMock(return_value=("<b>hi</b>", "Ollama (local)"))),
-            patch("services.ai_service._log_metric", AsyncMock()) as mock_log,
+            patch("services.ai_service.agent.get_ai_response", AsyncMock(return_value=("<b>hi</b>", "Ollama (local)"))),
+            patch("services.ai_service.agent._log_metric", AsyncMock()) as mock_log,
         ):
             text, model, confirmation = await get_ai_agent_response(
                 config, session, 1, [{"role": "user", "content": "hi"}]
@@ -434,8 +434,8 @@ class TestGetAiAgentResponse:
         loop_result = ("Final answer", "NVIDIA Agent (test-model)", None, {"tool_choice": "auto", "tool_names": []})
 
         with (
-            patch("services.ai_service._run_agent_loop", AsyncMock(return_value=loop_result)),
-            patch("services.ai_service._log_metric", AsyncMock()) as mock_log,
+            patch("services.ai_service.agent._run_agent_loop", AsyncMock(return_value=loop_result)),
+            patch("services.ai_service.agent._log_metric", AsyncMock()) as mock_log,
         ):
             text, model, confirmation = await get_ai_agent_response(
                 config, session, 1, [{"role": "user", "content": "hi"}]
@@ -456,9 +456,9 @@ class TestGetAiAgentResponse:
             await asyncio.sleep(999)
 
         with (
-            patch("services.ai_service._run_agent_loop", _never_finishes),
-            patch("services.ai_service._AGENT_TOTAL_TIMEOUT_SECONDS", 0.01),
-            patch("services.ai_service._log_metric", AsyncMock()) as mock_log,
+            patch("services.ai_service.agent._run_agent_loop", _never_finishes),
+            patch("services.ai_service.agent._AGENT_TOTAL_TIMEOUT_SECONDS", 0.01),
+            patch("services.ai_service.agent._log_metric", AsyncMock()) as mock_log,
         ):
             text, model, confirmation = await get_ai_agent_response(
                 config, session, 1, [{"role": "user", "content": "hi"}]
@@ -475,7 +475,7 @@ class TestRunAgentLoop:
         session = MagicMock()
         assistant_message = {"content": "Just an answer.", "tool_calls": None}
 
-        with patch("services.ai_service.ask_nvidia_raw", AsyncMock(return_value=assistant_message)):
+        with patch("services.ai_service.agent.ask_nvidia_raw", AsyncMock(return_value=assistant_message)):
             text, model, confirmation, meta = await _run_agent_loop(
                 config, session, 1, [{"role": "user", "content": "hi"}], "en"
             )
@@ -494,8 +494,10 @@ class TestRunAgentLoop:
         final_message = {"content": "Here are your medicines.", "tool_calls": None}
 
         with (
-            patch("services.ai_service.ask_nvidia_raw", AsyncMock(side_effect=[tool_call_message, final_message])),
-            patch("services.ai_service.execute_tool", AsyncMock(return_value={"medicines": []})) as mock_exec,
+            patch(
+                "services.ai_service.agent.ask_nvidia_raw", AsyncMock(side_effect=[tool_call_message, final_message])
+            ),
+            patch("services.ai_service.agent.execute_tool", AsyncMock(return_value={"medicines": []})) as mock_exec,
         ):
             text, model, confirmation, meta = await _run_agent_loop(
                 config, session, 1, [{"role": "user", "content": "show my medicines"}], "en"
@@ -520,8 +522,8 @@ class TestRunAgentLoop:
         }
 
         with (
-            patch("services.ai_service.ask_nvidia_raw", AsyncMock(return_value=tool_call_message)),
-            patch("services.ai_service.execute_tool", AsyncMock(return_value=confirm_result)),
+            patch("services.ai_service.agent.ask_nvidia_raw", AsyncMock(return_value=tool_call_message)),
+            patch("services.ai_service.agent.execute_tool", AsyncMock(return_value=confirm_result)),
         ):
             text, model, confirmation, meta = await _run_agent_loop(
                 config, session, 1, [{"role": "user", "content": "delete aspirin"}], "en"
@@ -535,8 +537,11 @@ class TestRunAgentLoop:
         session = MagicMock()
 
         with (
-            patch("services.ai_service.ask_nvidia_raw", AsyncMock(side_effect=RuntimeError("NIM is down"))),
-            patch("services.ai_service.get_ai_response", AsyncMock(return_value=("<b>fallback</b>", "Ollama (local)"))),
+            patch("services.ai_service.agent.ask_nvidia_raw", AsyncMock(side_effect=RuntimeError("NIM is down"))),
+            patch(
+                "services.ai_service.agent.get_ai_response",
+                AsyncMock(return_value=("<b>fallback</b>", "Ollama (local)")),
+            ),
         ):
             text, model, confirmation, meta = await _run_agent_loop(
                 config, session, 1, [{"role": "user", "content": "hi"}], "en"
@@ -556,8 +561,8 @@ class TestRunAgentLoop:
         }
 
         with (
-            patch("services.ai_service.ask_nvidia_raw", AsyncMock(return_value=looping_message)),
-            patch("services.ai_service.execute_tool", AsyncMock(return_value={"medicines": []})),
+            patch("services.ai_service.agent.ask_nvidia_raw", AsyncMock(return_value=looping_message)),
+            patch("services.ai_service.agent.execute_tool", AsyncMock(return_value={"medicines": []})),
         ):
             text, model, confirmation, meta = await _run_agent_loop(
                 config, session, 1, [{"role": "user", "content": "show my medicines"}], "en"
@@ -578,11 +583,11 @@ class TestRunAgentLoop:
 
         with (
             patch(
-                "services.ai_service.ask_nvidia_raw",
+                "services.ai_service.agent.ask_nvidia_raw",
                 AsyncMock(side_effect=[tool_call_message, ungrounded_answer, grounded_answer]),
             ),
             patch(
-                "services.ai_service.execute_tool",
+                "services.ai_service.agent.execute_tool",
                 AsyncMock(return_value={"medicines": [{"name": "Aspirin"}]}),
             ),
         ):
@@ -605,8 +610,11 @@ class TestRunAgentLoop:
         final_message = {"content": "Done.", "tool_calls": None}
 
         with (
-            patch("services.ai_service.ask_nvidia_raw", AsyncMock(side_effect=[duplicate_call_message, final_message])),
-            patch("services.ai_service.execute_tool", AsyncMock(return_value={"medicines": []})) as mock_exec,
+            patch(
+                "services.ai_service.agent.ask_nvidia_raw",
+                AsyncMock(side_effect=[duplicate_call_message, final_message]),
+            ),
+            patch("services.ai_service.agent.execute_tool", AsyncMock(return_value={"medicines": []})) as mock_exec,
         ):
             await _run_agent_loop(config, session, 1, [{"role": "user", "content": "show meds"}], "en")
 
@@ -617,7 +625,7 @@ class TestRunAgentLoop:
         session = MagicMock()
         final_message = {"content": "Added.", "tool_calls": None}
 
-        with patch("services.ai_service.ask_nvidia_raw", AsyncMock(return_value=final_message)) as mock_ask:
+        with patch("services.ai_service.agent.ask_nvidia_raw", AsyncMock(return_value=final_message)) as mock_ask:
             await _run_agent_loop(config, session, 1, [{"role": "user", "content": "додай ліки"}], "ua")
 
         assert mock_ask.call_args.kwargs["tool_choice"] == "required"
@@ -627,7 +635,7 @@ class TestRunAgentLoop:
         session = MagicMock()
         final_message = {"content": "Just chatting.", "tool_calls": None}
 
-        with patch("services.ai_service.ask_nvidia_raw", AsyncMock(return_value=final_message)) as mock_ask:
+        with patch("services.ai_service.agent.ask_nvidia_raw", AsyncMock(return_value=final_message)) as mock_ask:
             await _run_agent_loop(config, session, 1, [{"role": "user", "content": "hello there"}], "en")
 
         assert mock_ask.call_args.kwargs["tool_choice"] == "auto"
@@ -642,8 +650,10 @@ class TestRunAgentLoop:
         final_message = {"content": "Done.", "tool_calls": None}
 
         with (
-            patch("services.ai_service.ask_nvidia_raw", AsyncMock(side_effect=[tool_call_message, final_message])),
-            patch("services.ai_service.execute_tool", AsyncMock(return_value={"medicines": []})) as mock_exec,
+            patch(
+                "services.ai_service.agent.ask_nvidia_raw", AsyncMock(side_effect=[tool_call_message, final_message])
+            ),
+            patch("services.ai_service.agent.execute_tool", AsyncMock(return_value={"medicines": []})) as mock_exec,
         ):
             await _run_agent_loop(config, session, 1, [{"role": "user", "content": "show meds"}], "en")
 
