@@ -11,6 +11,7 @@ from database.models import Medicine, MedicineSchedule
 from services.scheduler import acquire_action_lock, cancel_repeat_reminder, remove_reminders
 from services.scheduler import jobs as scheduler_jobs_module
 from services.scheduler import redis_state as scheduler_redis_module
+from services.scheduler.jobs import core as scheduler_jobs_core_module
 
 
 class TestCancelRepeatReminder:
@@ -186,7 +187,7 @@ class TestNextScheduleIdForToday:
 
         fixed_now = datetime(2026, 7, 21, 10, 0, tzinfo=ZoneInfo("Europe/Kyiv"))
         monkeypatch.setattr(
-            scheduler_jobs_module,
+            scheduler_jobs_core_module,
             "datetime",
             type("_DT", (), {"now": staticmethod(lambda tz=None: fixed_now)}),
         )
@@ -203,7 +204,7 @@ class TestNextScheduleIdForToday:
 
         fixed_now = datetime(2026, 7, 21, 22, 0, tzinfo=ZoneInfo("Europe/Kyiv"))
         monkeypatch.setattr(
-            scheduler_jobs_module,
+            scheduler_jobs_core_module,
             "datetime",
             type("_DT", (), {"now": staticmethod(lambda tz=None: fixed_now)}),
         )
@@ -226,7 +227,7 @@ class TestNextScheduleIdForToday:
 
         fixed_now = datetime(2026, 7, 21, 10, 0, tzinfo=ZoneInfo("Europe/Kyiv"))
         monkeypatch.setattr(
-            scheduler_jobs_module,
+            scheduler_jobs_core_module,
             "datetime",
             type("_DT", (), {"now": staticmethod(lambda tz=None: fixed_now)}),
         )
