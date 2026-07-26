@@ -16,9 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import Config
 from database import crud
-from database.crud import get_or_create_user, get_user_language
+from database.crud import get_user_language
+from handlers.common import get_user_and_language
 from handlers.start import get_main_keyboard
-from locales.texts import DEFAULT_LANG, get_text, user_lang
+from locales.texts import DEFAULT_LANG, get_text
 from services.ai_service import format_markdown_to_html, get_ai_agent_response, strip_html_tags
 from services.scheduler import remove_reminders
 from services.voice_service import transcribe_voice
@@ -135,13 +136,7 @@ async def handle_voice(
     if await state.get_state() is not None:
         return
 
-    user = await get_or_create_user(
-        session,
-        message.from_user.id,
-        message.from_user.username,
-        message.from_user.full_name,
-    )
-    language = user_lang(user)
+    _, language = await get_user_and_language(session, message)
 
     await bot.send_chat_action(message.chat.id, "typing")
 
@@ -183,13 +178,7 @@ async def fallback_handler(
     if await state.get_state() is not None:
         return
 
-    user = await get_or_create_user(
-        session,
-        message.from_user.id,
-        message.from_user.username,
-        message.from_user.full_name,
-    )
-    language = user_lang(user)
+    _, language = await get_user_and_language(session, message)
 
     await _process_ai_text(message, message.text, session, config, bot, language)
 

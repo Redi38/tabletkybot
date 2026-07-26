@@ -1,23 +1,21 @@
 """Shared helpers used across the prescriptions handler modules."""
 
-from datetime import date, datetime
-
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
 from database.models import Prescription
 from locales.texts import get_text
+from services.dates import parse_date_flexible as parse_date
 
-
-def parse_date(text: str) -> date | None:
-    text = text.strip()
-    for fmt in ("%d.%m.%y", "%d.%m.%Y"):
-        try:
-            return datetime.strptime(text, fmt).date()
-        except ValueError:
-            continue
-    return None
+__all__ = [
+    "parse_date",
+    "parse_optional_int",
+    "parse_positive_int",
+    "parse_optional_text",
+    "_base_ctx",
+    "_valid_prescription_ctx",
+]
 
 
 def parse_optional_int(text: str) -> int | None:

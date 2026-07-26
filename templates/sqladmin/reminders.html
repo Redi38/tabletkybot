@@ -21,7 +21,10 @@
             <div class="card shadow-sm mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h2 class="card-title mb-0"><b>Reminder Queue</b></h2>
-                    <span id="reminders-count" class="badge bg-blue-lt"></span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="reminders-status" class="text-secondary"></span>
+                        <span id="reminders-count" class="badge bg-blue-lt"></span>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="d-flex align-items-center gap-2 mb-3">
@@ -58,7 +61,9 @@ let autoRefreshInterval = null;
 async function loadReminders() {
     const body = document.getElementById('reminders-body');
     const countBadge = document.getElementById('reminders-count');
+    const status = document.getElementById('reminders-status');
     body.innerHTML = '<tr><td colspan="3" class="reminders-empty">Loading…</td></tr>';
+    status.textContent = 'Loading...';
 
     try {
         const resp = await fetch('/api/admin/scheduled-jobs');
@@ -67,6 +72,7 @@ async function loadReminders() {
         if (!resp.ok || data.status === 'error') {
             body.innerHTML = `<tr><td colspan="3" class="reminders-error">${data.message || 'Failed to load'}</td></tr>`;
             countBadge.textContent = '';
+            status.textContent = 'Error loading reminders';
             return;
         }
 
@@ -74,23 +80,25 @@ async function loadReminders() {
 
         if (data.jobs.length === 0) {
             body.innerHTML = '<tr><td colspan="3" class="reminders-empty">No reminders currently awaiting a response</td></tr>';
-            return;
+        } else {
+            const now = new Date();
+            body.innerHTML = data.jobs.map(job => {
+                const sentAt = job.sent_at ? new Date(job.sent_at) : null;
+                const longAgo = sentAt && (now - sentAt) > 60 * 60 * 1000; // over an hour with no response
+                const sentAtStr = sentAt ? sentAt.toISOString().replace('T', ' ').slice(0, 19) : '—';
+                return `<tr>
+                    <td>${job.user_name ?? job.chat_id}</td>
+                    <td>${job.medicine_name ?? '—'}</td>
+                    <td class="${longAgo ? 'sent-long-ago' : ''}">${sentAtStr}</td>
+                </tr>`;
+            }).join('');
         }
 
-        const now = new Date();
-        body.innerHTML = data.jobs.map(job => {
-            const sentAt = job.sent_at ? new Date(job.sent_at) : null;
-            const longAgo = sentAt && (now - sentAt) > 60 * 60 * 1000; // over an hour with no response
-            const sentAtStr = sentAt ? sentAt.toISOString().replace('T', ' ').slice(0, 19) : '—';
-            return `<tr>
-                <td>${job.user_name ?? job.chat_id}</td>
-                <td>${job.medicine_name ?? '—'}</td>
-                <td class="${longAgo ? 'sent-long-ago' : ''}">${sentAtStr}</td>
-            </tr>`;
-        }).join('');
+        status.textContent = `Updated at ${new Date().toLocaleTimeString()}`;
     } catch (err) {
         body.innerHTML = `<tr><td colspan="3" class="reminders-error">Request failed: ${err}</td></tr>`;
         countBadge.textContent = '';
+        status.textContent = 'Error loading reminders';
     }
 }
 

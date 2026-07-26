@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import web.internal_api as main_module
 from database.models import Base
+from services import health as health_module
 
 
 @pytest.fixture
@@ -43,7 +44,7 @@ async def test_returns_200_when_db_redis_and_scheduler_are_all_ok(session_factor
     fake_redis.ping = AsyncMock()
     fake_redis.close = AsyncMock()
 
-    with patch.object(main_module.aioredis, "from_url", return_value=fake_redis):
+    with patch.object(health_module.aioredis, "from_url", return_value=fake_redis):
         with _scheduler_running(True):
             status, body = await _get_health(session_factory)
 
@@ -58,7 +59,7 @@ async def test_returns_503_when_scheduler_is_stopped(session_factory):
     fake_redis.ping = AsyncMock()
     fake_redis.close = AsyncMock()
 
-    with patch.object(main_module.aioredis, "from_url", return_value=fake_redis):
+    with patch.object(health_module.aioredis, "from_url", return_value=fake_redis):
         with _scheduler_running(False):
             status, body = await _get_health(session_factory)
 
@@ -73,7 +74,7 @@ async def test_returns_503_when_redis_ping_fails(session_factory):
     fake_redis.ping = AsyncMock(side_effect=ConnectionError("redis unreachable"))
     fake_redis.close = AsyncMock()
 
-    with patch.object(main_module.aioredis, "from_url", return_value=fake_redis):
+    with patch.object(health_module.aioredis, "from_url", return_value=fake_redis):
         with _scheduler_running(True):
             status, body = await _get_health(session_factory)
 
@@ -93,7 +94,7 @@ async def test_returns_503_when_db_query_fails(session_factory):
 
     broken_session_factory = MagicMock(side_effect=RuntimeError("db connection refused"))
 
-    with patch.object(main_module.aioredis, "from_url", return_value=fake_redis):
+    with patch.object(health_module.aioredis, "from_url", return_value=fake_redis):
         with _scheduler_running(True):
             status, body = await _get_health(broken_session_factory)
 
@@ -108,7 +109,7 @@ async def test_all_three_checks_failing_still_returns_a_single_503(session_facto
     fake_redis.close = AsyncMock()
     broken_session_factory = MagicMock(side_effect=RuntimeError("db down"))
 
-    with patch.object(main_module.aioredis, "from_url", return_value=fake_redis):
+    with patch.object(health_module.aioredis, "from_url", return_value=fake_redis):
         with _scheduler_running(False):
             status, body = await _get_health(broken_session_factory)
 

@@ -8,18 +8,17 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-import redis.asyncio as aioredis
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqladmin.application import Admin as BaseAdmin
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.requests import Request as StarletteRequest
 
 from admin.auth import AdminAuth
 from config import load_config
 from database import crud
+from services.health import check_database, check_redis
 
 # ─── Admin panel file logging ──────
 _default_log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
@@ -74,25 +73,11 @@ async def health_check():
     Health-check endpoint for Docker healthcheck / monitoring.
     Verifies DB connectivity and Redis connectivity.
     """
-    checks = {}
-    healthy = True
-
-    try:
-        async with SessionLocal() as session:
-            await session.execute(text("SELECT 1"))
-        checks["database"] = "ok"
-    except Exception as e:
-        checks["database"] = f"error: {e}"
-        healthy = False
-
-    try:
-        redis_client = aioredis.from_url(config.redis_url)
-        await redis_client.ping()
-        await redis_client.close()
-        checks["redis"] = "ok"
-    except Exception as e:
-        checks["redis"] = f"error: {e}"
-        healthy = False
+    checks = {
+        "database": await check_database(SessionLocal),
+        "redis": await check_redis(config.redis_url),
+    }
+    healthy = all(v == "ok" for v in checks.values())
 
     status_code = 200 if healthy else 503
     return JSONResponse(

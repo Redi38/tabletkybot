@@ -34,7 +34,7 @@ class TestHealthCheck:
 
         with (
             patch("admin.app.SessionLocal", return_value=mock_session_cm),
-            patch("admin.app.aioredis.from_url", return_value=mock_redis_client),
+            patch("services.health.aioredis.from_url", return_value=mock_redis_client),
         ):
             response = client.get("/health")
 
@@ -54,7 +54,7 @@ class TestHealthCheck:
 
         with (
             patch("admin.app.SessionLocal", return_value=mock_session_cm),
-            patch("admin.app.aioredis.from_url", return_value=mock_redis_client),
+            patch("services.health.aioredis.from_url", return_value=mock_redis_client),
         ):
             response = client.get("/health")
 
@@ -77,7 +77,7 @@ class TestHealthCheck:
 
         with (
             patch("admin.app.SessionLocal", return_value=mock_session_cm),
-            patch("admin.app.aioredis.from_url", return_value=mock_redis_client),
+            patch("services.health.aioredis.from_url", return_value=mock_redis_client),
         ):
             response = client.get("/health")
 
@@ -95,7 +95,7 @@ class TestHealthCheck:
 
         with (
             patch("admin.app.SessionLocal", return_value=mock_session_cm),
-            patch("admin.app.aioredis.from_url", side_effect=ConnectionError("redis down")),
+            patch("services.health.aioredis.from_url", side_effect=ConnectionError("redis down")),
         ):
             response = client.get("/health")
 

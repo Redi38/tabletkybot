@@ -1,18 +1,9 @@
-from datetime import date, datetime
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import crud
+from services.dates import parse_date_flexible as _parse_date_flexible
 
-
-def _parse_date_flexible(text: str) -> date | None:
-    text = text.strip()
-    for fmt in ("%d.%m.%y", "%d.%m.%Y", "%Y-%m-%d"):
-        try:
-            return datetime.strptime(text, fmt).date()
-        except ValueError:
-            continue
-    return None
+__all__ = ["_parse_date_flexible", "_to_int", "_find_medicine", "_find_prescription"]
 
 
 def _to_int(value, min_value: int | None = None, max_value: int | None = None) -> int | None:

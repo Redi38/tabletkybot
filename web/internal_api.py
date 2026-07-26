@@ -3,23 +3,19 @@ Handler factories for the internal HTTP API (port 8080): /api/sync,
 /api/scheduled-jobs, and /health. This is server-to-server traffic from the
 Admin Panel and Docker healthchecks — never exposed publicly like the
 Telegram webhook is.
-
-Moved out of main.py to keep that file focused on process startup/wiring;
-these three handlers had no dependency on anything else in main.py besides
-a few shared imports.
 """
 
 import asyncio
 import hmac
 import logging
 
-import redis.asyncio as aioredis
 from aiogram import Bot
 from aiohttp import web
-from sqlalchemy import select, text
+from sqlalchemy import select
 
 from database.models import User
 from middleware.logging_context import correlation_scope
+from services.health import check_database, check_redis
 from services.scheduler import (
     get_active_pending_reminders,
     scheduler,
@@ -117,32 +113,15 @@ def build_health_handler(session_factory, redis_url: str):
     """
 
     async def handle_health(request):
-        checks = {}
-        healthy = True
-
-        # DB check
-        try:
-            async with session_factory() as session:
-                await session.execute(text("SELECT 1"))
-            checks["database"] = "ok"
-        except Exception as e:
-            checks["database"] = f"error: {e}"
-            healthy = False
-
-        # Redis check
-        try:
-            redis_client = aioredis.from_url(redis_url)
-            await redis_client.ping()
-            await redis_client.close()
-            checks["redis"] = "ok"
-        except Exception as e:
-            checks["redis"] = f"error: {e}"
-            healthy = False
+        checks = {
+            "database": await check_database(session_factory),
+            "redis": await check_redis(redis_url),
+        }
 
         # Scheduler check
         checks["scheduler"] = "running" if scheduler.running else "stopped"
-        if not scheduler.running:
-            healthy = False
+
+        healthy = all(v == "ok" for k, v in checks.items() if k != "scheduler") and scheduler.running
 
         status_code = 200 if healthy else 503
         return web.json_response(

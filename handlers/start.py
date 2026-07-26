@@ -13,7 +13,8 @@ from aiogram.types import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.crud import get_or_create_user, update_user_language
-from locales.texts import DEFAULT_LANG, btn_variants, get_text, user_lang
+from handlers.common import get_user_and_language
+from locales.texts import DEFAULT_LANG, btn_variants, get_text
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -39,13 +40,7 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext) 
         return
     await state.clear()
 
-    user = await get_or_create_user(
-        session,
-        message.from_user.id,
-        message.from_user.username,
-        message.from_user.full_name,
-    )
-    language = user_lang(user)
+    user, language = await get_user_and_language(session, message)
 
     logger.info(f"User {message.from_user.id} (@{message.from_user.username}) started the bot")
 
@@ -61,13 +56,7 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext) 
 async def cmd_help(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return
-    user = await get_or_create_user(
-        session,
-        message.from_user.id,
-        message.from_user.username,
-        message.from_user.full_name,
-    )
-    language = user_lang(user)
+    _, language = await get_user_and_language(session, message)
     logger.info(f"User {message.from_user.id} (@{message.from_user.username}) requested /help")
     await message.answer(
         get_text(language, "help_text"),
