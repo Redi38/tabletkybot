@@ -13,3 +13,7 @@ logs/
 tests/
 README.md
 docker-compose.yml
+actions-runner/
+_work/
+data/
+*.dump.gz
