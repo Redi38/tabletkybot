@@ -6,6 +6,7 @@ RUN pip install --no-cache-dir -r requirements/base.txt
 COPY . .
 
 RUN useradd --uid 1000 --create-home --shell /bin/bash appuser \
+    && mkdir -p /app/logs \
     && chown -R appuser:appuser /app
 USER appuser
 
