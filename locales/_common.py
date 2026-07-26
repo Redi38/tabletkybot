@@ -30,7 +30,6 @@ TEXTS = {
         "err_stock": "❌ Введіть ціле додатне число (наприклад: 20):",
         "err_timezone_place": "❌ Не вдалося визначити місто. Спробуйте ще раз у форматі: <b>Місто, Країна</b> (наприклад: <code>Варшава, Польща</code>).",
         "err_feedback_unavailable": "⚠️ Наразі не вдалося передати повідомлення розробнику. Спробуйте пізніше.",
-        "fallback_text": "👋 Натисніть /start щоб розпочати або оберіть дію з меню.",
         "feedback_admin_header": "📩 <b>Нове звернення</b>\nВід: {name} (@{username}, id: <code>{user_id}</code>)\n\n{text}",
         "feedback_sent": "✅ Дякуємо! Ваше повідомлення передано розробнику.",
         "help_text": (
@@ -69,7 +68,6 @@ TEXTS = {
             "⚠️ Якщо помітили помилку в роботі бота або виникли питання, пишіть у <b>👤 Налаштування</b> -> <b>💬 Зворотній зв'язок</b>\n\n"
             "Оберіть дію з меню нижче 👇"
         ),
-        "tz_updated": "✅ Часовий пояс успішно оновлено!\n⏰ <i>Усі ваші нагадування автоматично переведені на новий час.</i>",
         "tz_updated_with_name": "✅ Часовий пояс оновлено: <b>{tz}</b>\n⏰ <i>Усі ваші нагадування автоматично переведені на новий час.</i>",
         "generic_error": "⚠️ Сталася помилка під час обробки вашого запиту.",
     },
@@ -102,7 +100,6 @@ TEXTS = {
         "err_stock": "❌ Enter a positive integer (e.g., 20):",
         "err_timezone_place": "❌ Could not find that place. Please try again in the format: <b>City, Country</b> (e.g. <code>Warsaw, Poland</code>).",
         "err_feedback_unavailable": "⚠️ Could not deliver your message to the developer right now. Please try again later.",
-        "fallback_text": "👋 Press /start or choose an action from the menu.",
         "feedback_admin_header": "📩 <b>New feedback</b>\nFrom: {name} (@{username}, id: <code>{user_id}</code>)\n\n{text}",
         "feedback_sent": "✅ Thank you! Your message has been passed on to the developer.",
         "help_text": (
@@ -141,7 +138,6 @@ TEXTS = {
             "⚠️ If you notice an error in the bot's operation or have any questions, write to <b>👤 Settings</b> -> <b>💬 Feedback</b>\n\n"
             "Choose an action from the menu below 👇"
         ),
-        "tz_updated": "✅ Timezone successfully updated!\n⏰ <i>All your reminders have been automatically adjusted to the new time.</i>",
         "tz_updated_with_name": "✅ Timezone updated: <b>{tz}</b>\n⏰ <i>All your reminders have been automatically adjusted to the new time.</i>",
         "generic_error": "⚠️ An error occurred while processing your request.",
     },
@@ -174,7 +170,6 @@ TEXTS = {
         "err_stock": "❌ Введите целое положительное число (например: 20):",
         "err_timezone_place": "❌ Не удалось определить город. Попробуйте ещё раз в формате: <b>Город, Страна</b> (например: <code>Варшава, Польша</code>).",
         "err_feedback_unavailable": "⚠️ Не удалось передать сообщение разработчику сейчас. Попробуйте позже.",
-        "fallback_text": "👋 Нажмите /start чтобы начать или выберите действие из меню.",
         "feedback_admin_header": "📩 <b>Новое обращение</b>\nОт: {name} (@{username}, id: <code>{user_id}</code>)\n\n{text}",
         "feedback_sent": "✅ Спасибо! Ваше сообщение передано разработчику.",
         "help_text": (
@@ -213,7 +208,6 @@ TEXTS = {
             "⚠️ Если заметили ошибку в работе бота/возникли вопросы, пишите в <b>👤 Настройки</b> -> <b>💬 Обратная связь</b>\n\n"
             "Выберите действие из меню ниже 👇"
         ),
-        "tz_updated": "✅ Часовой пояс успешно обновлён!\n⏰ <i>Все ваши напоминания автоматически переведены на новое время.</i>",
         "tz_updated_with_name": "✅ Часовой пояс обновлён: <b>{tz}</b>\n⏰ <i>Все ваши напоминания автоматически переведены на новое время.</i>",
         "generic_error": "⚠️ Произошла ошибка при обработке вашего запроса.",
     },

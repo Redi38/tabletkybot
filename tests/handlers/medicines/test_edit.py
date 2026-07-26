@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec
 from aiogram.types import CallbackQuery, Message
 
 from database import crud
-from handlers.medicines.edit import edit_field_save, edit_field_start, edit_medicine_menu
+from handlers.medicines.edit import disable_stock, edit_field_save, edit_field_start, edit_medicine_menu
 from handlers.medicines.states import EditMedicine
 
 
@@ -81,6 +81,16 @@ class TestEditMedicineMenu:
         assert f"edit_field_stock_amount_{medicine.id}" in callback_data
         assert f"edit_field_low_stock_threshold_{medicine.id}" in callback_data
 
+    async def test_offers_disable_stock_when_stock_is_tracked(self, db_session):
+        medicine = await _add_medicine(db_session, stock_amount=30)
+        call, message = _fake_call(1, f"edit_med_{medicine.id}")
+
+        await edit_medicine_menu(call, db_session)
+
+        keyboard = message.edit_text.call_args.kwargs["reply_markup"]
+        callback_data = {btn.callback_data for row in keyboard.inline_keyboard for btn in row}
+        assert f"disable_stock_{medicine.id}" in callback_data
+
     async def test_offers_enable_stock_when_stock_is_not_tracked(self, db_session):
         medicine = await _add_medicine(db_session, stock_amount=None)
         call, message = _fake_call(1, f"edit_med_{medicine.id}")
@@ -91,12 +101,51 @@ class TestEditMedicineMenu:
         callback_data = {btn.callback_data for row in keyboard.inline_keyboard for btn in row}
         assert f"edit_field_stock_amount_{medicine.id}" in callback_data
         assert f"edit_field_low_stock_threshold_{medicine.id}" not in callback_data
+        assert f"disable_stock_{medicine.id}" not in callback_data
 
     async def test_no_op_when_medicine_missing(self, db_session):
         await crud.get_or_create_user(db_session, 1, "tester", "Test User")
         call, message = _fake_call(1, "edit_med_999")
 
         await edit_medicine_menu(call, db_session)
+
+        message.edit_text.assert_not_awaited()
+
+
+class TestDisableStock:
+    async def test_clears_stock_amount_and_threshold(self, db_session):
+        medicine = await _add_medicine(db_session, stock_amount=30)
+        await crud.update_medicine_field(db_session, medicine.id, "low_stock_threshold", 5)
+        await db_session.commit()
+        call, message = _fake_call(1, f"disable_stock_{medicine.id}")
+
+        await disable_stock(call, db_session)
+
+        refreshed = await crud.get_medicine_by_id(db_session, medicine.id)
+        assert refreshed.stock_amount is None
+        assert refreshed.low_stock_threshold is None
+        message.edit_text.assert_awaited_once()
+        call.answer.assert_awaited_once()
+
+    async def test_reverts_menu_to_enable_stock_state(self, db_session):
+        """After disabling, re-opening the edit menu should offer 'Enable stock' again, not 'Disable stock'."""
+        medicine = await _add_medicine(db_session, stock_amount=30)
+        call, _ = _fake_call(1, f"disable_stock_{medicine.id}")
+        await disable_stock(call, db_session)
+
+        menu_call, menu_message = _fake_call(1, f"edit_med_{medicine.id}")
+        await edit_medicine_menu(menu_call, db_session)
+
+        keyboard = menu_message.edit_text.call_args.kwargs["reply_markup"]
+        callback_data = {btn.callback_data for row in keyboard.inline_keyboard for btn in row}
+        assert f"edit_field_stock_amount_{medicine.id}" in callback_data
+        assert f"disable_stock_{medicine.id}" not in callback_data
+
+    async def test_no_op_when_medicine_missing(self, db_session):
+        await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        call, message = _fake_call(1, "disable_stock_999")
+
+        await disable_stock(call, db_session)
 
         message.edit_text.assert_not_awaited()
 

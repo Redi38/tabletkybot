@@ -68,6 +68,15 @@ async def edit_medicine_menu(call: CallbackQuery, session: AsyncSession) -> None
                 )
             ]
         )
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_disable_stock"),
+                    callback_data=f"disable_stock_{medicine_id}",
+                    style="danger",
+                )
+            ]
+        )
     else:
         buttons.append(
             [
@@ -80,6 +89,26 @@ async def edit_medicine_menu(call: CallbackQuery, session: AsyncSession) -> None
     await msg.edit_text(
         get_text(lang, "edit_what"), reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML"
     )
+
+
+@router.callback_query(F.data.startswith("disable_stock_"))
+async def disable_stock(call: CallbackQuery, session: AsyncSession) -> None:
+    """Turns off stock tracking for a medicine (the reverse of 'Enable stock tracking')."""
+    ctx = await _valid_medicine_ctx(call, session)
+    if not ctx or not call.from_user:
+        return
+    msg, lang, medicine_id, _ = ctx
+
+    await crud.update_medicine_field(session, medicine_id, "stock_amount", None)
+    await crud.update_medicine_field(session, medicine_id, "low_stock_threshold", None)
+    await session.commit()
+
+    logger.info(
+        f"User {call.from_user.id} (@{call.from_user.username}) disabled stock tracking for medicine (id={medicine_id})"
+    )
+
+    await msg.edit_text(get_text(lang, "edit_success"), reply_markup=medicine_menu_kb(lang), parse_mode="HTML")
+    await call.answer()
 
 
 @router.callback_query(F.data.startswith("edit_field_"))
