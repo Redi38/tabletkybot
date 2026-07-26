@@ -51,6 +51,8 @@ async def get_global_intake_stats(session: AsyncSession) -> dict:
 
     total_users = (await session.execute(select(func.count(User.id)))).scalar_one()
 
+    active_users = (await session.execute(select(func.count(User.id)).where(User.is_blocked.is_(False)))).scalar_one()
+
     total_active_medicines = (
         await session.execute(select(func.count(Medicine.id)).where(Medicine.is_active.is_(True)))
     ).scalar_one()
@@ -64,6 +66,7 @@ async def get_global_intake_stats(session: AsyncSession) -> dict:
         "skipped": skipped,
         "adherence_rate": adherence_rate,
         "total_users": total_users,
+        "active_users": active_users,
         "total_active_medicines": total_active_medicines,
         "active_prescriptions": active_prescriptions,
     }

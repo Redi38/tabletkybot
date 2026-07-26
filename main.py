@@ -15,7 +15,7 @@ from aiohttp import web
 
 from config import load_config
 from database.db import init_db
-from handlers import ai_agent, errors, medicines, prescriptions, report, settings, start
+from handlers import ai_agent, bot_status, errors, medicines, prescriptions, report, settings, start
 from middleware.db_middleware import DatabaseMiddleware
 from middleware.logging_context import (
     ActionLoggingMiddleware,
@@ -146,6 +146,7 @@ async def main() -> None:
     dp.update.middleware(DatabaseMiddleware(session_factory))
 
     dp.include_router(errors.router)
+    dp.include_router(bot_status.router)
     dp.include_router(settings.router)
     dp.include_router(prescriptions.router)
     dp.include_router(medicines.router)

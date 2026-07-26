@@ -1,6 +1,8 @@
 """CRUD operations for User accounts (language/timezone preferences)."""
 
-from sqlalchemy import select
+from datetime import datetime, timezone
+
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import User
@@ -18,6 +20,10 @@ async def get_or_create_user(
     user: User | None = result.scalar_one_or_none()
 
     if user is not None:
+        if user.is_blocked:
+            await mark_user_unblocked(session, user_id)
+            user.is_blocked = False
+            user.blocked_at = None
         return user
 
     new_user = User(id=user_id, username=username, full_name=full_name)
@@ -25,6 +31,20 @@ async def get_or_create_user(
     await session.flush()
     await session.refresh(new_user)
     return new_user
+
+
+async def mark_user_blocked(session: AsyncSession, user_id: int) -> None:
+    """Records that the user blocked the bot"""
+    await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(is_blocked=True, blocked_at=datetime.now(timezone.utc).replace(tzinfo=None))
+    )
+
+
+async def mark_user_unblocked(session: AsyncSession, user_id: int) -> None:
+    """Records that the user unblocked the bot again."""
+    await session.execute(update(User).where(User.id == user_id).values(is_blocked=False, blocked_at=None))
 
 
 async def get_all_users(session: AsyncSession) -> list[User]:

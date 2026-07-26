@@ -49,6 +49,8 @@ from .users import (
     get_repeat_reminders_enabled,
     get_user_language,
     get_user_timezone,
+    mark_user_blocked,
+    mark_user_unblocked,
     toggle_repeat_reminders,
     update_user_language,
     update_user_timezone,
@@ -57,6 +59,8 @@ from .users import (
 __all__ = [
     "get_or_create_user",
     "get_all_users",
+    "mark_user_blocked",
+    "mark_user_unblocked",
     "update_user_timezone",
     "update_user_language",
     "get_user_language",

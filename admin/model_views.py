@@ -27,6 +27,7 @@ class UserAdmin(ModelView, model=User):
         User.language,
         User.timezone,
         User.repeat_reminders_enabled,
+        User.is_blocked,
         User.created_at,
     ]
 
@@ -34,6 +35,7 @@ class UserAdmin(ModelView, model=User):
     column_filters = [
         StaticValuesFilter(User.language, values=[("ua", "Ukrainian"), ("en", "English"), ("ru", "Russian")]),
         BooleanFilter(User.repeat_reminders_enabled),
+        BooleanFilter(User.is_blocked),
     ]
     column_default_sort = ("created_at", True)
 
