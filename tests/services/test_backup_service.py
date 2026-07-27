@@ -155,6 +155,9 @@ class TestRetentionRotation:
         _, kwargs = mock_s3.delete_objects.call_args
         deleted_keys = [obj["Key"] for obj in kwargs["Delete"]["Objects"]]
         assert deleted_keys == ["db_backups/medbot_old.dump.gz"]
+        # Oracle Object Storage rejects botocore's default (plain CRC32)
+        # checksum on DeleteObjects — must explicitly request CRC32C.
+        assert kwargs["ChecksumAlgorithm"] == "CRC32C"
 
     async def test_does_not_call_delete_when_nothing_is_old(self):
         config = FakeConfig()
