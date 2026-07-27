@@ -73,10 +73,9 @@ def _upload_and_rotate_sync(config, dump_gz_path: str, object_name: str) -> None
     )
 
     if to_delete:
-        # delete_objects accepts at most 1000 keys per call
         for i in range(0, len(to_delete), 1000):
             batch = to_delete[i : i + 1000]
-            s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
+            s3.delete_objects(Bucket=bucket, Delete={"Objects": batch}, ChecksumAlgorithm="CRC32C")
         logger.info(f"🗑️ Deleted {len(to_delete)} old backup(s)")
     else:
         logger.debug("No old backups to delete this run")

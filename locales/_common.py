@@ -5,7 +5,7 @@ TEXTS = {
         "ask_extend_days": "На скільки днів продовжити курс?",
         "ask_new_name": "📝 Введіть ваше нове ПІБ:",
         "ask_new_tz": "🌍 Напишіть місто і країну, де ви зараз перебуваєте\n\nНаприклад: <code>Варшава, Польща</code>",
-        "ask_feedback": "💬 Опишіть проблему або пропозицію одним повідомленням — я передам це розробнику.",
+        "ask_feedback": "💬 Опишіть проблему або пропозицію одним повідомленням – я передам це розробнику.",
         "btn_add": "➕ Додати",
         "btn_back": "⬅️ Назад",
         "btn_change_name": "✏️ Змінити ПІБ",
@@ -39,7 +39,8 @@ TEXTS = {
             "<b>💊 Ліки:</b>\n"
             "• Додавання препаратів з нагадуваннями (розклад, дозування, залишок в аптечці)\n"
             "• Підтвердження або пропуск прийому прямо з нагадування\n"
-            "• Редагування, продовження курсу та видалення ліків\n\n"
+            '• Гнучке редагування: назва, дозування, час прийому, тривалість курсу, залишок і поріг "мало ліків"\n'
+            "• Продовження курсу та видалення ліків\n\n"
             "<b>📝 Рецепти:</b>\n"
             "• Облік рецептів з терміном дії та дозволеною кількістю\n"
             "• Нагадування про закінчення терміну дії рецепту\n"
@@ -62,7 +63,7 @@ TEXTS = {
             "💊 <b>Ліки</b> – додавати, переглядати, редагувати та видаляти нагадування, стежити за залишком в аптечці\n"
             "📝 <b>Рецепти</b> – зберігати рецепти, термін дії та кількість, яку ще можна купити\n"
             "📤 <b>Звіти</b> – отримати Excel/CSV-звіт про прийом препаратів\n"
-            "👤 <b>Налаштування</b> – змінити ПІБ, мову, часовий пояс, зворотній зв'язок\n\n"
+            "👤 <b>Налаштування</b> – змінити ПІБ, мову, часовий пояс, повторні нагадування, зворотній зв'язок\n\n"
             "💬 Просто напишіть (або надішліть голосове) з метою щось додати/змінити/видалити – я відповім та зроблю це як AI-асистент прямо тут, у чаті.\n\n"
             "ℹ️ <b>/help</b> – детальніше про можливості бота\n\n"
             "⚠️ Якщо помітили помилку в роботі бота або виникли питання, пишіть у <b>👤 Налаштування</b> -> <b>💬 Зворотній зв'язок</b>\n\n"
@@ -75,7 +76,7 @@ TEXTS = {
         "ask_extend_days": "How many days to extend the course?",
         "ask_new_name": "📝 Enter your new Full Name:",
         "ask_new_tz": "🌍 Tell me the city and country you're currently in\n\nFor example: <code>Warsaw, Poland</code>",
-        "ask_feedback": "💬 Describe the problem or suggestion in one message — I'll pass it on to the developer.",
+        "ask_feedback": "💬 Describe the problem or suggestion in one message – I'll pass it on to the developer.",
         "btn_add": "➕ Add",
         "btn_back": "⬅️ Back",
         "btn_change_name": "✏️ Change Name",
@@ -109,7 +110,8 @@ TEXTS = {
             "<b>💊 Medicines:</b>\n"
             "• Add medicines with reminders (schedule, dosage, remaining stock)\n"
             "• Confirm or skip a dose right from the reminder\n"
-            "• Edit, extend the course, or delete medicines\n\n"
+            "• Flexible editing: name, dosage, intake time, course length, stock and low-stock threshold\n"
+            "• Extend the course, or delete medicines\n\n"
             "<b>📝 Prescriptions:</b>\n"
             "• Track prescriptions with expiration date and allowed quantity\n"
             "• Get reminded before a prescription expires\n"
@@ -132,7 +134,7 @@ TEXTS = {
             "💊 <b>Medicines</b> – add, view, edit and delete reminders, track remaining stock\n"
             "📝 <b>Prescriptions</b> – keep track of prescriptions, expiration dates, and remaining allowed quantity\n"
             "📤 <b>Reports</b> – get an Excel/CSV report about your medication intake\n"
-            "👤 <b>Settings</b> – change your name, language, timezone, feedback\n\n"
+            "👤 <b>Settings</b> – change your name, language, timezone, repeat reminders, feedback\n\n"
             "💬 Just send me (typed or as a voice message) with aim to add/change/remove something – I will answer and take care of it as an AI assistant right here in the chat.\n\n"
             "ℹ️ <b>/help</b> – more details about the bot's features\n\n"
             "⚠️ If you notice an error in the bot's operation or have any questions, write to <b>👤 Settings</b> -> <b>💬 Feedback</b>\n\n"
@@ -145,7 +147,7 @@ TEXTS = {
         "ask_extend_days": "На сколько дней продлить курс?",
         "ask_new_name": "📝 Введите ваше новое ФИО:",
         "ask_new_tz": "🌍 Напишите город и страну, где вы сейчас находитесь\n\nНапример: <code>Варшава, Польша</code>",
-        "ask_feedback": "💬 Опишите проблему или предложение одним сообщением — я передам это разработчику.",
+        "ask_feedback": "💬 Опишите проблему или предложение одним сообщением – я передам это разработчику.",
         "btn_add": "➕ Добавить",
         "btn_back": "⬅️ Назад",
         "btn_change_name": "✏️ Изменить ФИО",
@@ -179,7 +181,8 @@ TEXTS = {
             "<b>💊 Лекарства:</b>\n"
             "• Добавление препаратов с напоминаниями (расписание, дозировка, остаток в аптечке)\n"
             "• Подтверждение или пропуск приёма прямо из напоминания\n"
-            "• Редактирование, продление курса и удаление лекарств\n\n"
+            '• Гибкое редактирование: название, дозировка, время приёма, длительность курса, остаток и порог "мало лекарства"\n'
+            "• Продление курса и удаление лекарств\n\n"
             "<b>📝 Рецепты:</b>\n"
             "• Учёт рецептов со сроком действия и разрешённым количеством\n"
             "• Напоминание об истечении срока действия рецепта\n"
@@ -202,7 +205,7 @@ TEXTS = {
             "💊 <b>Лекарства</b> – добавлять, просматривать, редактировать и удалять напоминания, следить за остатком в аптечке\n"
             "📝 <b>Рецепты</b> – хранить рецепты, срок действия и оставшееся разрешённое количество\n"
             "📤 <b>Отчёты</b> – получить Excel/CSV-отчёт о приёме препаратов\n"
-            "👤 <b>Настройки</b> – изменить ФИО, язык, часовой пояс, обратная связь\n\n"
+            "👤 <b>Настройки</b> – изменить ФИО, язык, часовой пояс, повторные напоминания, обратная связь\n\n"
             "💬 Просто напишите (или отправьте голосовое) с целью что-то добавить/изменить/удалить – я отвечу и сделаю это как AI-ассистент прямо здесь, в чате.\n\n"
             "ℹ️ <b>/help</b> – детальнее о возможностях бота\n\n"
             "⚠️ Если заметили ошибку в работе бота/возникли вопросы, пишите в <b>👤 Настройки</b> -> <b>💬 Обратная связь</b>\n\n"
