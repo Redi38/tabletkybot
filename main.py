@@ -15,7 +15,7 @@ from aiohttp import web
 
 from config import load_config
 from database.db import init_db
-from handlers import ai_agent, bot_status, errors, medicines, prescriptions, report, settings, start
+from handlers import bot_status, errors, medicines, prescriptions, report, settings, start
 from middleware.db_middleware import DatabaseMiddleware
 from middleware.logging_context import (
     ActionLoggingMiddleware,
@@ -152,7 +152,6 @@ async def main() -> None:
     dp.include_router(medicines.router)
     dp.include_router(report.router)
     dp.include_router(start.router)
-    dp.include_router(ai_agent.router)
 
     start_scheduler()
     logger.info("APScheduler started")

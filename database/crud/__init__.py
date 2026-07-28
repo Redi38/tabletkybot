@@ -5,13 +5,9 @@ Module map:
   users.py         — user accounts (language/timezone preferences)
   medicines.py      — medicines, schedules, intake records
   stats.py           — reports, dashboard, and adherence statistics
-  chat_history.py     — AI conversation history (sliding window)
   prescriptions.py     — prescriptions
-  ai_metrics.py         — AI usage metrics (latency, tool usage, error rates)
 """
 
-from .ai_metrics import get_ai_metrics_summary, get_recent_ai_metrics, log_ai_metric
-from .chat_history import add_chat_message, clear_chat_history, get_chat_history
 from .medicines import (
     add_medicine,
     add_stock,
@@ -80,9 +76,6 @@ __all__ = [
     "get_medicine_intake_stats",
     "get_global_intake_stats",
     "get_dashboard_stats",
-    "add_chat_message",
-    "get_chat_history",
-    "clear_chat_history",
     "add_prescription",
     "get_user_prescriptions",
     "get_prescription_by_id",
@@ -95,7 +88,4 @@ __all__ = [
     "get_expired_active_prescriptions",
     "get_user_archived_prescriptions",
     "restore_prescription",
-    "log_ai_metric",
-    "get_ai_metrics_summary",
-    "get_recent_ai_metrics",
 ]

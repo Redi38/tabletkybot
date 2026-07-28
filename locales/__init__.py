@@ -1,8 +1,8 @@
 from aiogram.fsm.context import FSMContext
 
-from . import _ai, _common, _medicines, _prescriptions, _reports
+from . import _common, _medicines, _prescriptions, _reports
 
-_MODULES = (_common, _medicines, _prescriptions, _ai, _reports)
+_MODULES = (_common, _medicines, _prescriptions, _reports)
 
 TEXTS: dict[str, dict[str, str]] = {}
 for _module in _MODULES:

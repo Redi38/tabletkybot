@@ -11,7 +11,7 @@ from starlette.responses import RedirectResponse
 from wtforms.validators import AnyOf, DataRequired, Length, NumberRange, Regexp
 
 from admin.sync import notify_bot
-from database.models import ChatHistory, Medicine, MedicineRecord, MedicineSchedule, Prescription, User
+from database.models import Medicine, MedicineRecord, MedicineSchedule, Prescription, User
 
 logger = logging.getLogger(__name__)
 
@@ -185,32 +185,3 @@ class PrescriptionAdmin(ModelView, model=Prescription):
         purchased_quantity=dict(validators=[NumberRange(min=0, message="Cannot be negative")]),
         reminder_days_before=dict(validators=[NumberRange(min=0, max=90, message="From 0 to 90 days")]),
     )
-
-
-class ChatHistoryAdmin(ModelView, model=ChatHistory):
-    """
-    Read-only view of the conversation with the AI agent.
-    """
-
-    name = "AI Message"
-    name_plural = "AI Chat History"
-    icon = "fa-solid fa-robot"
-    column_list = [ChatHistory.id, ChatHistory.user, ChatHistory.role, ChatHistory.content, ChatHistory.created_at]
-    column_details_list = [
-        ChatHistory.id,
-        ChatHistory.user,
-        ChatHistory.role,
-        ChatHistory.content,
-        ChatHistory.created_at,
-    ]
-    column_searchable_list = ["user.full_name", "user.username"]
-    column_filters = [StaticValuesFilter(ChatHistory.role, values=[("user", "user"), ("assistant", "assistant")])]
-    column_default_sort = ("created_at", True)
-
-    column_formatters = {
-        ChatHistory.content: lambda m, a: (m.content[:80] + "…") if m.content and len(m.content) > 80 else m.content,
-    }
-
-    can_create = False
-    can_edit = False
-    can_export = True
