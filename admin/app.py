@@ -38,8 +38,7 @@ _admin_file_handler = RotatingFileHandler(
 _admin_file_handler.setFormatter(_log_formatter)
 
 
-for _logger_name in ("", "uvicorn", "uvicorn.error", "uvicorn.access"):
-    logging.getLogger(_logger_name).addHandler(_admin_file_handler)
+logging.getLogger().addHandler(_admin_file_handler)
 logging.getLogger().setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
@@ -122,14 +121,12 @@ if not config.admin_panel_password_hash:
 
 
 # ─── Register ModelViews, custom pages, and their API routes ────────────────
-from admin import dashboard, logs_viewer, model_views, sync  # noqa: E402
+from admin import dashboard, logs_viewer, model_views, sync  # noqa: E402,F401
 
 admin.add_view(model_views.UserAdmin)
 admin.add_view(model_views.MedicineAdmin)
 admin.add_view(model_views.MedicineScheduleAdmin)
 admin.add_view(model_views.MedicineRecordAdmin)
 admin.add_view(model_views.PrescriptionAdmin)
-admin.add_view(model_views.ChatHistoryAdmin)
-admin.add_view(dashboard.AIMetricsView)
 admin.add_view(sync.ReminderQueueView)
 admin.add_view(logs_viewer.LogsView)

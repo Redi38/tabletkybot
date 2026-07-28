@@ -1,7 +1,6 @@
 """
-Canonical flexible date parser, shared by handlers/prescriptions/utils.py
-(user-typed dates like "15.03.26") and services/ai_tools (dates supplied by
-the AI agent, which may also come back in ISO format).
+Canonical flexible date parser, shared across handlers/prescriptions/utils.py
+(user-typed dates like "15.03.26" or ISO format).
 """
 
 from datetime import date, datetime

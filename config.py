@@ -18,13 +18,6 @@ class Config:
     webhook_cert: str = "certs/webhook.pem"
     webhook_key: str = "certs/webhook.key"
     webhook_drop_pending_updates: bool = True
-    # NVIDIA API
-    nvidia_api_key: str | None = None
-    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
-    nvidia_model: str = "meta/llama-3.1-70b-instruct"
-    # Ollama
-    ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "llama3"
     # PostgreSQL
     postgres_user: str = "botuser"
     postgres_password: str = "botpassword"
@@ -43,8 +36,6 @@ class Config:
     backup_s3_secret_key: str | None = None
     backup_s3_region: str = "eu-frankfurt-1"
     backup_retention_days: int = 14
-    # Voice
-    nvidia_riva_function_id: str = "b702f636-f60c-4a3d-a6f4-f3568c13bd7d"
     # Feedback
     admin_chat_id: int | None = None
     # Admin panel auth
@@ -74,13 +65,10 @@ class Config:
 
 def load_config() -> Config:
     bot_token = os.getenv("BOT_TOKEN")
-    nvidia_api_key = os.getenv("NVIDIA_API_KEY")
     webhook_host = os.getenv("WEBHOOK_HOST")
 
     if not bot_token:
         raise ValueError("BOT_TOKEN not found in environment variables")
-    if not nvidia_api_key:
-        raise ValueError("NVIDIA_API_KEY not found in environment variables")
     if not webhook_host:
         raise ValueError("WEBHOOK_HOST not found in environment variables")
 
@@ -115,11 +103,6 @@ def load_config() -> Config:
         webhook_key=os.getenv("WEBHOOK_KEY", "certs/webhook.key"),
         webhook_drop_pending_updates=os.getenv("WEBHOOK_DROP_PENDING_UPDATES", "true").strip().lower()
         in ("1", "true", "yes", "on"),
-        nvidia_api_key=nvidia_api_key,
-        nvidia_base_url=os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"),
-        nvidia_model=os.getenv("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct"),
-        ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
-        ollama_model=os.getenv("OLLAMA_MODEL", "llama3"),
         postgres_user=os.getenv("POSTGRES_USER", "botuser"),
         postgres_password=os.getenv("POSTGRES_PASSWORD", "botpassword"),
         postgres_db=os.getenv("POSTGRES_DB", "medbot"),
@@ -135,7 +118,6 @@ def load_config() -> Config:
         backup_s3_secret_key=os.getenv("BACKUP_S3_SECRET_KEY"),
         backup_s3_region=os.getenv("BACKUP_S3_REGION", "eu-frankfurt-1"),
         backup_retention_days=int(os.getenv("BACKUP_RETENTION_DAYS", "14")),
-        nvidia_riva_function_id=os.getenv("NVIDIA_RIVA_FUNCTION_ID", "b702f636-f60c-4a3d-a6f4-f3568c13bd7d"),
         admin_chat_id=int(admin_chat_id_raw) if admin_chat_id_raw else None,
         admin_panel_username=os.getenv("ADMIN_PANEL_USERNAME", "admin"),
         admin_panel_password_hash=admin_panel_password_hash,

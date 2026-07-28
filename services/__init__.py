@@ -1,4 +1,3 @@
-from services.ai_service import get_ai_response
 from services.report_service import create_excel_report
 from services.scheduler import (
     add_reminders_for_medicine,
@@ -11,7 +10,6 @@ from services.scheduler import (
 )
 
 __all__ = [
-    "get_ai_response",
     "scheduler",
     "start_scheduler",
     "stop_scheduler",

@@ -12,7 +12,7 @@ other module in this package already does at real runtime) avoids it.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from admin.app import app  # noqa: F401 — import order matters, see module docstring
-from admin.model_views import ChatHistoryAdmin, MedicineAdmin, MedicineScheduleAdmin
+from admin.model_views import MedicineAdmin, MedicineScheduleAdmin
 
 
 class TestMedicineAdminHooks:
@@ -119,36 +119,3 @@ class TestSendReminderNowAction:
 
         assert mock_notify.await_count == 2
         assert response.status_code == 303
-
-
-class TestChatHistoryContentFormatter:
-    def _format(self, content):
-        formatter = ChatHistoryAdmin.column_formatters[ChatHistoryAdmin.model.content]
-        fake_message = MagicMock(content=content)
-        return formatter(fake_message, None)
-
-    def test_leaves_short_content_unchanged(self):
-        result = self._format("Take two pills after breakfast")
-        assert result == "Take two pills after breakfast"
-
-    def test_truncates_long_content_with_ellipsis(self):
-        long_text = "A" * 100
-        result = self._format(long_text)
-        assert result == "A" * 80 + "…"
-        assert len(result) == 81
-
-    def test_handles_none_content(self):
-        result = self._format(None)
-        assert result is None
-
-    def test_exactly_80_chars_is_not_truncated(self):
-        text = "A" * 80
-        result = self._format(text)
-        assert result == text
-
-
-class TestChatHistoryAdminPermissions:
-    def test_is_read_only_except_export(self):
-        assert ChatHistoryAdmin.can_create is False
-        assert ChatHistoryAdmin.can_edit is False
-        assert ChatHistoryAdmin.can_export is True
