@@ -12,6 +12,13 @@ A production-ready Telegram bot for medication schedule and prescription managem
 
 ---
 
+## Branches
+
+- **`main`** — the active production branch. This is the version described in this README.
+- **`legacy-ai`** — an archived snapshot of the bot from when it included a function-calling AI agent (NVIDIA NIM API, function calling over medicines/prescriptions, and voice message transcription via NVIDIA Riva ASR). The AI agent was removed from `main` after real usage data showed users weren't using it; `legacy-ai` is kept around purely as a reference in case that functionality is ever revisited. It is not deployed and is not actively maintained.
+
+---
+
 ## Features
 
 - **Medication Management** — add, edit (name, dosage, intake time, course length, stock, low-stock threshold), extend, archive, and delete medication schedules with timezone-aware reminders and stock tracking (low-stock alerts, restock flow)
