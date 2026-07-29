@@ -155,7 +155,7 @@ class TestRetentionRotation:
         _, kwargs = mock_s3.delete_objects.call_args
         deleted_keys = [obj["Key"] for obj in kwargs["Delete"]["Objects"]]
         assert deleted_keys == ["db_backups/medbot_old.dump.gz"]
-        assert kwargs["ChecksumAlgorithm"] == "CRC32"
+        assert kwargs["ChecksumAlgorithm"] == "SHA256"
 
     async def test_does_not_call_delete_when_nothing_is_old(self):
         config = FakeConfig()

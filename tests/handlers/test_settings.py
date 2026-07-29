@@ -5,6 +5,7 @@ editing, feedback forwarding, and the repeat-reminders on/off toggle.
 
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
+from aiogram import Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -84,19 +85,29 @@ class TestToggleRepeatReminders:
         await crud.get_or_create_user(db_session, 1, "tester", "Test User")
         call, message = _fake_call(1, "toggle_repeat_reminders")
         state = _fake_state()
+        bot = create_autospec(Bot, instance=True)
 
-        await toggle_repeat_reminders(call, state, db_session)
+        with (
+            patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
+            patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()),
+        ):
+            await toggle_repeat_reminders(call, state, db_session, bot)
 
         assert await crud.get_repeat_reminders_enabled(db_session, 1) is False
 
     async def test_second_toggle_flips_it_back(self, db_session):
         await crud.get_or_create_user(db_session, 1, "tester", "Test User")
         state = _fake_state()
+        bot = create_autospec(Bot, instance=True)
 
-        call1, _ = _fake_call(1, "toggle_repeat_reminders")
-        await toggle_repeat_reminders(call1, state, db_session)
-        call2, _ = _fake_call(1, "toggle_repeat_reminders")
-        await toggle_repeat_reminders(call2, state, db_session)
+        with (
+            patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
+            patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()),
+        ):
+            call1, _ = _fake_call(1, "toggle_repeat_reminders")
+            await toggle_repeat_reminders(call1, state, db_session, bot)
+            call2, _ = _fake_call(1, "toggle_repeat_reminders")
+            await toggle_repeat_reminders(call2, state, db_session, bot)
 
         assert await crud.get_repeat_reminders_enabled(db_session, 1) is True
 
@@ -104,8 +115,13 @@ class TestToggleRepeatReminders:
         await crud.get_or_create_user(db_session, 1, "tester", "Test User")
         call, message = _fake_call(1, "toggle_repeat_reminders")
         state = _fake_state()
+        bot = create_autospec(Bot, instance=True)
 
-        await toggle_repeat_reminders(call, state, db_session)
+        with (
+            patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
+            patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()),
+        ):
+            await toggle_repeat_reminders(call, state, db_session, bot)
 
         message.edit_text.assert_awaited_once()
 
@@ -113,8 +129,13 @@ class TestToggleRepeatReminders:
         await crud.get_or_create_user(db_session, 1, "tester", "Test User")
         call, _ = _fake_call(1, "toggle_repeat_reminders")
         state = _fake_state()
+        bot = create_autospec(Bot, instance=True)
 
-        await toggle_repeat_reminders(call, state, db_session)
+        with (
+            patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
+            patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()),
+        ):
+            await toggle_repeat_reminders(call, state, db_session, bot)
 
         call.answer.assert_awaited_once()
 
@@ -122,12 +143,48 @@ class TestToggleRepeatReminders:
         await crud.get_or_create_user(db_session, 1, "tester", "Test User")
         call, message = _fake_call(1, "toggle_repeat_reminders")
         state = _fake_state()
+        bot = create_autospec(Bot, instance=True)
 
-        await toggle_repeat_reminders(call, state, db_session)
+        with (
+            patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
+            patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()),
+        ):
+            await toggle_repeat_reminders(call, state, db_session, bot)
 
         keyboard = message.edit_text.call_args.kwargs["reply_markup"]
         callback_data = [btn.callback_data for row in keyboard.inline_keyboard for btn in row]
         assert "toggle_repeat_reminders" in callback_data
+
+    async def test_turning_off_pauses_active_repeats(self, db_session):
+        await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        call, _ = _fake_call(1, "toggle_repeat_reminders")
+        state = _fake_state()
+        bot = create_autospec(Bot, instance=True)
+
+        with (
+            patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()) as mock_pause,
+            patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()) as mock_resume,
+        ):
+            await toggle_repeat_reminders(call, state, db_session, bot)
+
+        mock_pause.assert_awaited_once_with(1)
+        mock_resume.assert_not_awaited()
+
+    async def test_turning_back_on_resumes_active_repeats(self, db_session):
+        await crud.get_or_create_user(db_session, 1, "tester", "Test User")
+        state = _fake_state()
+        bot = create_autospec(Bot, instance=True)
+
+        with (
+            patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
+            patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()) as mock_resume,
+        ):
+            call1, _ = _fake_call(1, "toggle_repeat_reminders")
+            await toggle_repeat_reminders(call1, state, db_session, bot)
+            call2, _ = _fake_call(1, "toggle_repeat_reminders")
+            await toggle_repeat_reminders(call2, state, db_session, bot)
+
+        mock_resume.assert_awaited_once_with(bot, 1)
 
 
 def _fake_text_message(user_id: int, text: str):

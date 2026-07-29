@@ -10,6 +10,7 @@ the medicine instead of sending a normal dose reminder).
 
 import asyncio
 import logging
+import math
 from datetime import date as date_type
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
@@ -207,6 +208,79 @@ async def cancel_repeat_reminder(chat_id: int, medicine_id: int) -> None:
     except Exception:
         pass
     await _delete_pending_reminder(chat_id, medicine_id)
+
+
+async def pause_repeat_reminders_for_user(chat_id: int) -> int:
+    """
+    Called immediately when a user turns repeat reminders OFF. Stops the
+    hourly re-nudge for every currently unacknowledged reminder belonging to
+    this user, without touching the reminder message itself or its pending
+    state — the user still sees the reminder they already got and can still
+    tap Taken/Skip, it just won't be re-sent every hour anymore.
+    """
+    pending_list = await _get_all_pending_reminders()
+    stopped = 0
+    for pending_chat_id, medicine_id, _data in pending_list:
+        if pending_chat_id != chat_id:
+            continue
+        try:
+            scheduler.remove_job(f"repeat_{medicine_id}_{pending_chat_id}")
+            stopped += 1
+        except Exception:
+            pass
+    if stopped:
+        logger.info(f"Paused {stopped} active repeat reminder(s) for user {chat_id} (setting turned off)")
+    return stopped
+
+
+async def resume_repeat_reminders_for_user(bot: Bot, chat_id: int) -> int:
+    """
+    Called immediately when a user turns repeat reminders back ON. Resumes
+    the hourly cadence for every currently unacknowledged reminder belonging
+    to this user, preserving the ORIGINAL hourly grid based on "sent_at"
+    (e.g. reminder sent at 11:00 -> repeats would naturally land at 12:00,
+    13:00, 14:00... -> if the user re-enables at 12:30, the next repeat is
+    13:00, the next slot on that same grid) instead of resetting the
+    countdown to "now + 1 hour". If "now" already sits exactly on (or past)
+    a grid slot, the repeat fires immediately rather than waiting further.
+    """
+    pending_list = await _get_all_pending_reminders()
+    resumed = 0
+    now = datetime.now(dt_timezone.utc)
+    for pending_chat_id, medicine_id, data in pending_list:
+        if pending_chat_id != chat_id:
+            continue
+        job_id = f"repeat_{medicine_id}_{pending_chat_id}"
+        if scheduler.get_job(job_id):
+            continue
+
+        next_run_time = None
+        sent_at_str = data.get("sent_at")
+        if sent_at_str:
+            try:
+                sent_at = datetime.fromisoformat(sent_at_str)
+                if sent_at.tzinfo is None:
+                    sent_at = sent_at.replace(tzinfo=dt_timezone.utc)
+                elapsed_hours = (now - sent_at).total_seconds() / 3600
+                next_slot = math.ceil(elapsed_hours) if elapsed_hours > 0 else 1
+                next_run_time = sent_at + timedelta(hours=next_slot)
+            except ValueError:
+                next_run_time = None
+
+        scheduler.add_job(
+            send_repeat_reminder,
+            trigger="interval",
+            hours=1,
+            id=job_id,
+            replace_existing=True,
+            next_run_time=next_run_time,
+            misfire_grace_time=300,
+            kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": pending_chat_id},
+        )
+        resumed += 1
+    if resumed:
+        logger.info(f"Resumed {resumed} repeat reminder(s) for user {chat_id} (setting turned back on)")
+    return resumed
 
 
 async def resume_pending_reminders(bot: Bot) -> None:

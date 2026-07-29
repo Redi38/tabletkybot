@@ -11,7 +11,11 @@ from config import Config
 from database import crud
 from locales.texts import DEFAULT_LANG, btn_variants, data_lang, get_text, user_lang
 from services.geo_service import format_timezone_display, resolve_timezone_from_place
-from services.scheduler import add_reminders_for_medicine
+from services.scheduler import (
+    add_reminders_for_medicine,
+    pause_repeat_reminders_for_user,
+    resume_repeat_reminders_for_user,
+)
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -185,12 +189,16 @@ async def feedback_start(call: CallbackQuery, state: FSMContext, session: AsyncS
 
 
 @router.callback_query(F.data == "toggle_repeat_reminders")
-async def toggle_repeat_reminders(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+async def toggle_repeat_reminders(call: CallbackQuery, state: FSMContext, session: AsyncSession, bot: Bot) -> None:
     ctx = await _settings_ctx(call, state, session)
     if not ctx or not call.from_user:
         return
     msg, lang = ctx
     new_value = await crud.toggle_repeat_reminders(session, call.from_user.id)
+    if new_value:
+        await resume_repeat_reminders_for_user(bot, call.from_user.id)
+    else:
+        await pause_repeat_reminders_for_user(call.from_user.id)
     user = await crud.get_or_create_user(session, call.from_user.id, call.from_user.username, call.from_user.full_name)
     tz_display = format_timezone_display(user.timezone) or get_text(lang, "not_set")
     await msg.edit_text(
