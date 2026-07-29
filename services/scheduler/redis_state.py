@@ -94,6 +94,30 @@ async def _get_all_pending_reminders() -> list[tuple[int, int, dict]]:
     return result
 
 
+async def _get_pending_reminders_for_chat(chat_id: int) -> list[tuple[int, dict]]:
+    """
+    Returns [(medicine_id, data), ...] for a single chat_id only, scanning
+    just that user's keys (pending_reminder:{chat_id}:*) instead of every
+    pending reminder in Redis. Used when pausing/resuming repeat reminders
+    for one user (e.g. the repeat-reminders settings toggle), where scanning
+    the whole keyspace would be wasted work as the user base grows.
+    """
+    if not _redis_client:
+        return []
+    result = []
+    pattern = f"{_PENDING_KEY_PREFIX}{chat_id}:*"
+    async for key in _redis_client.scan_iter(match=pattern):
+        try:
+            _, _chat_id_str, medicine_id_str = key.split(":")
+            raw = await _redis_client.get(key)  # type: ignore[misc]
+            if raw:
+                data = json.loads(raw)
+                result.append((int(medicine_id_str), data))
+        except (ValueError, json.JSONDecodeError):  # fmt: skip
+            continue
+    return result
+
+
 async def get_active_pending_reminders() -> list[dict]:
     """
     Returns currently "active" reminders: ones already sent to the user

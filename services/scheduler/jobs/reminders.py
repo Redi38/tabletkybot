@@ -29,6 +29,7 @@ from ..redis_state import (
     _delete_stock_alerts_for_medicine,
     _get_all_pending_reminders,
     _get_pending_reminder,
+    _get_pending_reminders_for_chat,
     _save_pending_reminder,
     clear_stock_alert_pending,
     get_stock_alert_pending,
@@ -201,6 +202,27 @@ async def send_repeat_reminder(bot: Bot, medicine_id: int, chat_id: int) -> None
         logger.error(f"Repeat reminder error for {chat_id}: {e}")
 
 
+def _next_grid_slot(sent_at_str: str | None, now: datetime) -> datetime | None:
+    """
+    Given the original "sent_at" timestamp for a reminder, returns the next
+    future slot on its hourly grid (sent_at, sent_at+1h, sent_at+2h, ...)
+    that is still ahead of "now" — or "now" itself if it falls exactly on a
+    slot. Returns None if "sent_at" is missing/unparseable, in which case
+    the caller falls back to APScheduler's own default (now + 1 interval).
+    """
+    if not sent_at_str:
+        return None
+    try:
+        sent_at = datetime.fromisoformat(sent_at_str)
+    except ValueError:
+        return None
+    if sent_at.tzinfo is None:
+        sent_at = sent_at.replace(tzinfo=dt_timezone.utc)
+    elapsed_hours = (now - sent_at).total_seconds() / 3600
+    next_slot = math.ceil(elapsed_hours) if elapsed_hours > 0 else 1
+    return sent_at + timedelta(hours=next_slot)
+
+
 async def cancel_repeat_reminder(chat_id: int, medicine_id: int) -> None:
     try:
         scheduler.remove_job(f"repeat_{medicine_id}_{chat_id}")
@@ -218,13 +240,11 @@ async def pause_repeat_reminders_for_user(chat_id: int) -> int:
     state — the user still sees the reminder they already got and can still
     tap Taken/Skip, it just won't be re-sent every hour anymore.
     """
-    pending_list = await _get_all_pending_reminders()
+    pending_list = await _get_pending_reminders_for_chat(chat_id)
     stopped = 0
-    for pending_chat_id, medicine_id, _data in pending_list:
-        if pending_chat_id != chat_id:
-            continue
+    for medicine_id, _data in pending_list:
         try:
-            scheduler.remove_job(f"repeat_{medicine_id}_{pending_chat_id}")
+            scheduler.remove_job(f"repeat_{medicine_id}_{chat_id}")
             stopped += 1
         except Exception:
             pass
@@ -244,28 +264,15 @@ async def resume_repeat_reminders_for_user(bot: Bot, chat_id: int) -> int:
     countdown to "now + 1 hour". If "now" already sits exactly on (or past)
     a grid slot, the repeat fires immediately rather than waiting further.
     """
-    pending_list = await _get_all_pending_reminders()
+    pending_list = await _get_pending_reminders_for_chat(chat_id)
     resumed = 0
     now = datetime.now(dt_timezone.utc)
-    for pending_chat_id, medicine_id, data in pending_list:
-        if pending_chat_id != chat_id:
-            continue
-        job_id = f"repeat_{medicine_id}_{pending_chat_id}"
+    for medicine_id, data in pending_list:
+        job_id = f"repeat_{medicine_id}_{chat_id}"
         if scheduler.get_job(job_id):
             continue
 
-        next_run_time = None
-        sent_at_str = data.get("sent_at")
-        if sent_at_str:
-            try:
-                sent_at = datetime.fromisoformat(sent_at_str)
-                if sent_at.tzinfo is None:
-                    sent_at = sent_at.replace(tzinfo=dt_timezone.utc)
-                elapsed_hours = (now - sent_at).total_seconds() / 3600
-                next_slot = math.ceil(elapsed_hours) if elapsed_hours > 0 else 1
-                next_run_time = sent_at + timedelta(hours=next_slot)
-            except ValueError:
-                next_run_time = None
+        next_run_time = _next_grid_slot(data.get("sent_at"), now)
 
         scheduler.add_job(
             send_repeat_reminder,
@@ -275,7 +282,7 @@ async def resume_repeat_reminders_for_user(bot: Bot, chat_id: int) -> int:
             replace_existing=True,
             next_run_time=next_run_time,
             misfire_grace_time=300,
-            kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": pending_chat_id},
+            kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": chat_id},
         )
         resumed += 1
     if resumed:
@@ -287,10 +294,10 @@ async def resume_pending_reminders(bot: Bot) -> None:
     """
     Called ONCE at bot startup (after sync_reminders). Restores hourly
     repeat jobs for all reminders the user hasn't confirmed yet, preserving
-    the original hourly cadence based on when the reminder/repeat was last
-    sent (via the "sent_at" timestamp stored in Redis) — instead of
-    resetting the 1-hour countdown to "now + 1 hour" on every restart, which
-    causes the repeat to drift later and later with each restart.
+    the original hourly grid based on when the reminder was first sent (via
+    the "sent_at" timestamp stored in Redis) — instead of resetting the
+    1-hour countdown to "now + 1 hour" on every restart, which causes the
+    repeat to drift later and later with each restart.
     """
     pending_list = await _get_all_pending_reminders()
     restored = 0
@@ -301,18 +308,7 @@ async def resume_pending_reminders(bot: Bot) -> None:
         if scheduler.get_job(job_id):
             continue
 
-        next_run_time = None
-        sent_at_str = data.get("sent_at")
-        if sent_at_str:
-            try:
-                sent_at = datetime.fromisoformat(sent_at_str)
-                if sent_at.tzinfo is None:
-                    sent_at = sent_at.replace(tzinfo=dt_timezone.utc)
-                next_run_time = sent_at + timedelta(hours=1)
-                if next_run_time < now:
-                    next_run_time = now
-            except ValueError:
-                next_run_time = None
+        next_run_time = _next_grid_slot(data.get("sent_at"), now)
 
         scheduler.add_job(
             send_repeat_reminder,

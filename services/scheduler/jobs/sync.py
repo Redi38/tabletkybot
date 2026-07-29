@@ -139,6 +139,7 @@ async def sync_single_reminder(bot: Bot, session_factory: async_sessionmaker, me
             timezone=user.timezone or "Europe/Kyiv",
             is_manual=True,
             schedule_id=schedule_id,
+            session_factory=session_factory,
         )
         logger.info(f"Immediate reminder sent for med_{medicine_id} (requested from the Admin Panel)")
         return
