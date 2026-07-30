@@ -103,7 +103,7 @@ TEXTS = {
         "btn_restock_yes": "✅ Yes, add amount",
         "btn_skip": "⏭️ Skip",
         "btn_take": "✅ Taken",
-        "course_finished_ask": "🎉 Congratulations! You have finished your <b>{name}</b> course.\n\nHow do you feel? Do you want to continue or finish?",
+        "course_finished_ask": "🎉 Congratulations! You have finished your <b>{name}</b> course.\n\nHow do you feel? Do you want to continue the course or finish it?",
         "err_duration": "❌ Enter a positive integer (e.g., 14):",
         "err_threshold": "❌ Enter an integer (e.g., 5):",
         "err_time": "❌ Invalid format. Enter time in HH:MM format (e.g., <b>08:30</b> or <b>08:00, 20:00</b>):",
