@@ -62,12 +62,14 @@ async def extend_course_save(
                     callback_data=f"mark_taken_now_{medicine_id}",
                     style="success",
                 ),
+            ],
+            [
                 InlineKeyboardButton(
                     text=get_text(lang, "btn_list"),
                     callback_data="med_list",
                     style="primary",
                 ),
-            ]
+            ],
         ]
     )
     await message.answer(

@@ -145,6 +145,21 @@ class TestExtendCourseSave:
         assert f"mark_taken_now_{medicine.id}" in callback_data
         assert "med_list" in callback_data
 
+    async def test_mark_taken_and_list_buttons_are_on_separate_rows(self, db_session, mock_redis, mock_bot):
+        """
+        Regression test: these two buttons used to share one row, which
+        truncated the (longer) "mark taken" button's text in Telegram's UI.
+        """
+        medicine = await _add_medicine(db_session, is_active=False)
+        message = _fake_message("10")
+        state = _FakeState(data={"lang": "en", "medicine_id": medicine.id})
+
+        await extend_course_save(message, state, db_session, mock_bot, MagicMock())
+
+        keyboard = message.answer.call_args.kwargs["reply_markup"]
+        assert len(keyboard.inline_keyboard) == 2
+        assert all(len(row) == 1 for row in keyboard.inline_keyboard)
+
     async def test_reschedules_reminders_after_saving(self, db_session, mock_redis, mock_bot, monkeypatch):
         import handlers.medicines.extend as extend_module
 
