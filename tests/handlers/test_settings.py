@@ -91,7 +91,7 @@ class TestToggleRepeatReminders:
             patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
             patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()),
         ):
-            await toggle_repeat_reminders(call, state, db_session, bot)
+            await toggle_repeat_reminders(call, state, db_session, bot, MagicMock())
 
         assert await crud.get_repeat_reminders_enabled(db_session, 1) is False
 
@@ -105,9 +105,9 @@ class TestToggleRepeatReminders:
             patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()),
         ):
             call1, _ = _fake_call(1, "toggle_repeat_reminders")
-            await toggle_repeat_reminders(call1, state, db_session, bot)
+            await toggle_repeat_reminders(call1, state, db_session, bot, MagicMock())
             call2, _ = _fake_call(1, "toggle_repeat_reminders")
-            await toggle_repeat_reminders(call2, state, db_session, bot)
+            await toggle_repeat_reminders(call2, state, db_session, bot, MagicMock())
 
         assert await crud.get_repeat_reminders_enabled(db_session, 1) is True
 
@@ -121,7 +121,7 @@ class TestToggleRepeatReminders:
             patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
             patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()),
         ):
-            await toggle_repeat_reminders(call, state, db_session, bot)
+            await toggle_repeat_reminders(call, state, db_session, bot, MagicMock())
 
         message.edit_text.assert_awaited_once()
 
@@ -135,7 +135,7 @@ class TestToggleRepeatReminders:
             patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
             patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()),
         ):
-            await toggle_repeat_reminders(call, state, db_session, bot)
+            await toggle_repeat_reminders(call, state, db_session, bot, MagicMock())
 
         call.answer.assert_awaited_once()
 
@@ -149,7 +149,7 @@ class TestToggleRepeatReminders:
             patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
             patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()),
         ):
-            await toggle_repeat_reminders(call, state, db_session, bot)
+            await toggle_repeat_reminders(call, state, db_session, bot, MagicMock())
 
         keyboard = message.edit_text.call_args.kwargs["reply_markup"]
         callback_data = [btn.callback_data for row in keyboard.inline_keyboard for btn in row]
@@ -165,7 +165,7 @@ class TestToggleRepeatReminders:
             patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()) as mock_pause,
             patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()) as mock_resume,
         ):
-            await toggle_repeat_reminders(call, state, db_session, bot)
+            await toggle_repeat_reminders(call, state, db_session, bot, MagicMock())
 
         mock_pause.assert_awaited_once_with(1)
         mock_resume.assert_not_awaited()
@@ -174,17 +174,18 @@ class TestToggleRepeatReminders:
         await crud.get_or_create_user(db_session, 1, "tester", "Test User")
         state = _fake_state()
         bot = create_autospec(Bot, instance=True)
+        session_factory = MagicMock()
 
         with (
             patch("handlers.settings.pause_repeat_reminders_for_user", AsyncMock()),
             patch("handlers.settings.resume_repeat_reminders_for_user", AsyncMock()) as mock_resume,
         ):
             call1, _ = _fake_call(1, "toggle_repeat_reminders")
-            await toggle_repeat_reminders(call1, state, db_session, bot)
+            await toggle_repeat_reminders(call1, state, db_session, bot, session_factory)
             call2, _ = _fake_call(1, "toggle_repeat_reminders")
-            await toggle_repeat_reminders(call2, state, db_session, bot)
+            await toggle_repeat_reminders(call2, state, db_session, bot, session_factory)
 
-        mock_resume.assert_awaited_once_with(bot, 1)
+        mock_resume.assert_awaited_once_with(bot, 1, session_factory)
 
 
 def _fake_text_message(user_id: int, text: str):

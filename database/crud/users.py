@@ -87,6 +87,11 @@ async def get_repeat_reminders_enabled(session: AsyncSession, user_id: int) -> b
     return bool(user.repeat_reminders_enabled) if user else True
 
 
+async def get_user_blocked(session: AsyncSession, user_id: int) -> bool:
+    user = await _get_user(session, user_id)
+    return bool(user.is_blocked) if user else False
+
+
 async def toggle_repeat_reminders(session: AsyncSession, user_id: int) -> bool:
     """Flip the repeat-reminders flag and return the new value."""
     user = await _get_user(session, user_id)

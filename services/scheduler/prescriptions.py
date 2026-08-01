@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramForbiddenError
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -41,6 +42,9 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
         pending = await crud.get_prescriptions_needing_reminder(session)
 
         for prescription, user in pending:
+            if user.is_blocked:
+                continue
+
             try:
                 tz = ZoneInfo(user.timezone or "Europe/Kyiv")
             except Exception:
@@ -70,6 +74,9 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
                 )
                 await crud.mark_prescription_reminder_sent(session, prescription.id)
                 logger.info(f"Prescription reminder {prescription.id} sent to {user.id}")
+            except TelegramForbiddenError:
+                await crud.mark_user_blocked(session, user.id)
+                logger.info(f"User {user.id} has blocked the bot — marking blocked, skipping prescription reminder")
             except Exception as e:
                 logger.error(f"Prescription reminder error {prescription.id}: {e}")
 
@@ -82,6 +89,8 @@ async def archive_expired_prescriptions(bot: Bot, session_factory: async_session
 
         for prescription, user in expired:
             await crud.archive_prescription(session, prescription.id)
+            if user.is_blocked:
+                continue
             language = user_lang(user)
             try:
                 await bot.send_message(
@@ -90,5 +99,8 @@ async def archive_expired_prescriptions(bot: Bot, session_factory: async_session
                     parse_mode="HTML",
                 )
                 logger.info(f"Prescription {prescription.id} auto-archived (expired)")
+            except TelegramForbiddenError:
+                await crud.mark_user_blocked(session, user.id)
+                logger.info(f"User {user.id} has blocked the bot — marking blocked, skipping archive notification")
             except Exception as e:
                 logger.error(f"Error notifying about auto-archiving prescription {prescription.id}: {e}")

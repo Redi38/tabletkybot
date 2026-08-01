@@ -5,7 +5,7 @@ from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from config import Config
 from database import crud
@@ -189,14 +189,20 @@ async def feedback_start(call: CallbackQuery, state: FSMContext, session: AsyncS
 
 
 @router.callback_query(F.data == "toggle_repeat_reminders")
-async def toggle_repeat_reminders(call: CallbackQuery, state: FSMContext, session: AsyncSession, bot: Bot) -> None:
+async def toggle_repeat_reminders(
+    call: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+    bot: Bot,
+    session_factory: async_sessionmaker,
+) -> None:
     ctx = await _settings_ctx(call, state, session)
     if not ctx or not call.from_user:
         return
     msg, lang = ctx
     new_value = await crud.toggle_repeat_reminders(session, call.from_user.id)
     if new_value:
-        await resume_repeat_reminders_for_user(bot, call.from_user.id)
+        await resume_repeat_reminders_for_user(bot, call.from_user.id, session_factory)
     else:
         await pause_repeat_reminders_for_user(call.from_user.id)
     user = await crud.get_or_create_user(session, call.from_user.id, call.from_user.username, call.from_user.full_name)

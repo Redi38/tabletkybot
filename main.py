@@ -158,7 +158,7 @@ async def main() -> None:
 
     with correlation_scope("job:startup_sync"):
         await sync_reminders(bot, session_factory)
-        await resume_pending_reminders(bot)
+        await resume_pending_reminders(bot, session_factory)
 
     async def _timed_job(name: str, coro) -> None:
         start = asyncio.get_running_loop().time()

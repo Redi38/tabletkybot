@@ -17,7 +17,7 @@ from datetime import timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -60,6 +60,35 @@ def get_reminder_keyboard(medicine_id: int, language: str) -> InlineKeyboardMark
     )
 
 
+async def _handle_user_blocked(chat_id: int, session_factory: async_sessionmaker | None) -> None:
+    """
+    Called the moment a send to `chat_id` comes back with
+    TelegramForbiddenError (the user blocked the bot). This is a safety net
+    for the normal detection path (the `my_chat_member` update in
+    handlers/bot_status.py) — that update is instant and authoritative, but
+    if it's ever missed or arrives late, this makes sure we still notice
+    and stop hammering a user who can't receive messages, instead of
+    retrying (and logging an "error") on every scheduled reminder forever.
+    """
+    logger.info(f"User {chat_id} has blocked the bot (detected via a failed send) — marking blocked and cancelling")
+    if session_factory is not None:
+        from database import crud
+
+        async with session_factory() as session:
+            await crud.mark_user_blocked(session, chat_id)
+    for job in scheduler.get_jobs():
+        if job.id.startswith("repeat_") and job.id.endswith(f"_{chat_id}"):
+            try:
+                scheduler.remove_job(job.id)
+            except Exception:
+                pass
+    # Every pending reminder for this user is now stuck forever — no repeat
+    # or future send will reach them while blocked — so clear them out of
+    # the admin Reminder Queue instead of leaving stale entries behind.
+    for medicine_id, _data in await _get_pending_reminders_for_chat(chat_id):
+        await _delete_pending_reminder(chat_id, medicine_id)
+
+
 async def send_reminder(
     bot: Bot,
     medicine_id: int,
@@ -72,6 +101,25 @@ async def send_reminder(
     schedule_id: int | None = None,
     session_factory: async_sessionmaker | None = None,
 ) -> None:
+    # ── Blocked-user fast path ──────────────────────────────────────────
+    # If we already know (from a previous my_chat_member update, or a
+    # previous send that hit TelegramForbiddenError below) that this user
+    # blocked the bot, don't even attempt to send — there's no point
+    # burning a Telegram API call, and it keeps this job from logging an
+    # "error" every time it fires for a user who simply blocked the bot.
+    if session_factory is not None:
+        from database import crud
+
+        async with session_factory() as session:
+            if await crud.get_user_blocked(session, chat_id):
+                logger.info(f"Skipping reminder for {chat_id} — user has blocked the bot")
+                # Clean up any stale pending-reminder entry from before the
+                # block (e.g. yesterday's dose was never acknowledged) so it
+                # doesn't sit forever in the admin Reminder Queue — it can
+                # never be resolved while the user is blocked.
+                await _delete_pending_reminder(chat_id, medicine_id)
+                return
+
     # ── Auto-archive check ──────────────────────────────────────────────
     # If the empty-stock alert from the previous dose is still unacknowledged
     # (user never pressed "Restock" or "Archive"), archive the medicine now
@@ -97,6 +145,8 @@ async def send_reminder(
                     f"Medicine '{name}' (id={medicine_id}) auto-archived for user {chat_id} "
                     f"— no action taken on the empty-stock alert before the next dose"
                 )
+            except TelegramForbiddenError:
+                await _handle_user_blocked(chat_id, session_factory)
             except Exception as e:
                 logger.error(f"Error sending auto-archive notification to {chat_id}: {e}")
             return
@@ -148,21 +198,48 @@ async def send_reminder(
                 id=f"repeat_{medicine_id}_{chat_id}",
                 replace_existing=True,
                 misfire_grace_time=300,
-                kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": chat_id},
+                kwargs={
+                    "bot": bot,
+                    "medicine_id": medicine_id,
+                    "chat_id": chat_id,
+                    "session_factory": session_factory,
+                },
             )
         else:
             logger.info(f"Repeat reminders disabled by user {chat_id} — not scheduling repeat_{medicine_id}_{chat_id}")
+    except TelegramForbiddenError:
+        await _handle_user_blocked(chat_id, session_factory)
     except Exception as e:
         logger.error(f"Error sending reminder to user {chat_id}: {e}")
 
 
-async def send_repeat_reminder(bot: Bot, medicine_id: int, chat_id: int) -> None:
+async def send_repeat_reminder(
+    bot: Bot,
+    medicine_id: int,
+    chat_id: int,
+    session_factory: async_sessionmaker | None = None,
+) -> None:
     """
     Repeat reminder every hour until the button is pressed.
     Each time it deletes the PREVIOUS message and sends a NEW one instead
     of it — so the reminder always pops up at the bottom of the chat instead of
     getting lost among old repeats.
     """
+    if session_factory is not None:
+        from database import crud
+
+        async with session_factory() as session:
+            if await crud.get_user_blocked(session, chat_id):
+                logger.info(f"Skipping repeat reminder for {chat_id} — user has blocked the bot")
+                try:
+                    scheduler.remove_job(f"repeat_{medicine_id}_{chat_id}")
+                except Exception:
+                    pass
+                # It'll never be acknowledged while blocked — clear it so it
+                # doesn't sit forever in the admin Reminder Queue.
+                await _delete_pending_reminder(chat_id, medicine_id)
+                return
+
     pending = await _get_pending_reminder(chat_id, medicine_id)
     if not pending:
         try:
@@ -198,6 +275,8 @@ async def send_repeat_reminder(bot: Bot, medicine_id: int, chat_id: int) -> None
             pending["timezone"],
         )
         logger.info(f"Repeat reminder sent to {chat_id} for {medicine_name}")
+    except TelegramForbiddenError:
+        await _handle_user_blocked(chat_id, session_factory)
     except Exception as e:
         logger.error(f"Repeat reminder error for {chat_id}: {e}")
 
@@ -253,7 +332,9 @@ async def pause_repeat_reminders_for_user(chat_id: int) -> int:
     return stopped
 
 
-async def resume_repeat_reminders_for_user(bot: Bot, chat_id: int) -> int:
+async def resume_repeat_reminders_for_user(
+    bot: Bot, chat_id: int, session_factory: async_sessionmaker | None = None
+) -> int:
     """
     Called immediately when a user turns repeat reminders back ON. Resumes
     the hourly cadence for every currently unacknowledged reminder belonging
@@ -282,7 +363,12 @@ async def resume_repeat_reminders_for_user(bot: Bot, chat_id: int) -> int:
             replace_existing=True,
             next_run_time=next_run_time,
             misfire_grace_time=300,
-            kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": chat_id},
+            kwargs={
+                "bot": bot,
+                "medicine_id": medicine_id,
+                "chat_id": chat_id,
+                "session_factory": session_factory,
+            },
         )
         resumed += 1
     if resumed:
@@ -290,7 +376,7 @@ async def resume_repeat_reminders_for_user(bot: Bot, chat_id: int) -> int:
     return resumed
 
 
-async def resume_pending_reminders(bot: Bot) -> None:
+async def resume_pending_reminders(bot: Bot, session_factory: async_sessionmaker | None = None) -> None:
     """
     Called ONCE at bot startup (after sync_reminders). Restores hourly
     repeat jobs for all reminders the user hasn't confirmed yet, preserving
@@ -318,7 +404,12 @@ async def resume_pending_reminders(bot: Bot) -> None:
             replace_existing=True,
             next_run_time=next_run_time,
             misfire_grace_time=300,
-            kwargs={"bot": bot, "medicine_id": medicine_id, "chat_id": chat_id},
+            kwargs={
+                "bot": bot,
+                "medicine_id": medicine_id,
+                "chat_id": chat_id,
+                "session_factory": session_factory,
+            },
         )
         restored += 1
 
