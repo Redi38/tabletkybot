@@ -5,7 +5,7 @@ still-unacknowledged reminder, preserving the original cadence instead of
 resetting it to "now + 1h", including malformed/naive `sent_at` handling.
 """
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from services.scheduler import jobs as scheduler_jobs_module
 
@@ -86,3 +86,50 @@ class TestResumePendingRemindersNaiveTimestamp:
         await scheduler_jobs_module.resume_pending_reminders(mock_bot)
 
         assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is not None
+
+
+class TestResumePendingRemindersSkipsBlockedUsers:
+    """
+    Regression coverage: a user who was already blocked before this cleanup
+    existed (or blocked while the bot was down) must not get a repeat job
+    restored on startup — and their stale pending-reminder entry should be
+    cleared out of the admin Reminder Queue rather than left dangling.
+    """
+
+    async def test_does_not_restore_a_job_for_a_blocked_user(self, mock_redis, mock_bot):
+        async def fake_scan_iter(match=None):
+            yield "pending_reminder:100:1"
+
+        mock_redis.scan_iter = fake_scan_iter
+        mock_redis.get = AsyncMock(
+            return_value='{"message_id": 1, "medicine_name": "Aspirin", "course_duration": 5, '
+            '"language": "en", "timezone": "Europe/Kyiv", "sent_at": "2026-01-01T00:00:00+00:00"}'
+        )
+        session_factory = MagicMock()
+        session_factory.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
+        session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("database.crud.get_user_blocked", AsyncMock(return_value=True)):
+            await scheduler_jobs_module.resume_pending_reminders(mock_bot, session_factory)
+
+        assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is None
+        mock_redis.delete.assert_awaited_once_with("pending_reminder:100:1")
+
+    async def test_still_restores_a_job_for_a_non_blocked_user(self, mock_redis, mock_bot):
+        async def fake_scan_iter(match=None):
+            yield "pending_reminder:100:1"
+
+        mock_redis.scan_iter = fake_scan_iter
+        mock_redis.get = AsyncMock(
+            return_value='{"message_id": 1, "medicine_name": "Aspirin", "course_duration": 5, '
+            '"language": "en", "timezone": "Europe/Kyiv", "sent_at": "2026-01-01T00:00:00+00:00"}'
+        )
+        session_factory = MagicMock()
+        session_factory.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
+        session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("database.crud.get_user_blocked", AsyncMock(return_value=False)):
+            await scheduler_jobs_module.resume_pending_reminders(mock_bot, session_factory)
+
+        assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is not None
+        mock_redis.delete.assert_not_awaited()

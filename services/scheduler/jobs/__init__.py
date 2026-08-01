@@ -31,7 +31,13 @@ from .reminders import (
     send_reminder,
     send_repeat_reminder,
 )
-from .sync import add_reminders_for_medicine, sync_reminders, sync_single_reminder
+from .sync import (
+    add_reminders_for_medicine,
+    pause_daily_reminders_for_user,
+    resume_daily_reminders_for_user,
+    sync_reminders,
+    sync_single_reminder,
+)
 
 __all__ = [
     "scheduler",
@@ -44,6 +50,8 @@ __all__ = [
     "resume_pending_reminders",
     "pause_repeat_reminders_for_user",
     "resume_repeat_reminders_for_user",
+    "pause_daily_reminders_for_user",
+    "resume_daily_reminders_for_user",
     "remove_reminders",
     "add_reminders_for_medicine",
     "sync_reminders",

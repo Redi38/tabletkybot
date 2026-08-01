@@ -389,7 +389,25 @@ async def resume_pending_reminders(bot: Bot, session_factory: async_sessionmaker
     restored = 0
     now = datetime.now(dt_timezone.utc)
 
+    blocked_chat_ids: set[int] = set()
+    if session_factory is not None:
+        from database import crud
+
+        async with session_factory() as session:
+            for chat_id, _medicine_id, _data in pending_list:
+                if chat_id in blocked_chat_ids:
+                    continue
+                if await crud.get_user_blocked(session, chat_id):
+                    blocked_chat_ids.add(chat_id)
+
     for chat_id, medicine_id, data in pending_list:
+        if chat_id in blocked_chat_ids:
+            # Stale from before this cleanup existed (or before the user
+            # was marked blocked) — it'll never be acknowledged, so drop it
+            # instead of restoring a repeat job that will just be skipped.
+            await _delete_pending_reminder(chat_id, medicine_id)
+            continue
+
         job_id = f"repeat_{medicine_id}_{chat_id}"
         if scheduler.get_job(job_id):
             continue

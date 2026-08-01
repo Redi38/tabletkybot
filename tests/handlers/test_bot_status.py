@@ -1,9 +1,11 @@
 """
 Tests for handlers/bot_status.py: tracks whether a user has blocked the
-bot via Telegram's `my_chat_member` update.
+bot via Telegram's `my_chat_member` update, and immediately pauses/resumes
+that user's scheduled reminders accordingly.
 """
 
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aiogram.types import Chat, ChatMemberBanned, ChatMemberLeft, ChatMemberMember, ChatMemberUpdated
 from aiogram.types import User as TgUser
@@ -39,12 +41,24 @@ def _member_updated(user_id: int, chat_type: str, old_status: str, new_status: s
     )
 
 
+def _patch_pause_resume():
+    return (
+        patch("handlers.bot_status.pause_repeat_reminders_for_user", AsyncMock()),
+        patch("handlers.bot_status.pause_daily_reminders_for_user", AsyncMock()),
+        patch("handlers.bot_status.resume_daily_reminders_for_user", AsyncMock()),
+    )
+
+
 class TestBlockDetection:
     async def test_marks_user_blocked_when_kicked_in_private_chat(self, db_session):
         await crud.get_or_create_user(db_session, 100, "tester", "Test User")
         event = _member_updated(100, "private", old_status="member", new_status="kicked")
+        bot = MagicMock()
+        session_factory = MagicMock()
 
-        await track_bot_blocked_status(event, db_session)
+        p1, p2, p3 = _patch_pause_resume()
+        with p1, p2, p3:
+            await track_bot_blocked_status(event, db_session, bot, session_factory)
         await db_session.commit()
 
         refreshed = await _fetch_user(db_session, 100)
@@ -54,12 +68,33 @@ class TestBlockDetection:
     async def test_ignores_status_changes_outside_a_private_chat(self, db_session):
         await crud.get_or_create_user(db_session, 100, "tester", "Test User")
         event = _member_updated(100, "group", old_status="member", new_status="kicked")
+        bot = MagicMock()
+        session_factory = MagicMock()
 
-        await track_bot_blocked_status(event, db_session)
+        p1, p2, p3 = _patch_pause_resume()
+        with p1, p2, p3:
+            await track_bot_blocked_status(event, db_session, bot, session_factory)
         await db_session.commit()
 
         refreshed = await _fetch_user(db_session, 100)
         assert refreshed.is_blocked is False
+
+    async def test_pauses_both_repeat_and_daily_reminders_immediately(self, db_session):
+        await crud.get_or_create_user(db_session, 100, "tester", "Test User")
+        event = _member_updated(100, "private", old_status="member", new_status="kicked")
+        bot = MagicMock()
+        session_factory = MagicMock()
+
+        with (
+            patch("handlers.bot_status.pause_repeat_reminders_for_user", AsyncMock()) as mock_pause_repeat,
+            patch("handlers.bot_status.pause_daily_reminders_for_user", AsyncMock()) as mock_pause_daily,
+            patch("handlers.bot_status.resume_daily_reminders_for_user", AsyncMock()) as mock_resume_daily,
+        ):
+            await track_bot_blocked_status(event, db_session, bot, session_factory)
+
+        mock_pause_repeat.assert_awaited_once_with(100)
+        mock_pause_daily.assert_awaited_once_with(db_session, 100)
+        mock_resume_daily.assert_not_awaited()
 
 
 class TestUnblockDetection:
@@ -69,12 +104,37 @@ class TestUnblockDetection:
         await db_session.commit()
 
         event = _member_updated(100, "private", old_status="kicked", new_status="member")
-        await track_bot_blocked_status(event, db_session)
+        bot = MagicMock()
+        session_factory = MagicMock()
+
+        p1, p2, p3 = _patch_pause_resume()
+        with p1, p2, p3:
+            await track_bot_blocked_status(event, db_session, bot, session_factory)
         await db_session.commit()
 
         refreshed = await _fetch_user(db_session, 100)
         assert refreshed.is_blocked is False
         assert refreshed.blocked_at is None
+
+    async def test_resumes_daily_reminders_on_unblock(self, db_session):
+        await crud.get_or_create_user(db_session, 100, "tester", "Test User")
+        await crud.mark_user_blocked(db_session, 100)
+        await db_session.commit()
+
+        event = _member_updated(100, "private", old_status="kicked", new_status="member")
+        bot = MagicMock()
+        session_factory = MagicMock()
+
+        with (
+            patch("handlers.bot_status.pause_repeat_reminders_for_user", AsyncMock()) as mock_pause_repeat,
+            patch("handlers.bot_status.pause_daily_reminders_for_user", AsyncMock()) as mock_pause_daily,
+            patch("handlers.bot_status.resume_daily_reminders_for_user", AsyncMock()) as mock_resume_daily,
+        ):
+            await track_bot_blocked_status(event, db_session, bot, session_factory)
+
+        mock_resume_daily.assert_awaited_once_with(bot, session_factory, 100)
+        mock_pause_repeat.assert_not_awaited()
+        mock_pause_daily.assert_not_awaited()
 
 
 class TestUnblockSafetyNet:

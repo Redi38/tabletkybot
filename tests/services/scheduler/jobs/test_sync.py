@@ -168,6 +168,52 @@ class TestSyncReminders:
 
         assert scheduler_jobs_module.scheduler.get_job("med_999_1") is None
 
+    async def test_skips_medicines_belonging_to_a_blocked_user(self, mock_redis, mock_bot, db_session):
+        from database import crud
+
+        med = await self._add_user_with_medicine(db_session, user_id=1)
+        await crud.mark_user_blocked(db_session, 1)
+        await db_session.commit()
+
+        await scheduler_jobs_module.sync_reminders(mock_bot, _FakeSessionFactory(db_session))
+
+        assert scheduler_jobs_module.scheduler.get_job(f"med_{med.id}_{med.schedules[0].id}") is None
+
+    async def test_removes_a_stale_job_for_a_user_who_was_already_blocked(
+        self, mock_redis, mock_bot, db_session, monkeypatch
+    ):
+        """
+        Regression coverage: a user blocked before this cleanup existed (or
+        while the bot was down) still has a leftover daily job in the
+        in-memory scheduler from before — the next sync (startup or hourly)
+        must remove it, not just skip adding new ones.
+        """
+        monkeypatch.setattr("asyncio.create_task", lambda coro: coro.close())
+        from database import crud
+
+        med = await self._add_user_with_medicine(db_session, user_id=1)
+        job_id = f"med_{med.id}_{med.schedules[0].id}"
+        scheduler_jobs_module.scheduler.add_job(lambda: None, trigger="interval", hours=1, id=job_id)
+        await crud.mark_user_blocked(db_session, 1)
+        await db_session.commit()
+
+        await scheduler_jobs_module.sync_reminders(mock_bot, _FakeSessionFactory(db_session))
+
+        assert scheduler_jobs_module.scheduler.get_job(job_id) is None
+
+    async def test_still_creates_jobs_for_non_blocked_users(self, mock_redis, mock_bot, db_session):
+        med1 = await self._add_user_with_medicine(db_session, user_id=1)
+        med2 = await self._add_user_with_medicine(db_session, user_id=2)
+        from database import crud
+
+        await crud.mark_user_blocked(db_session, 1)
+        await db_session.commit()
+
+        await scheduler_jobs_module.sync_reminders(mock_bot, _FakeSessionFactory(db_session))
+
+        assert scheduler_jobs_module.scheduler.get_job(f"med_{med1.id}_{med1.schedules[0].id}") is None
+        assert scheduler_jobs_module.scheduler.get_job(f"med_{med2.id}_{med2.schedules[0].id}") is not None
+
     async def test_does_not_remove_unrelated_repeat_jobs(self, mock_redis, mock_bot, db_session):
         # Orphan cleanup only targets the "med_" prefix — an in-flight hourly
         # repeat job (unrelated lifecycle, cleaned up via cancel_repeat_reminder)

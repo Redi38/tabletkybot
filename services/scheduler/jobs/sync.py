@@ -8,7 +8,7 @@ import logging
 from aiogram import Bot
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from database.models import Medicine, User
@@ -72,6 +72,64 @@ def add_reminders_for_medicine(
         logger.info(f"Set {count} reminders for {medicine.name}")
 
 
+async def pause_daily_reminders_for_user(session: AsyncSession, chat_id: int) -> int:
+    """
+    Called the moment a user blocks the bot (via the `my_chat_member` event
+    in handlers/bot_status.py). Cancels the daily per-schedule cron jobs for
+    all of that user's active medicines immediately, instead of leaving them
+    to keep firing and getting lazily skipped one by one whenever they next
+    happen to run.
+    """
+    from database import crud
+
+    medicines = await crud.get_user_medicines(session, chat_id, active_only=True)
+    paused = 0
+    for med in medicines:
+        for sched in med.schedules:
+            job_id = _med_job_id(med.id, sched.id)
+            try:
+                scheduler.remove_job(job_id)
+                paused += 1
+            except Exception:
+                pass
+    if paused:
+        logger.info(f"Paused {paused} daily reminder job(s) for user {chat_id} (bot blocked)")
+    return paused
+
+
+async def resume_daily_reminders_for_user(bot: Bot, session_factory: async_sessionmaker, chat_id: int) -> int:
+    """
+    Called the moment a user unblocks the bot. Recreates the daily
+    per-schedule cron jobs for all of that user's active medicines —
+    add_reminders_for_medicine() is idempotent (skips a schedule if its job
+    already exists), so this is safe to call even if some jobs were never
+    actually removed.
+    """
+    from database import crud
+
+    async with session_factory() as session:
+        language = await crud.get_user_language(session, chat_id)
+        timezone = await crud.get_user_timezone(session, chat_id) or "Europe/Kyiv"
+        medicines = await crud.get_user_medicines(session, chat_id, active_only=True)
+
+    resumed = 0
+    for med in medicines:
+        before = len(med.schedules)
+        add_reminders_for_medicine(
+            bot=bot,
+            medicine=med,
+            timezone=timezone,
+            chat_id=chat_id,
+            language=language,
+            is_sync=True,
+            session_factory=session_factory,
+        )
+        resumed += before
+    if resumed:
+        logger.info(f"Resumed daily reminders for {len(medicines)} medicine(s) for user {chat_id} (bot unblocked)")
+    return resumed
+
+
 async def sync_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
     """Full synchronization of the DB and the scheduler's in-memory state."""
     from database import crud
@@ -82,6 +140,8 @@ async def sync_reminders(bot: Bot, session_factory: async_sessionmaker) -> None:
     async with session_factory() as session:
         users = await crud.get_all_users(session)
         for user in users:
+            if user.is_blocked:
+                continue
             medicines = await crud.get_user_medicines(session, user.id, active_only=True)
             for med in medicines:
                 active_data.append((med, user))
