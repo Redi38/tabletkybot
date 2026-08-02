@@ -126,7 +126,7 @@ class TestResumeRepeatRemindersForUser:
         mock_redis.scan_iter = _fake_scan_iter_for(["pending_reminder:100:1"])
         mock_redis.get = AsyncMock(return_value=_pending_reminder_json(sent_at=sent_at.isoformat()))
 
-        with patch("services.scheduler.jobs.reminders.datetime") as mock_datetime:
+        with patch("services.scheduler.jobs.reminders.resume.datetime") as mock_datetime:
             mock_datetime.now.return_value = now
             mock_datetime.fromisoformat = datetime.fromisoformat
 
@@ -145,12 +145,12 @@ class TestResumeRepeatRemindersForUser:
         from datetime import datetime, timedelta, timezone
 
         sent_at = datetime(2026, 1, 1, 11, 0, 0, tzinfo=timezone.utc)
-        now = sent_at + timedelta(hours=3)  # 14:00, exactly on the grid
+        now = sent_at + timedelta(hours=3)
 
         mock_redis.scan_iter = _fake_scan_iter_for(["pending_reminder:100:1"])
         mock_redis.get = AsyncMock(return_value=_pending_reminder_json(sent_at=sent_at.isoformat()))
 
-        with patch("services.scheduler.jobs.reminders.datetime") as mock_datetime:
+        with patch("services.scheduler.jobs.reminders.resume.datetime") as mock_datetime:
             mock_datetime.now.return_value = now
             mock_datetime.fromisoformat = datetime.fromisoformat
 
