@@ -31,7 +31,7 @@ async def edit_medicine_menu(call: CallbackQuery, session: AsyncSession) -> None
         [
             InlineKeyboardButton(
                 text=get_text(lang, "btn_mark_taken_now"),
-                callback_data=f"mark_taken_early_{medicine_id}",
+                callback_data=f"mark_taken_early_ask_{medicine_id}",
                 style="success",
             )
         ],

@@ -10,8 +10,8 @@ redis==8.1.0
 requests==2.34.2
 sqladmin==0.30.0
 SQLAlchemy==2.0.51
-uvicorn==0.52.0
-cryptography==49.0.0
+uvicorn==0.51.0
+cryptography==50.0.0
 wtforms==3.2.2
 boto3==1.43.61
 geopy==2.5.0

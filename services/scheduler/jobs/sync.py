@@ -35,6 +35,17 @@ def add_reminders_for_medicine(
 
     count = 0
 
+    medicine_job_prefix = f"{_MED_JOB_PREFIX}{medicine.id}_"
+    expected_job_ids = {_med_job_id(medicine.id, sched.id) for sched in medicine.schedules}
+    for job in scheduler.get_jobs():
+        if job.id.startswith(medicine_job_prefix) and job.id not in expected_job_ids:
+            try:
+                scheduler.remove_job(job.id)
+                if not is_sync:
+                    logger.info(f"Removed stale reminder {job.id} (schedule no longer exists)")
+            except Exception as e:
+                logger.error(f"Error removing stale reminder {job.id}: {e}")
+
     for sched in medicine.schedules:
         try:
             hour, minute = map(int, sched.scheduled_time.split(":"))
