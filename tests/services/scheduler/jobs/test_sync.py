@@ -96,6 +96,49 @@ class TestAddRemindersForMedicineIdempotency:
 
         assert scheduler_jobs_module.scheduler.get_job("med_1_1") is None
 
+    def test_removes_stale_job_when_schedule_id_changes_on_edit(self, mock_redis, mock_bot):
+        """
+        Regression test: database.crud.update_medicine_schedules() deletes and
+        recreates MedicineSchedule rows on every edit, so a time edit gets a
+        brand-new schedule.id (and therefore a new job_id) rather than reusing
+        the old one. Editing 10:00 -> 10:05 -> 10:10 used to leave the 10:00
+        and 10:05 cron jobs registered forever, firing alongside the new one.
+        """
+        medicine = self._medicine(medicine_id=4, schedule_times=("10:00",))
+        medicine.schedules[0].id = 7
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+        assert scheduler_jobs_module.scheduler.get_job("med_4_7") is not None
+
+        # First edit: 10:00 -> 10:05, simulating delete+recreate with a new id
+        medicine.schedules = [MedicineSchedule(id=8, medicine_id=4, scheduled_time="10:05")]
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+        assert scheduler_jobs_module.scheduler.get_job("med_4_7") is None
+        assert scheduler_jobs_module.scheduler.get_job("med_4_8") is not None
+
+        # Second edit: 10:05 -> 10:10
+        medicine.schedules = [MedicineSchedule(id=9, medicine_id=4, scheduled_time="10:10")]
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+        assert scheduler_jobs_module.scheduler.get_job("med_4_8") is None
+        assert scheduler_jobs_module.scheduler.get_job("med_4_9") is not None
+
+        remaining = {job.id for job in scheduler_jobs_module.scheduler.get_jobs()}
+        assert remaining == {"med_4_9"}
+
+    def test_stale_job_cleanup_only_targets_the_same_medicine(self, mock_redis, mock_bot):
+        # med_1_1 belongs to a different medicine than med_2_* — the prefix
+        # cleanup for medicine 2 must not touch medicine 1's job.
+        med1 = self._medicine(medicine_id=1, schedule_times=("09:00",))
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, med1, "Europe/Kyiv", chat_id=100)
+
+        med2 = self._medicine(medicine_id=2, schedule_times=("09:00",))
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, med2, "Europe/Kyiv", chat_id=100)
+        med2.schedules = [MedicineSchedule(id=5, medicine_id=2, scheduled_time="09:30")]
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, med2, "Europe/Kyiv", chat_id=100)
+
+        assert scheduler_jobs_module.scheduler.get_job("med_1_1") is not None
+        assert scheduler_jobs_module.scheduler.get_job("med_2_1") is None
+        assert scheduler_jobs_module.scheduler.get_job("med_2_5") is not None
+
     def test_survives_a_malformed_schedule_time(self, mock_redis, mock_bot):
         # An unparseable HH:MM raises inside CronTrigger construction; the
         # per-schedule loop must log it and move on rather than propagate.
