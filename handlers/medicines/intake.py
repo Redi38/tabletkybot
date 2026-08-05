@@ -5,6 +5,7 @@ time already passed today), and from self-reporting an early dose taken
 ahead of a still-pending reminder later the same day."""
 
 import logging
+import re
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
@@ -219,7 +220,42 @@ async def mark_taken_missed(call: CallbackQuery, state: FSMContext, session: Asy
     )
 
 
-@router.callback_query(F.data.startswith("mark_taken_early_"))
+@router.callback_query(F.data.startswith("mark_taken_early_ask_"))
+async def mark_taken_early_ask(call: CallbackQuery, session: AsyncSession) -> None:
+    """
+    Confirmation step shown before logging an early "taken today" dose from
+    the medicine settings menu, so an accidental tap doesn't silently
+    record a dose. Confirming re-fires the actual mark_taken_early_
+    callback below; declining returns to the medicine's edit menu.
+    """
+    await call.answer()
+
+    ctx = await _valid_medicine_ctx(call, session)
+    if not ctx:
+        return
+    msg, lang, medicine_id, medicine = ctx
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_yes"),
+                    callback_data=f"mark_taken_early_{medicine_id}",
+                    style="success",
+                ),
+                InlineKeyboardButton(
+                    text=get_text(lang, "btn_no"),
+                    callback_data=f"edit_med_{medicine_id}",
+                ),
+            ]
+        ]
+    )
+    await _safe_edit_text(
+        msg, get_text(lang, "mark_taken_confirm", name=str(medicine.name)), reply_markup=kb, parse_mode="HTML"
+    )
+
+
+@router.callback_query(F.data.regexp(re.compile(r"^mark_taken_early_\d+$")))
 async def mark_taken_early(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     """
     Logging a dose taken ahead of its scheduled reminder later today (e.g.
