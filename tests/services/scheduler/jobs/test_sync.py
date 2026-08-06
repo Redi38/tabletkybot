@@ -124,6 +124,31 @@ class TestAddRemindersForMedicineIdempotency:
         remaining = {job.id for job in scheduler_jobs_module.scheduler.get_jobs()}
         assert remaining == {"med_4_9"}
 
+    def test_reschedules_job_when_admin_edits_time_in_place(self, mock_redis, mock_bot):
+        """
+        Regression test: unlike the bot's own edit flow, the admin panel
+        (admin/model_views.py MedicineScheduleAdmin) updates the existing
+        MedicineSchedule row's scheduled_time in place instead of deleting
+        and recreating it, so schedule.id (and therefore job_id) stays the
+        same. The old code treated "job_id already exists" as "nothing to
+        do" and left the stale 07:30 trigger running after an edit to 07:15.
+        """
+        medicine = self._medicine(medicine_id=4, schedule_times=("07:30",))
+        medicine.schedules[0].id = 7
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+        job = scheduler_jobs_module.scheduler.get_job("med_4_7")
+        assert scheduler_jobs_module._cron_field_value(job.trigger, "hour") == 7
+        assert scheduler_jobs_module._cron_field_value(job.trigger, "minute") == 30
+
+        # Admin panel edits the same row's time, id unchanged
+        medicine.schedules[0].scheduled_time = "07:15"
+        scheduler_jobs_module.add_reminders_for_medicine(mock_bot, medicine, "Europe/Kyiv", chat_id=100)
+
+        job = scheduler_jobs_module.scheduler.get_job("med_4_7")
+        assert job is not None
+        assert scheduler_jobs_module._cron_field_value(job.trigger, "hour") == 7
+        assert scheduler_jobs_module._cron_field_value(job.trigger, "minute") == 15
+
     def test_stale_job_cleanup_only_targets_the_same_medicine(self, mock_redis, mock_bot):
         # med_1_1 belongs to a different medicine than med_2_* — the prefix
         # cleanup for medicine 2 must not touch medicine 1's job.

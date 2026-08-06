@@ -32,6 +32,7 @@ from .reminders import (
     send_repeat_reminder,
 )
 from .sync import (
+    _cron_field_value,
     add_reminders_for_medicine,
     pause_daily_reminders_for_user,
     resume_daily_reminders_for_user,
@@ -60,4 +61,5 @@ __all__ = [
     "_next_schedule_id_for_today",
     "_local_today",
     "_manual_reminder_today",
+    "_cron_field_value",
 ]

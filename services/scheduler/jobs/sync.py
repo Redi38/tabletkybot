@@ -20,6 +20,16 @@ from .reminders import remove_reminders, send_reminder
 logger = logging.getLogger(__name__)
 
 
+def _cron_field_value(trigger: CronTrigger, field_name: str) -> int | None:
+    for field in trigger.fields:
+        if field.name == field_name:
+            try:
+                return int(str(field))
+            except TypeError, ValueError:
+                return None
+    return None
+
+
 def add_reminders_for_medicine(
     bot: Bot,
     medicine: Medicine,
@@ -51,9 +61,18 @@ def add_reminders_for_medicine(
             hour, minute = map(int, sched.scheduled_time.split(":"))
             job_id = _med_job_id(medicine.id, sched.id)
 
-            if scheduler.get_job(job_id) is not None:
-                count += 1
-                continue
+            existing = scheduler.get_job(job_id)
+            if existing is not None:
+                trigger = existing.trigger
+                if (
+                    isinstance(trigger, CronTrigger)
+                    and _cron_field_value(trigger, "hour") == hour
+                    and _cron_field_value(trigger, "minute") == minute
+                ):
+                    count += 1
+                    continue
+
+                scheduler.remove_job(job_id)
 
             scheduler.add_job(
                 send_reminder,
