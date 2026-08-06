@@ -21,10 +21,11 @@ from services.scheduler import (
     _next_schedule_id_for_today,
     acquire_action_lock,
     cancel_repeat_reminder,
+    cancel_repeat_reminders_for_medicine,
     save_stock_alert_pending,
 )
 
-from .utils import _safe_edit_text, _valid_medicine_ctx
+from .utils import _base_ctx, _safe_edit_text, _valid_medicine_ctx
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -139,14 +140,44 @@ async def _send_take_result_followup(
 
 
 # ── Take / Skip (from a reminder message) ────────────────────────────────
+async def _valid_medicine_ctx_with_schedule(
+    call: CallbackQuery, session: AsyncSession
+) -> tuple[Message, str, int, int | None, Medicine] | None:
+    """
+    Like _valid_medicine_ctx, but for take_/skip_ callbacks specifically:
+    callback_data is `take_{medicine_id}_{schedule_token}` /
+    `skip_{medicine_id}_{schedule_token}`, where schedule_token is "0" for
+    "no specific schedule" (see get_reminder_keyboard). _valid_medicine_ctx
+    can't be reused here since it reads the medicine_id from the LAST
+    underscore-separated token, which here is the schedule token instead.
+    """
+    base = await _base_ctx(call, session)
+    if not base or not call.data:
+        return None
+    msg, lang = base
+    parts = str(call.data).split("_")
+    if len(parts) != 3:
+        return None
+    try:
+        medicine_id = int(parts[1])
+        schedule_id = None if parts[2] == "0" else int(parts[2])
+    except ValueError:
+        return None
+    medicine = await crud.get_medicine_by_id(session, medicine_id)
+    if not medicine:
+        await call.answer(get_text(lang, "med_not_found"), show_alert=True)
+        return None
+    return msg, lang, medicine_id, schedule_id, medicine
+
+
 @router.callback_query(F.data.startswith("take_") | F.data.startswith("skip_"))
 async def process_medicine_status(call: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     await call.answer()
 
-    ctx = await _valid_medicine_ctx(call, session)
+    ctx = await _valid_medicine_ctx_with_schedule(call, session)
     if not ctx or not call.data:
         return
-    msg, lang, medicine_id, medicine = ctx
+    msg, lang, medicine_id, schedule_id, medicine = ctx
 
     if not await acquire_action_lock(call.from_user.id, medicine_id):
         return
@@ -155,10 +186,10 @@ async def process_medicine_status(call: CallbackQuery, state: FSMContext, sessio
 
     logger.info(
         f"User {call.from_user.id} (@{call.from_user.username}) pressed '{action}' "
-        f"for medicine '{medicine.name}' (id={medicine_id}) on message_id={msg.message_id}"
+        f"for medicine '{medicine.name}' (id={medicine_id}, schedule_id={schedule_id}) on message_id={msg.message_id}"
     )
 
-    await cancel_repeat_reminder(call.from_user.id, medicine_id)
+    await cancel_repeat_reminder(call.from_user.id, medicine_id, schedule_id)
 
     if action == "take" and medicine.stock_amount is not None and medicine.stock_amount <= 0:
         await _prompt_restock_before_take(msg, state, lang, medicine_id, str(medicine.name))
@@ -186,7 +217,7 @@ async def _mark_taken(call: CallbackQuery, state: FSMContext, session: AsyncSess
     if not await acquire_action_lock(call.from_user.id, medicine_id):
         return None
 
-    await cancel_repeat_reminder(call.from_user.id, medicine_id)
+    await cancel_repeat_reminders_for_medicine(call.from_user.id, medicine_id)
 
     if medicine.stock_amount is not None and medicine.stock_amount <= 0:
         await _prompt_restock_before_take(msg, state, lang, medicine_id, str(medicine.name))

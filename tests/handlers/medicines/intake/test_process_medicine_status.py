@@ -13,14 +13,15 @@ from handlers.medicines.intake import process_medicine_status
 from ._fixtures import _add_medicine, _fake_state
 
 
-def _fake_status_call(user_id: int, action: str, medicine_id: int, message_id: int = 1):
+def _fake_status_call(user_id: int, action: str, medicine_id: int, message_id: int = 1, schedule_id: int | None = None):
     message = create_autospec(Message, instance=True)
     message.message_id = message_id
     message.edit_text = AsyncMock()
     message.answer = AsyncMock()
 
+    sched_token = str(schedule_id) if schedule_id is not None else "0"
     call = create_autospec(CallbackQuery, instance=True)
-    call.data = f"{action}_{medicine_id}"
+    call.data = f"{action}_{medicine_id}_{sched_token}"
     call.from_user = MagicMock(id=user_id, username="tester")
     call.answer = AsyncMock()
     call.message = message
@@ -98,7 +99,23 @@ class TestProcessMedicineStatusTake:
         with patch("handlers.medicines.intake.cancel_repeat_reminder", AsyncMock()) as mock_cancel:
             await process_medicine_status(call, state, db_session)
 
-        mock_cancel.assert_awaited_once_with(1, medicine.id)
+        mock_cancel.assert_awaited_once_with(1, medicine.id, None)
+
+    async def test_cancels_the_repeat_reminder_for_the_specific_schedule_only(self, db_session, mock_redis):
+        """
+        Regression test: pressing Take/Skip on one dose's reminder message
+        must only cancel THAT dose's repeat job/pending state, not every
+        dose of the medicine — otherwise a medicine with 2+ times/day loses
+        tracking for a still-pending, unrelated dose (see cancel_repeat_reminder).
+        """
+        medicine = await _add_medicine(db_session, course_duration=10)
+        call, message = _fake_status_call(user_id=1, action="take", medicine_id=medicine.id, schedule_id=7)
+        state = _fake_state()
+
+        with patch("handlers.medicines.intake.cancel_repeat_reminder", AsyncMock()) as mock_cancel:
+            await process_medicine_status(call, state, db_session)
+
+        mock_cancel.assert_awaited_once_with(1, medicine.id, 7)
 
     async def test_respects_action_lock(self, db_session, mock_redis):
         medicine = await _add_medicine(db_session, course_duration=10)

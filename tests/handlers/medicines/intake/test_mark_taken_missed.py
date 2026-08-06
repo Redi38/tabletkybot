@@ -55,7 +55,7 @@ class TestMarkTakenMissedHappyPath:
         call, message = _fake_call(user_id=1, medicine_id=medicine.id)
         state = _fake_state()
 
-        with patch("handlers.medicines.intake.cancel_repeat_reminder", AsyncMock()) as mock_cancel:
+        with patch("handlers.medicines.intake.cancel_repeat_reminders_for_medicine", AsyncMock()) as mock_cancel:
             await mark_taken_missed(call, state, db_session)
 
         mock_cancel.assert_awaited_once_with(1, medicine.id)

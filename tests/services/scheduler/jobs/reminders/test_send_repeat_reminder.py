@@ -20,11 +20,11 @@ class TestSendRepeatReminder:
 
     async def test_no_pending_reminder_removes_the_repeat_job_and_sends_nothing(self, mock_redis, mock_bot):
         mock_redis.get.return_value = None
-        scheduler_jobs_module.scheduler.add_job(lambda: None, trigger="interval", hours=1, id="repeat_1_100")
+        scheduler_jobs_module.scheduler.add_job(lambda: None, trigger="interval", hours=1, id="repeat_1_0_100")
 
         await scheduler_jobs_module.send_repeat_reminder(mock_bot, medicine_id=1, chat_id=100)
 
-        assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is None
+        assert scheduler_jobs_module.scheduler.get_job("repeat_1_0_100") is None
         mock_bot.send_message.assert_not_awaited()
 
     async def test_no_pending_reminder_and_no_job_scheduled_does_not_error(self, mock_redis, mock_bot):
@@ -116,14 +116,14 @@ class TestBlockedUserCleansUpPendingReminder:
         session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
 
         with patch("database.crud.get_user_blocked", AsyncMock(return_value=True)):
-            scheduler_jobs_module.scheduler.add_job(lambda: None, trigger="interval", hours=1, id="repeat_1_100")
+            scheduler_jobs_module.scheduler.add_job(lambda: None, trigger="interval", hours=1, id="repeat_1_0_100")
 
             await scheduler_jobs_module.send_repeat_reminder(
                 mock_bot, medicine_id=1, chat_id=100, session_factory=session_factory
             )
 
-        mock_redis.delete.assert_awaited_once_with("pending_reminder:100:1")
-        assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is None
+        mock_redis.delete.assert_awaited_once_with("pending_reminder:100:1:0")
+        assert scheduler_jobs_module.scheduler.get_job("repeat_1_0_100") is None
         mock_bot.send_message.assert_not_awaited()
 
     async def test_send_reminder_deletes_a_stale_pending_entry_for_a_blocked_user(self, mock_redis, mock_bot):
@@ -142,5 +142,5 @@ class TestBlockedUserCleansUpPendingReminder:
                 session_factory=session_factory,
             )
 
-        mock_redis.delete.assert_awaited_once_with("pending_reminder:100:1")
+        mock_redis.delete.assert_awaited_once_with("pending_reminder:100:1:0")
         mock_bot.send_message.assert_not_awaited()

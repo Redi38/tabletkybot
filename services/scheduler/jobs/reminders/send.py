@@ -23,7 +23,7 @@ from ...redis_state import (
     clear_stock_alert_pending,
     get_stock_alert_pending,
 )
-from ..core import scheduler
+from ..core import _repeat_job_id, scheduler
 from .remove import remove_reminders
 from .utils import _handle_user_blocked, _local_today, _manual_reminder_today, get_reminder_keyboard
 
@@ -58,7 +58,7 @@ async def send_reminder(
                 # block (e.g. yesterday's dose was never acknowledged) so it
                 # doesn't sit forever in the admin Reminder Queue — it can
                 # never be resolved while the user is blocked.
-                await _delete_pending_reminder(chat_id, medicine_id)
+                await _delete_pending_reminder(chat_id, medicine_id, schedule_id)
                 return
 
     # ── Auto-archive check ──────────────────────────────────────────────
@@ -109,7 +109,7 @@ async def send_reminder(
         sent = await bot.send_message(
             chat_id=chat_id,
             text=get_text(language, "remind_text", name=medicine_name, days=course_duration),
-            reply_markup=get_reminder_keyboard(medicine_id, language),
+            reply_markup=get_reminder_keyboard(medicine_id, schedule_id, language),
             parse_mode="HTML",
         )
         logger.info(f"Reminder sent to user {chat_id} for {medicine_name}")
@@ -117,6 +117,7 @@ async def send_reminder(
         await _save_pending_reminder(
             chat_id,
             medicine_id,
+            schedule_id,
             sent.message_id,
             medicine_name,
             course_duration,
@@ -131,23 +132,25 @@ async def send_reminder(
             async with session_factory() as session:
                 repeat_enabled = await crud.get_repeat_reminders_enabled(session, chat_id)
 
+        repeat_job_id = _repeat_job_id(medicine_id, schedule_id, chat_id)
         if repeat_enabled:
             scheduler.add_job(
                 send_repeat_reminder,
                 trigger="interval",
                 hours=1,
-                id=f"repeat_{medicine_id}_{chat_id}",
+                id=repeat_job_id,
                 replace_existing=True,
                 misfire_grace_time=300,
                 kwargs={
                     "bot": bot,
                     "medicine_id": medicine_id,
+                    "schedule_id": schedule_id,
                     "chat_id": chat_id,
                     "session_factory": session_factory,
                 },
             )
         else:
-            logger.info(f"Repeat reminders disabled by user {chat_id} — not scheduling repeat_{medicine_id}_{chat_id}")
+            logger.info(f"Repeat reminders disabled by user {chat_id} — not scheduling {repeat_job_id}")
     except TelegramForbiddenError:
         await _handle_user_blocked(chat_id, session_factory)
     except Exception as e:
@@ -158,6 +161,7 @@ async def send_repeat_reminder(
     bot: Bot,
     medicine_id: int,
     chat_id: int,
+    schedule_id: int | None = None,
     session_factory: async_sessionmaker | None = None,
 ) -> None:
     """
@@ -166,6 +170,8 @@ async def send_repeat_reminder(
     of it — so the reminder always pops up at the bottom of the chat instead of
     getting lost among old repeats.
     """
+    repeat_job_id = _repeat_job_id(medicine_id, schedule_id, chat_id)
+
     if session_factory is not None:
         from database import crud
 
@@ -173,18 +179,16 @@ async def send_repeat_reminder(
             if await crud.get_user_blocked(session, chat_id):
                 logger.info(f"Skipping repeat reminder for {chat_id} — user has blocked the bot")
                 try:
-                    scheduler.remove_job(f"repeat_{medicine_id}_{chat_id}")
+                    scheduler.remove_job(repeat_job_id)
                 except Exception:
                     pass
-                # It'll never be acknowledged while blocked — clear it so it
-                # doesn't sit forever in the admin Reminder Queue.
-                await _delete_pending_reminder(chat_id, medicine_id)
+                await _delete_pending_reminder(chat_id, medicine_id, schedule_id)
                 return
 
-    pending = await _get_pending_reminder(chat_id, medicine_id)
+    pending = await _get_pending_reminder(chat_id, medicine_id, schedule_id)
     if not pending:
         try:
-            scheduler.remove_job(f"repeat_{medicine_id}_{chat_id}")
+            scheduler.remove_job(repeat_job_id)
         except Exception:
             pass
         return
@@ -203,12 +207,13 @@ async def send_repeat_reminder(
         sent = await bot.send_message(
             chat_id=chat_id,
             text=get_text(language, "remind_repeat_text", name=medicine_name),
-            reply_markup=get_reminder_keyboard(medicine_id, language),
+            reply_markup=get_reminder_keyboard(medicine_id, schedule_id, language),
             parse_mode="HTML",
         )
         await _save_pending_reminder(
             chat_id,
             medicine_id,
+            schedule_id,
             sent.message_id,
             medicine_name,
             pending["course_duration"],

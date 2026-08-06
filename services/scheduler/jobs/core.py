@@ -14,6 +14,11 @@ def _med_job_id(medicine_id: int, schedule_id: int) -> str:
     return f"{_MED_JOB_PREFIX}{medicine_id}_{schedule_id}"
 
 
+def _repeat_job_id(medicine_id: int, schedule_id: int | None, chat_id: int) -> str:
+    sched_token = str(schedule_id) if schedule_id is not None else "0"
+    return f"repeat_{medicine_id}_{sched_token}_{chat_id}"
+
+
 def start_scheduler() -> None:
     if not scheduler.running:
         scheduler.start()

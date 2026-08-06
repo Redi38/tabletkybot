@@ -12,19 +12,34 @@ from ...redis_state import (
     _delete_pending_reminders_for_medicine,
     _delete_stock_alerts_for_medicine,
 )
-from ..core import _MED_JOB_PREFIX, scheduler
+from ..core import _MED_JOB_PREFIX, _repeat_job_id, scheduler
 from .utils import _manual_reminder_today
 
 logger = logging.getLogger(__name__)
 
 
-async def cancel_repeat_reminder(chat_id: int, medicine_id: int) -> None:
+async def cancel_repeat_reminder(chat_id: int, medicine_id: int, schedule_id: int | None) -> None:
+    job_id = _repeat_job_id(medicine_id, schedule_id, chat_id)
     try:
-        scheduler.remove_job(f"repeat_{medicine_id}_{chat_id}")
-        logger.info(f"Repeat reminder repeat_{medicine_id}_{chat_id} cancelled")
+        scheduler.remove_job(job_id)
+        logger.info(f"Repeat reminder {job_id} cancelled")
     except Exception:
         pass
-    await _delete_pending_reminder(chat_id, medicine_id)
+    await _delete_pending_reminder(chat_id, medicine_id, schedule_id)
+
+
+async def cancel_repeat_reminders_for_medicine(chat_id: int, medicine_id: int) -> None:
+    """
+    Cancels every unacknowledged dose's repeat reminder for this medicine at
+    once — used by the self-service "mark as taken" flows, which record a
+    dose without going through a specific reminder message/schedule_id, so
+    there's no single dose to target.
+    """
+    from ...redis_state import _get_pending_reminders_for_chat
+
+    for medicine_id_, schedule_id, _data in await _get_pending_reminders_for_chat(chat_id):
+        if medicine_id_ == medicine_id:
+            await cancel_repeat_reminder(chat_id, medicine_id, schedule_id)
 
 
 def remove_reminders(medicine_id: int) -> None:

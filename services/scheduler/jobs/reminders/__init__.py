@@ -16,7 +16,7 @@ reminder firing after an unacknowledged empty-stock alert can auto-archive
 the medicine instead of sending a normal dose reminder).
 """
 
-from .remove import cancel_repeat_reminder, remove_reminders
+from .remove import cancel_repeat_reminder, cancel_repeat_reminders_for_medicine, remove_reminders
 from .resume import pause_repeat_reminders_for_user, resume_pending_reminders, resume_repeat_reminders_for_user
 from .send import send_reminder, send_repeat_reminder
 from .utils import _handle_user_blocked, _local_today, _manual_reminder_today, _next_grid_slot, get_reminder_keyboard
@@ -26,6 +26,7 @@ __all__ = [
     "send_reminder",
     "send_repeat_reminder",
     "cancel_repeat_reminder",
+    "cancel_repeat_reminders_for_medicine",
     "remove_reminders",
     "pause_repeat_reminders_for_user",
     "resume_repeat_reminders_for_user",

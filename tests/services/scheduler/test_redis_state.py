@@ -43,13 +43,14 @@ class TestPendingReminderRedisHelpers:
         await scheduler_redis_module._save_pending_reminder(
             chat_id=1,
             medicine_id=2,
+            schedule_id=7,
             message_id=999,
             medicine_name="Aspirin",
             course_duration=5,
             language="ua",
             timezone="Europe/Kyiv",
         )
-        result = await scheduler_redis_module._get_pending_reminder(chat_id=1, medicine_id=2)
+        result = await scheduler_redis_module._get_pending_reminder(chat_id=1, medicine_id=2, schedule_id=7)
 
         assert result["medicine_name"] == "Aspirin"
         assert result["course_duration"] == 5
@@ -57,14 +58,14 @@ class TestPendingReminderRedisHelpers:
     async def test_get_pending_reminder_returns_none_on_malformed_json(self, mock_redis):
         mock_redis.get = AsyncMock(return_value="not-valid-json{")
 
-        result = await scheduler_redis_module._get_pending_reminder(chat_id=1, medicine_id=2)
+        result = await scheduler_redis_module._get_pending_reminder(chat_id=1, medicine_id=2, schedule_id=7)
 
         assert result is None
 
     async def test_get_pending_reminder_returns_none_when_missing(self, mock_redis):
         mock_redis.get = AsyncMock(return_value=None)
 
-        result = await scheduler_redis_module._get_pending_reminder(chat_id=1, medicine_id=2)
+        result = await scheduler_redis_module._get_pending_reminder(chat_id=1, medicine_id=2, schedule_id=7)
 
         assert result is None
 
@@ -110,15 +111,15 @@ class TestNoRedisClientEarlyReturns:
 
     async def test_save_pending_reminder_is_a_noop(self, monkeypatch):
         monkeypatch.setattr(scheduler_redis_module, "_redis_client", None)
-        await scheduler_redis_module._save_pending_reminder(1, 2, 3, "Aspirin", 5, "en", "Europe/Kyiv")
+        await scheduler_redis_module._save_pending_reminder(1, 2, 7, 3, "Aspirin", 5, "en", "Europe/Kyiv")
 
     async def test_get_pending_reminder_returns_none(self, monkeypatch):
         monkeypatch.setattr(scheduler_redis_module, "_redis_client", None)
-        assert await scheduler_redis_module._get_pending_reminder(1, 2) is None
+        assert await scheduler_redis_module._get_pending_reminder(1, 2, 7) is None
 
     async def test_delete_pending_reminder_is_a_noop(self, monkeypatch):
         monkeypatch.setattr(scheduler_redis_module, "_redis_client", None)
-        await scheduler_redis_module._delete_pending_reminder(1, 2)
+        await scheduler_redis_module._delete_pending_reminder(1, 2, 7)
 
     async def test_get_all_pending_reminders_returns_empty_list(self, monkeypatch):
         monkeypatch.setattr(scheduler_redis_module, "_redis_client", None)
@@ -148,19 +149,19 @@ class TestNoRedisClientEarlyReturns:
 class TestGetAllPendingRemindersParsing:
     async def test_skips_a_malformed_key_without_raising(self, mock_redis):
         async def _scan_iter(match=None):
-            yield "pending_reminder:not-an-int:2"
-            yield "pending_reminder:1:2"
+            yield "pending_reminder:not-an-int:2:7"
+            yield "pending_reminder:1:2:7"
 
         mock_redis.scan_iter = _scan_iter
         mock_redis.get = AsyncMock(return_value=json.dumps({"medicine_name": "Aspirin"}))
 
         result = await scheduler_redis_module._get_all_pending_reminders()
 
-        assert result == [(1, 2, {"medicine_name": "Aspirin"})]
+        assert result == [(1, 2, 7, {"medicine_name": "Aspirin"})]
 
     async def test_skips_an_entry_whose_stored_value_is_corrupted_json(self, mock_redis):
         async def _scan_iter(match=None):
-            yield "pending_reminder:1:2"
+            yield "pending_reminder:1:2:7"
 
         mock_redis.scan_iter = _scan_iter
         mock_redis.get = AsyncMock(return_value="{not valid json")
@@ -171,7 +172,7 @@ class TestGetAllPendingRemindersParsing:
 class TestGetActivePendingReminders:
     async def test_shapes_the_output_for_the_admin_panel(self, mock_redis):
         async def _scan_iter(match=None):
-            yield "pending_reminder:1:2"
+            yield "pending_reminder:1:2:7"
 
         mock_redis.scan_iter = _scan_iter
         mock_redis.get = AsyncMock(
@@ -181,7 +182,13 @@ class TestGetActivePendingReminders:
         result = await scheduler_redis_module.get_active_pending_reminders()
 
         assert result == [
-            {"chat_id": 1, "medicine_id": 2, "medicine_name": "Aspirin", "sent_at": "2026-07-20T09:00:00+00:00"}
+            {
+                "chat_id": 1,
+                "medicine_id": 2,
+                "schedule_id": 7,
+                "medicine_name": "Aspirin",
+                "sent_at": "2026-07-20T09:00:00+00:00",
+            }
         ]
 
 

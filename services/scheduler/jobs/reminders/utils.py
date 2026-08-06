@@ -34,12 +34,20 @@ def _local_today(tz_name: str) -> date_type:
     return datetime.now(tz).date()
 
 
-def get_reminder_keyboard(medicine_id: int, language: str) -> InlineKeyboardMarkup:
+def get_reminder_keyboard(medicine_id: int, schedule_id: int | None, language: str) -> InlineKeyboardMarkup:
+    # "0" is the sentinel for "no specific schedule" (the one manual-send
+    # path where _next_schedule_id_for_today finds nothing left today) —
+    # real MedicineSchedule ids start at 1, so it can't collide.
+    sched_token = str(schedule_id) if schedule_id is not None else "0"
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text=get_text(language, "btn_take"), callback_data=f"take_{medicine_id}"),
-                InlineKeyboardButton(text=get_text(language, "btn_skip"), callback_data=f"skip_{medicine_id}"),
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_take"), callback_data=f"take_{medicine_id}_{sched_token}"
+                ),
+                InlineKeyboardButton(
+                    text=get_text(language, "btn_skip"), callback_data=f"skip_{medicine_id}_{sched_token}"
+                ),
             ]
         ]
     )
@@ -91,5 +99,5 @@ async def _handle_user_blocked(chat_id: int, session_factory: async_sessionmaker
     # Every pending reminder for this user is now stuck forever — no repeat
     # or future send will reach them while blocked — so clear them out of
     # the admin Reminder Queue instead of leaving stale entries behind.
-    for medicine_id, _data in await _get_pending_reminders_for_chat(chat_id):
-        await _delete_pending_reminder(chat_id, medicine_id)
+    for medicine_id, schedule_id, _data in await _get_pending_reminders_for_chat(chat_id):
+        await _delete_pending_reminder(chat_id, medicine_id, schedule_id)

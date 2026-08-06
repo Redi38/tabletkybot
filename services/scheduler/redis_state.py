@@ -33,13 +33,23 @@ def init_redis(redis_url: str) -> None:
     _redis_client = aioredis.from_url(redis_url, decode_responses=True)
 
 
-def _pending_key(chat_id: int, medicine_id: int) -> str:
-    return f"{_PENDING_KEY_PREFIX}{chat_id}:{medicine_id}"
+def _pending_key(chat_id: int, medicine_id: int, schedule_id: int | None) -> str:
+    # schedule_id disambiguates medicines with more than one dose per day —
+    # without it, a later dose's reminder silently overwrote an earlier
+    # unacknowledged dose's pending state and repeat job (see the "0" bucket
+    # below for the one caller that legitimately has no schedule_id).
+    sched_token = str(schedule_id) if schedule_id is not None else "0"
+    return f"{_PENDING_KEY_PREFIX}{chat_id}:{medicine_id}:{sched_token}"
+
+
+def _parse_schedule_token(token: str) -> int | None:
+    return None if token == "0" else int(token)
 
 
 async def _save_pending_reminder(
     chat_id: int,
     medicine_id: int,
+    schedule_id: int | None,
     message_id: int,
     medicine_name: str,
     course_duration: int,
@@ -56,13 +66,13 @@ async def _save_pending_reminder(
         "timezone": timezone,
         "sent_at": datetime.now(dt_timezone.utc).isoformat(),
     }
-    await _redis_client.set(_pending_key(chat_id, medicine_id), json.dumps(data), ex=_PENDING_TTL_SECONDS)  # type: ignore[misc]
+    await _redis_client.set(_pending_key(chat_id, medicine_id, schedule_id), json.dumps(data), ex=_PENDING_TTL_SECONDS)  # type: ignore[misc]
 
 
-async def _get_pending_reminder(chat_id: int, medicine_id: int) -> dict | None:
+async def _get_pending_reminder(chat_id: int, medicine_id: int, schedule_id: int | None) -> dict | None:
     if not _redis_client:
         return None
-    raw = await _redis_client.get(_pending_key(chat_id, medicine_id))  # type: ignore[misc]
+    raw = await _redis_client.get(_pending_key(chat_id, medicine_id, schedule_id))  # type: ignore[misc]
     if not raw:
         return None
     try:
@@ -71,32 +81,32 @@ async def _get_pending_reminder(chat_id: int, medicine_id: int) -> dict | None:
         return None
 
 
-async def _delete_pending_reminder(chat_id: int, medicine_id: int) -> None:
+async def _delete_pending_reminder(chat_id: int, medicine_id: int, schedule_id: int | None) -> None:
     if not _redis_client:
         return
-    await _redis_client.delete(_pending_key(chat_id, medicine_id))  # type: ignore[misc]
+    await _redis_client.delete(_pending_key(chat_id, medicine_id, schedule_id))  # type: ignore[misc]
 
 
-async def _get_all_pending_reminders() -> list[tuple[int, int, dict]]:
-    """Returns [(chat_id, medicine_id, data), ...] — used to restore state on bot startup."""
+async def _get_all_pending_reminders() -> list[tuple[int, int, int | None, dict]]:
+    """Returns [(chat_id, medicine_id, schedule_id, data), ...] — used to restore state on bot startup."""
     if not _redis_client:
         return []
     result = []
     async for key in _redis_client.scan_iter(match=f"{_PENDING_KEY_PREFIX}*"):
         try:
-            _, chat_id_str, medicine_id_str = key.split(":")
+            _, chat_id_str, medicine_id_str, schedule_token = key.split(":")
             raw = await _redis_client.get(key)  # type: ignore[misc]
             if raw:
                 data = json.loads(raw)
-                result.append((int(chat_id_str), int(medicine_id_str), data))
+                result.append((int(chat_id_str), int(medicine_id_str), _parse_schedule_token(schedule_token), data))
         except (ValueError, json.JSONDecodeError):  # fmt: skip
             continue
     return result
 
 
-async def _get_pending_reminders_for_chat(chat_id: int) -> list[tuple[int, dict]]:
+async def _get_pending_reminders_for_chat(chat_id: int) -> list[tuple[int, int | None, dict]]:
     """
-    Returns [(medicine_id, data), ...] for a single chat_id only, scanning
+    Returns [(medicine_id, schedule_id, data), ...] for a single chat_id only, scanning
     just that user's keys (pending_reminder:{chat_id}:*) instead of every
     pending reminder in Redis. Used when pausing/resuming repeat reminders
     for one user (e.g. the repeat-reminders settings toggle), where scanning
@@ -108,11 +118,11 @@ async def _get_pending_reminders_for_chat(chat_id: int) -> list[tuple[int, dict]
     pattern = f"{_PENDING_KEY_PREFIX}{chat_id}:*"
     async for key in _redis_client.scan_iter(match=pattern):
         try:
-            _, _chat_id_str, medicine_id_str = key.split(":")
+            _, _chat_id_str, medicine_id_str, schedule_token = key.split(":")
             raw = await _redis_client.get(key)  # type: ignore[misc]
             if raw:
                 data = json.loads(raw)
-                result.append((int(medicine_id_str), data))
+                result.append((int(medicine_id_str), _parse_schedule_token(schedule_token), data))
         except (ValueError, json.JSONDecodeError):  # fmt: skip
             continue
     return result
@@ -131,17 +141,18 @@ async def get_active_pending_reminders() -> list[dict]:
         {
             "chat_id": chat_id,
             "medicine_id": medicine_id,
+            "schedule_id": schedule_id,
             "medicine_name": data.get("medicine_name"),
             "sent_at": data.get("sent_at"),
         }
-        for chat_id, medicine_id, data in pending
+        for chat_id, medicine_id, schedule_id, data in pending
     ]
 
 
 async def _delete_pending_reminders_for_medicine(medicine_id: int) -> None:
     if not _redis_client:
         return
-    pattern = f"{_PENDING_KEY_PREFIX}*:{medicine_id}"
+    pattern = f"{_PENDING_KEY_PREFIX}*:{medicine_id}:*"
     async for key in _redis_client.scan_iter(match=pattern):
         await _redis_client.delete(key)  # type: ignore[misc]
         logger.info(f"Deleted an orphaned pending Redis record: {key}")

@@ -110,7 +110,7 @@ class TestSendReminderRepeatEnabledToggle:
             course_duration=5,
             language="en",
         )
-        assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is not None
+        assert scheduler_jobs_module.scheduler.get_job("repeat_1_0_100") is not None
 
     async def test_schedules_repeat_job_when_user_has_repeats_enabled(self, mock_redis, mock_bot, db_session):
         from database import crud
@@ -127,7 +127,7 @@ class TestSendReminderRepeatEnabledToggle:
             language="en",
             session_factory=_FakeSessionFactory(db_session),
         )
-        assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is not None
+        assert scheduler_jobs_module.scheduler.get_job("repeat_1_0_100") is not None
 
     async def test_skips_repeat_job_when_user_disabled_repeats(self, mock_redis, mock_bot, db_session):
         from database import crud
@@ -148,4 +148,4 @@ class TestSendReminderRepeatEnabledToggle:
 
         # The reminder itself must still be sent — only the hourly repeat is skipped.
         mock_bot.send_message.assert_awaited_once()
-        assert scheduler_jobs_module.scheduler.get_job("repeat_1_100") is None
+        assert scheduler_jobs_module.scheduler.get_job("repeat_1_0_100") is None
