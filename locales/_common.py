@@ -49,7 +49,7 @@ TEXTS = {
             "<b>🌐 Мова:</b> Українська, English, Русский\n\n"
         ),
         "lang_changed": "✅ Мову змінено на українську.",
-        "lang_choose": "🌐 Оберіть мову / Choose language:",
+        "lang_choose": "🌐 Оберіть мову:",
         "med_not_found": "❌ Препарат не знайдено",
         "name_updated": "✅ ПІБ успішно оновлено!",
         "not_set": "Не вказано",
@@ -116,7 +116,7 @@ TEXTS = {
             "<b>🌐 Language:</b> Ukrainian, English, Russian\n\n"
         ),
         "lang_changed": "✅ Language changed to English.",
-        "lang_choose": "🌐 Choose language / Оберіть мову:",
+        "lang_choose": "🌐 Choose language:",
         "med_not_found": "❌ Medicine not found",
         "name_updated": "✅ Name successfully updated!",
         "not_set": "Not set",
@@ -183,7 +183,7 @@ TEXTS = {
             "<b>🌐 Язык:</b> Украинский, English, Русский\n\n"
         ),
         "lang_changed": "✅ Язык изменён на русский.",
-        "lang_choose": "🌐 Оберіть мову / Choose language / Выберите язык:",
+        "lang_choose": "🌐 Выберите язык:",
         "med_not_found": "❌ Препарат не найден",
         "name_updated": "✅ ФИО успешно обновлено!",
         "not_set": "Не указано",

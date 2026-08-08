@@ -169,9 +169,9 @@ def language_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Українська", callback_data="lang_ua", style="primary"),
-                InlineKeyboardButton(text="English", callback_data="lang_en", style="primary"),
-                InlineKeyboardButton(text="Русский", callback_data="lang_ru", style="primary"),
+                InlineKeyboardButton(text="🇺🇦 Українська", callback_data="lang_ua", style="primary"),
+                InlineKeyboardButton(text="🇬🇧 English", callback_data="lang_en", style="primary"),
+                InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru", style="primary"),
             ]
         ]
     )
