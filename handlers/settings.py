@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from config import Config
 from database import crud
+from handlers.language import language_keyboard
 from locales.texts import DEFAULT_LANG, btn_variants, data_lang, get_text, user_lang
 from services.geo_service import format_timezone_display, resolve_timezone_from_place
 from services.scheduler import (
@@ -163,18 +164,6 @@ async def edit_lang_start(call: CallbackQuery, state: FSMContext, session: Async
         return
     msg, lang = ctx
     await msg.edit_text(get_text(lang, "lang_choose"), reply_markup=language_keyboard())
-
-
-def language_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🇺🇦 Українська", callback_data="lang_ua", style="primary"),
-                InlineKeyboardButton(text="🇬🇧 English", callback_data="lang_en", style="primary"),
-                InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru", style="primary"),
-            ]
-        ]
-    )
 
 
 # ── Feedback ──────────────────────────────────────────────────

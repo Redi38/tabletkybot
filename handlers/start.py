@@ -1,18 +1,15 @@
 import logging
 
 from aiogram import F, Router
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
-    CallbackQuery,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.crud import get_or_create_user, update_user_language
 from handlers.common import get_user_and_language
 from locales.texts import DEFAULT_LANG, btn_variants, get_text
 
@@ -63,28 +60,3 @@ async def cmd_help(message: Message, session: AsyncSession) -> None:
         parse_mode="HTML",
         reply_markup=get_main_keyboard(language),
     )
-
-
-@router.callback_query(F.data.startswith("lang_"))
-async def set_language(call: CallbackQuery, session: AsyncSession) -> None:
-    if not call.from_user or not call.data or not isinstance(call.message, Message):
-        return
-    language = call.data.split("_", 1)[1]
-    await get_or_create_user(
-        session,
-        call.from_user.id,
-        call.from_user.username,
-        call.from_user.full_name,
-    )
-    await update_user_language(session, call.from_user.id, language)
-    logger.info(f"User {call.from_user.id} (@{call.from_user.username}) changed language to '{language}'")
-
-    try:
-        await call.message.delete()
-    except TelegramBadRequest:
-        pass
-    except Exception as e:
-        logger.warning(f"Failed to delete the language-selection message for user {call.from_user.id}: {e}")
-
-    await call.message.answer(get_text(language, "lang_changed"), reply_markup=get_main_keyboard(language))
-    await call.answer()
