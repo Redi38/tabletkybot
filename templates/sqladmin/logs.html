@@ -38,7 +38,7 @@
         letter-spacing: 0.04em;
         color: #6c7480;
     }
-    .log-header .lc-time { width: 6.5rem; flex-shrink: 0; }
+    .log-header .lc-time { width: 10.5rem; flex-shrink: 0; }
     .log-header .lc-level { width: 4.5rem; flex-shrink: 0; }
     .log-header .lc-ctx { width: 9rem; flex-shrink: 0; }
     .log-header .lc-module { width: 11rem; flex-shrink: 0; }
@@ -58,7 +58,7 @@
     .log-row:hover { background: #1c2230; }
     .log-row.copied { background: #1f3b2c !important; }
 
-    .lc-time { width: 6.5rem; flex-shrink: 0; color: #6c7480; }
+    .lc-time { width: 10.5rem; flex-shrink: 0; color: #6c7480; }
     .lc-ctx { width: 9rem; flex-shrink: 0; color: #8a93a3; overflow: hidden; text-overflow: ellipsis; }
     .lc-module { width: 11rem; flex-shrink: 0; color: #5b6472; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lc-msg { flex: 1; color: #d6d9de; }
@@ -103,6 +103,29 @@
     }
     .hl-action-take { color: #7ee787; font-weight: 600; }
     .hl-action-skip { color: #ff9d7a; font-weight: 600; }
+
+    /* ── Correlation-id groups ───────────────────────────────────── */
+    .log-group-header {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.28rem 1rem;
+        border-bottom: 1px solid #1a1d24;
+        cursor: pointer;
+    }
+    .log-group:nth-child(even) > .log-group-header { background: #12151b; }
+    .log-group-header:hover { background: #1c2230; }
+    .log-group.expanded > .log-group-header { background: #171b24; }
+
+    .group-count { color: #6c7480; font-weight: 600; }
+    .group-summary { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+    .group-caret { color: #6c7480; flex-shrink: 0; }
+
+    .log-group-body {
+        border-left: 2px solid #262b36;
+        margin-left: 1rem;
+    }
+    .log-group-body .log-row { padding-left: 0.75rem; }
 </style>
 
 <div class="page-wrapper custom-font">
@@ -235,9 +258,8 @@
             </div>`;
         }
         const { time, level, ctx, module, message } = parsed;
-        const timePart = time.split(" ")[1] || time; // just HH:MM:SS, date rarely differs within a page of logs
         return `<div class="log-row" data-raw="${index}">
-            <span class="lc-time" title="${escapeHtml(time)}">${escapeHtml(timePart)}</span>
+            <span class="lc-time">${escapeHtml(time)}</span>
             <span class="lvl-badge lvl-${level}">${escapeHtml(level)}</span>
             <span class="lc-ctx ${ctxClass(ctx)}"><span class="ctx-chip">${escapeHtml(ctx)}</span></span>
             <span class="lc-module">${escapeHtml(module)}</span>
@@ -246,6 +268,137 @@
     }
 
     let rawLines = [];
+    // Which correlation-id groups are expanded — a plain module-level Set so
+    // it survives across refreshLogs() calls (including auto-refresh),
+    // instead of re-collapsing every group on every poll.
+    const expandedGroups = new Set();
+
+    const LEVEL_RANK = { INFO: 0, WARNING: 1, ERROR: 2, CRITICAL: 3 };
+
+    // Groups nearby lines that share the same non-trivial correlation id
+    // (e.g. "upd:613277875", "job:sync_reminders_hourly") into one block,
+    // ordered by each group's first line — so a block can visually "pull
+    // together" lines that were interleaved with other updates in the raw
+    // file. Lines with no cid, cid "-" (uncorrelated/system lines), or
+    // that don't match the expected line format at all are never grouped.
+    // Recurring jobs (e.g. "job:sync_reminders_hourly") reuse the exact
+    // same cid on every run — unlike "upd:12345", which is unique per
+    // Telegram update — so matching purely by key would merge every
+    // historical run in the page into one group anchored at its OLDEST
+    // occurrence, burying dozens of separate runs behind one misleading
+    // count at the top of the list. A group only keeps accepting lines
+    // for its key while they stay within GROUP_GAP_MS of the last line
+    // added to it; once a same-key line arrives after a bigger gap (i.e.
+    // the next run, an hour/day later), it starts a new group instead.
+    const GROUP_GAP_MS = 5 * 60 * 1000;
+
+    function parseTimeMs(timeStr) {
+        const ms = Date.parse(timeStr.replace(" ", "T"));
+        return Number.isNaN(ms) ? null : ms;
+    }
+
+    function buildGroups(lines) {
+        const groups = [];
+        const openByKey = new Map(); // key -> { groupIndex, lastTimeMs }
+        lines.forEach((line, index) => {
+            const parsed = parseLine(line);
+            const key = parsed && parsed.ctx && parsed.ctx !== "-" ? parsed.ctx : null;
+
+            if (key !== null) {
+                const timeMs = parsed ? parseTimeMs(parsed.time) : null;
+                const open = openByKey.get(key);
+                const withinGap = open && (timeMs === null || open.lastTimeMs === null || Math.abs(timeMs - open.lastTimeMs) <= GROUP_GAP_MS);
+
+                if (withinGap) {
+                    groups[open.groupIndex].entries.push({ line, index, parsed });
+                    openByKey.set(key, { groupIndex: open.groupIndex, lastTimeMs: timeMs ?? open.lastTimeMs });
+                    return;
+                }
+                openByKey.set(key, { groupIndex: groups.length, lastTimeMs: timeMs });
+            }
+
+            groups.push({ key, entries: [{ line, index, parsed }] });
+        });
+        return groups;
+    }
+
+    function worstLevel(entries) {
+        let best = "INFO";
+        let bestRank = -1;
+        for (const e of entries) {
+            if (!e.parsed) continue;
+            const rank = LEVEL_RANK[e.parsed.level] ?? 0;
+            if (rank > bestRank) {
+                bestRank = rank;
+                best = e.parsed.level;
+            }
+        }
+        return best;
+    }
+
+    // Picks which entry the group header previews when collapsed — the
+    // first [button]/[message] action-log line if there is one, else just
+    // the group's first entry. Returned (not just its text) so the caller
+    // can exclude this exact line from the expanded body — otherwise the
+    // first row you'd see on expanding is always a repeat of the header.
+    function pickSummaryEntry(entries) {
+        const preferred = entries.find(e => e.parsed && (e.parsed.message.startsWith("[button]") || e.parsed.message.startsWith("[message]")));
+        return preferred || entries[0];
+    }
+
+    function summaryText(entry) {
+        let text = entry.parsed ? entry.parsed.message : entry.line;
+        const MAX_LEN = 100;
+        if (text.length > MAX_LEN) text = text.slice(0, MAX_LEN) + "…";
+        return text;
+    }
+
+    function renderGroup(group) {
+        if (group.key === null || group.entries.length === 1) {
+            return group.entries.map(e => renderLine(e.line, e.index)).join("");
+        }
+        const entries = group.entries;
+        const first = entries[0].parsed;
+        const worst = worstLevel(entries);
+        const isExpanded = expandedGroups.has(group.key);
+        const summaryEntry = pickSummaryEntry(entries);
+        const summary = summaryText(summaryEntry);
+        // Everything except the line already shown in the header — avoids
+        // showing that same line twice right after expanding.
+        const bodyEntries = entries.filter(e => e !== summaryEntry);
+        const bodyRows = bodyEntries.map(e => renderLine(e.line, e.index)).join("");
+
+        return `<div class="log-group${isExpanded ? " expanded" : ""}">
+            <div class="log-group-header" data-group-toggle="${escapeHtml(group.key)}">
+                <span class="lc-time">${first ? escapeHtml(first.time) : ""}</span>
+                <span class="lvl-badge lvl-${worst}">${escapeHtml(worst)}</span>
+                <span class="lc-ctx ${ctxClass(group.key)}"><span class="ctx-chip">${escapeHtml(group.key)}</span></span>
+                <span class="lc-module group-count">×${entries.length}</span>
+                <span class="lc-msg group-summary">
+                    <span>${highlightMessage(escapeHtml(summary))}</span>
+                    <span class="group-caret">${isExpanded ? "▾" : "▸"}</span>
+                </span>
+            </div>
+            <div class="log-group-body" style="display:${isExpanded ? "block" : "none"}">${bodyRows}</div>
+        </div>`;
+    }
+
+    function toggleGroup(key, headerEl) {
+        const expanded = expandedGroups.has(key);
+        if (expanded) expandedGroups.delete(key);
+        else expandedGroups.add(key);
+
+        // Flip just this group's DOM in place instead of a full re-render,
+        // so scroll position and every other group's expand state are
+        // left untouched.
+        const groupEl = headerEl.closest(".log-group");
+        const body = groupEl.querySelector(".log-group-body");
+        const caret = groupEl.querySelector(".group-caret");
+        const nowExpanded = !expanded;
+        groupEl.classList.toggle("expanded", nowExpanded);
+        body.style.display = nowExpanded ? "block" : "none";
+        if (caret) caret.textContent = nowExpanded ? "▾" : "▸";
+    }
 
     function copyRow(rowEl) {
         const idx = Number(rowEl.getAttribute("data-raw"));
@@ -279,7 +432,8 @@
                 box.innerHTML = '<div class="logs-empty">No entries match the selected filters.</div>';
             } else {
                 rawLines = data.lines;
-                box.innerHTML = data.lines.map((line, i) => renderLine(line, i)).join("");
+                const groups = buildGroups(data.lines);
+                box.innerHTML = groups.map(renderGroup).join("");
                 box.parentElement.scrollTop = box.parentElement.scrollHeight;
             }
 
@@ -292,6 +446,11 @@
     }
 
     document.getElementById("logsBox").addEventListener("click", (e) => {
+        const toggle = e.target.closest("[data-group-toggle]");
+        if (toggle) {
+            toggleGroup(toggle.getAttribute("data-group-toggle"), toggle);
+            return;
+        }
         const row = e.target.closest(".log-row");
         if (row) copyRow(row);
     });
