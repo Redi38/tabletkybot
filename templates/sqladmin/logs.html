@@ -195,15 +195,6 @@
         return "ctx-none";
     }
 
-    function ctxIcon(ctx, message) {
-        if (ctx.startsWith("job:")) return "⏰";
-        if (ctx.startsWith("adminsync:")) return "🛠️";
-        if (ctx === "-" || ctx === "") return "";
-        if (message.startsWith("[button]")) return "🔘";
-        if (message.startsWith("[message]")) return "✉️";
-        return "↳";
-    }
-
     function escapeHtml(str) {
         return str
             .replace(/&/g, "&amp;")
@@ -245,11 +236,10 @@
         }
         const { time, level, ctx, module, message } = parsed;
         const timePart = time.split(" ")[1] || time; // just HH:MM:SS, date rarely differs within a page of logs
-        const icon = ctxIcon(ctx, message);
         return `<div class="log-row" data-raw="${index}">
             <span class="lc-time" title="${escapeHtml(time)}">${escapeHtml(timePart)}</span>
             <span class="lvl-badge lvl-${level}">${escapeHtml(level)}</span>
-            <span class="lc-ctx ${ctxClass(ctx)}"><span class="ctx-chip">${icon ? icon + " " : ""}${escapeHtml(ctx)}</span></span>
+            <span class="lc-ctx ${ctxClass(ctx)}"><span class="ctx-chip">${escapeHtml(ctx)}</span></span>
             <span class="lc-module">${escapeHtml(module)}</span>
             <span class="lc-msg">${highlightMessage(escapeHtml(message))}</span>
         </div>`;
