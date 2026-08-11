@@ -10,23 +10,99 @@
 <style>
     .custom-font { font-family: 'Nunito', sans-serif !important; }
     .logs-toolbar { gap: 0.5rem; flex-wrap: wrap; }
+
     .logs-box {
         background: #0f1115;
         color: #d6d9de;
         font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-        font-size: 0.85rem;
+        font-size: 0.83rem;
         line-height: 1.45;
         border-radius: 8px;
-        padding: 1rem;
         height: 65vh;
-        overflow-y: auto;
+        overflow: auto;
+    }
+    .logs-empty { color: #6c757d; text-align: center; padding: 2rem; }
+
+    /* ── Column header (sticky) ─────────────────────────────────── */
+    .log-header {
+        display: flex;
+        gap: 0.75rem;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #161920;
+        border-bottom: 1px solid #262b36;
+        padding: 0.4rem 1rem;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #6c7480;
+    }
+    .log-header .lc-time { width: 6.5rem; flex-shrink: 0; }
+    .log-header .lc-level { width: 4.5rem; flex-shrink: 0; }
+    .log-header .lc-ctx { width: 9rem; flex-shrink: 0; }
+    .log-header .lc-module { width: 11rem; flex-shrink: 0; }
+    .log-header .lc-msg { flex: 1; }
+
+    /* ── Row ─────────────────────────────────────────────────────── */
+    .log-row {
+        display: flex;
+        gap: 0.75rem;
+        padding: 0.28rem 1rem;
+        border-bottom: 1px solid #1a1d24;
         white-space: pre-wrap;
         word-break: break-word;
+        cursor: pointer;
     }
-    .log-line-error { color: #ff6b6b; }
-    .log-line-warning { color: #ffd166; }
-    .log-line-info { color: #d6d9de; }
-    .logs-empty { color: #6c757d; text-align: center; padding: 2rem; }
+    .log-row:nth-child(even) { background: #12151b; }
+    .log-row:hover { background: #1c2230; }
+    .log-row.copied { background: #1f3b2c !important; }
+
+    .lc-time { width: 6.5rem; flex-shrink: 0; color: #6c7480; }
+    .lc-ctx { width: 9rem; flex-shrink: 0; color: #8a93a3; overflow: hidden; text-overflow: ellipsis; }
+    .lc-module { width: 11rem; flex-shrink: 0; color: #5b6472; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lc-msg { flex: 1; color: #d6d9de; }
+    .log-row-raw .lc-msg { color: #9aa2ae; } /* line didn't match the expected format */
+
+    /* ── Level badges ────────────────────────────────────────────── */
+    .lvl-badge {
+        width: 4.5rem;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        height: 1.3rem;
+    }
+    .lvl-INFO { background: #1b2a3d; color: #7cc4ff; }
+    .lvl-WARNING { background: #3d331a; color: #ffd166; }
+    .lvl-ERROR, .lvl-CRITICAL { background: #3d1a1e; color: #ff6b6b; }
+
+    /* ── Context (cid) chips, colored by event type ─────────────── */
+    .ctx-chip { display: inline-flex; align-items: center; gap: 0.3rem; }
+    .ctx-button, .ctx-message { color: #7cc4ff; }
+    .ctx-job { color: #b98cff; }
+    .ctx-adminsync { color: #ffd166; }
+    .ctx-none { color: #4b515c; }
+
+    /* ── Inline semantic highlights inside the message ──────────── */
+    .hl-user {
+        color: #9fe3a0;
+        cursor: pointer;
+        border-bottom: 1px dotted #4a5a4a;
+    }
+    .hl-user:hover { color: #c7f5c8; }
+    .hl-id {
+        background: #22262f;
+        color: #c9cfda;
+        border-radius: 3px;
+        padding: 0 0.3rem;
+    }
+    .hl-action-take { color: #7ee787; font-weight: 600; }
+    .hl-action-skip { color: #ff9d7a; font-weight: 600; }
 </style>
 
 <div class="page-wrapper custom-font">
@@ -75,8 +151,17 @@
                         <span id="logStatus" class="text-secondary ms-auto"></span>
                     </div>
 
-                    <div id="logsBox" class="logs-box">
-                        <div class="logs-empty">Loading...</div>
+                    <div class="logs-box">
+                        <div class="log-header">
+                            <span class="lc-time">Time</span>
+                            <span class="lc-level">Level</span>
+                            <span class="lc-ctx">Context</span>
+                            <span class="lc-module">Module</span>
+                            <span class="lc-msg">Message</span>
+                        </div>
+                        <div id="logsBox">
+                            <div class="logs-empty">Loading...</div>
+                        </div>
                     </div>
 
                 </div>
@@ -89,10 +174,34 @@
 <script>
     let autoRefreshInterval = null;
 
-    function levelClass(line) {
-        if (line.includes("| ERROR |") || line.includes("| CRITICAL |")) return "log-line-error";
-        if (line.includes("| WARNING |")) return "log-line-warning";
-        return "log-line-info";
+    // Bot lines: "2026-08-06 16:01:15 | INFO | [upd:613277875] | bot.actions | [button] user=123 (@name) data='take_91'"
+    // Admin lines have no [cid] segment: "2026-08-06 16:01:15 | INFO | admin.routes | Some message"
+    const LINE_WITH_CID = /^(\S+ \S+) \| (\w+) \| \[(.*?)\] \| (\S+) \| ([\s\S]*)$/;
+    const LINE_NO_CID = /^(\S+ \S+) \| (\w+) \| (\S+) \| ([\s\S]*)$/;
+
+    function parseLine(line) {
+        let m = line.match(LINE_WITH_CID);
+        if (m) return { time: m[1], level: m[2], ctx: m[3], module: m[4], message: m[5] };
+        m = line.match(LINE_NO_CID);
+        if (m) return { time: m[1], level: m[2], ctx: "", module: m[3], message: m[4] };
+        return null; // doesn't match the expected format (e.g. a wrapped traceback line) — shown raw
+    }
+
+    function ctxClass(ctx) {
+        if (ctx.startsWith("upd:")) return "ctx-button"; // refined further below using the message prefix
+        if (ctx.startsWith("job:")) return "ctx-job";
+        if (ctx.startsWith("adminsync:")) return "ctx-adminsync";
+        if (ctx === "-" || ctx === "") return "ctx-none";
+        return "ctx-none";
+    }
+
+    function ctxIcon(ctx, message) {
+        if (ctx.startsWith("job:")) return "⏰";
+        if (ctx.startsWith("adminsync:")) return "🛠️";
+        if (ctx === "-" || ctx === "") return "";
+        if (message.startsWith("[button]")) return "🔘";
+        if (message.startsWith("[message]")) return "✉️";
+        return "↳";
     }
 
     function escapeHtml(str) {
@@ -100,6 +209,62 @@
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;");
+    }
+
+    // Applied to an already-escaped message string, so these patterns only
+    // ever match plain text/digits/@handles — never raw HTML from the log.
+    function highlightMessage(escapedMsg) {
+        let out = escapedMsg
+            // user=123456 (@handle) -> clickable chip that searches by handle (or id, if no handle)
+            .replace(/user=(\d+)(\s*\(@([\w]+)\))?/g, (full, uid, _paren, handle) => {
+                const term = handle || uid;
+                return `<span class="hl-user" onclick="searchFor('${term}')" title="Filter logs by this user">${full}</span>`;
+            })
+            // id=42 / (id=42) — standalone numeric ids for medicines/prescriptions/etc.
+            .replace(/\bid=(\d+)\b/g, '<span class="hl-id">id=$1</span>')
+            .replace(/\btake_/g, '<span class="hl-action-take">take_</span>')
+            .replace(/\bskip_/g, '<span class="hl-action-skip">skip_</span>');
+        return out;
+    }
+
+    function searchFor(term) {
+        document.getElementById("logSearch").value = term;
+        refreshLogs();
+    }
+
+    function renderLine(line, index) {
+        const parsed = parseLine(line);
+        if (!parsed) {
+            return `<div class="log-row log-row-raw" data-raw="${index}">
+                <span class="lc-time"></span>
+                <span class="lvl-badge"></span>
+                <span class="lc-ctx"></span>
+                <span class="lc-module"></span>
+                <span class="lc-msg">${escapeHtml(line)}</span>
+            </div>`;
+        }
+        const { time, level, ctx, module, message } = parsed;
+        const timePart = time.split(" ")[1] || time; // just HH:MM:SS, date rarely differs within a page of logs
+        const icon = ctxIcon(ctx, message);
+        return `<div class="log-row" data-raw="${index}">
+            <span class="lc-time" title="${escapeHtml(time)}">${escapeHtml(timePart)}</span>
+            <span class="lvl-badge lvl-${level}">${escapeHtml(level)}</span>
+            <span class="lc-ctx ${ctxClass(ctx)}"><span class="ctx-chip">${icon ? icon + " " : ""}${escapeHtml(ctx)}</span></span>
+            <span class="lc-module">${escapeHtml(module)}</span>
+            <span class="lc-msg">${highlightMessage(escapeHtml(message))}</span>
+        </div>`;
+    }
+
+    let rawLines = [];
+
+    function copyRow(rowEl) {
+        const idx = Number(rowEl.getAttribute("data-raw"));
+        const text = rawLines[idx];
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            rowEl.classList.add("copied");
+            setTimeout(() => rowEl.classList.remove("copied"), 400);
+        });
     }
 
     async function refreshLogs() {
@@ -120,12 +285,12 @@
             const data = await response.json();
 
             if (!data.lines || data.lines.length === 0) {
+                rawLines = [];
                 box.innerHTML = '<div class="logs-empty">No entries match the selected filters.</div>';
             } else {
-                box.innerHTML = data.lines
-                    .map(line => `<div class="${levelClass(line)}">${escapeHtml(line)}</div>`)
-                    .join("");
-                box.scrollTop = box.scrollHeight;
+                rawLines = data.lines;
+                box.innerHTML = data.lines.map((line, i) => renderLine(line, i)).join("");
+                box.parentElement.scrollTop = box.parentElement.scrollHeight;
             }
 
             const now = new Date().toLocaleTimeString();
@@ -135,6 +300,11 @@
             console.error("Error loading logs:", error);
         }
     }
+
+    document.getElementById("logsBox").addEventListener("click", (e) => {
+        const row = e.target.closest(".log-row");
+        if (row) copyRow(row);
+    });
 
     function downloadLogs() {
         const source = document.getElementById("logSource").value;
