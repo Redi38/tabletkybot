@@ -121,7 +121,7 @@ class TestDurationChosen:
         await duration_chosen(call, state)
 
         data = await state.get_data()
-        assert data["expires"] == "2026-01-31"
+        assert data["expires"] == "2026-01-30"
         assert state.state == AddPrescription.quantity
         message.edit_text.assert_awaited_once()
 
@@ -132,7 +132,7 @@ class TestDurationChosen:
         await duration_chosen(call, state)
 
         data = await state.get_data()
-        assert data["expires"] == "2026-03-02"
+        assert data["expires"] == "2026-03-01"
 
 
 class TestAddQuantity:

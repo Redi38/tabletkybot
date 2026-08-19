@@ -106,7 +106,7 @@ async def edit_duration_save(call: CallbackQuery, session: AsyncSession) -> None
     prescription = await crud.get_prescription_by_id(session, prescription_id)
     if not prescription:
         return
-    new_expires = prescription.valid_from + timedelta(days=days)
+    new_expires = prescription.valid_from + timedelta(days=days) - timedelta(days=1)
     await crud.update_prescription_field(session, prescription_id, "expires_at", new_expires)
 
     if call.from_user:

@@ -67,7 +67,7 @@ async def duration_chosen(call: CallbackQuery, state: FSMContext) -> None:
     days = int(str(call.data).split("_")[-1])
 
     valid_from = date.fromisoformat(data["valid_from"])
-    expires_at = valid_from + timedelta(days=days)
+    expires_at = valid_from + timedelta(days=days) - timedelta(days=1)
     await state.update_data(expires=expires_at.isoformat())
 
     await call.message.edit_text(get_text(lang, "add_presc_quantity"), parse_mode="HTML")

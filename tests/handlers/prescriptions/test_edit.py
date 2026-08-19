@@ -158,7 +158,7 @@ class TestEditDurationFlow:
         await edit_duration_save(call, db_session)
 
         refreshed = await crud.get_prescription_by_id(db_session, prescription.id)
-        assert refreshed.expires_at == date(2026, 3, 2)  # valid_from + 60 days
+        assert refreshed.expires_at == date(2026, 3, 1)  # valid_from + 60 days
         message.edit_text.assert_awaited_once()
 
     async def test_save_no_op_when_prescription_missing(self, db_session):

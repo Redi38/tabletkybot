@@ -120,7 +120,7 @@ class TestRestoreDuration:
         await restore_duration(call, state)
 
         data = await state.get_data()
-        assert data["expires"] == "2026-07-01"
+        assert data["expires"] == "2026-06-30"
         assert state.state == RestorePrescription.quantity
         message.edit_text.assert_awaited_once()
 
