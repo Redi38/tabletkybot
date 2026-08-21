@@ -92,6 +92,15 @@ async def send_reminder(
                 logger.error(f"Error sending auto-archive notification to {chat_id}: {e}")
             return
 
+    # ── Refresh course_duration from the DB ─────────────────────────────
+    if session_factory is not None:
+        from database import crud
+
+        async with session_factory() as session:
+            medicine = await crud.get_medicine_by_id(session, medicine_id)
+            if medicine is not None:
+                course_duration = medicine.course_duration
+
     today = _local_today(timezone)
 
     if is_manual:
