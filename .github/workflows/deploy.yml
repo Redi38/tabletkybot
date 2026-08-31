@@ -25,6 +25,9 @@ jobs:
           echo "PREV_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Deploy to production
+        env:
+          DOCKER_BUILDKIT: "1"
+          COMPOSE_DOCKER_CLI_BUILD: "1"
         run: |
           set -e
           cd /home/ubuntu/tgbot

@@ -1,8 +1,16 @@
+# syntax=docker/dockerfile:1
 FROM python:3.14-slim
 WORKDIR /app
-RUN apt-get update && apt-get install -y gcc libpq-dev postgresql-client ffmpeg curl && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev postgresql-client ffmpeg curl
+
 COPY requirements/base.txt requirements/base.txt
-RUN pip install --no-cache-dir -r requirements/base.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements/base.txt
+
 COPY . .
 
 RUN useradd --uid 1000 --create-home --shell /bin/bash appuser \

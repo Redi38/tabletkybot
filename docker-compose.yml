@@ -27,6 +27,7 @@ services:
 
   bot:
     build: .
+    image: medbot:latest
     container_name: medbot_core
     restart: always
     command: python main.py
@@ -52,6 +53,7 @@ services:
 
   admin:
     build: .
+    image: medbot:latest
     container_name: medbot_admin
     restart: always
     command: uvicorn admin.app:app --host 0.0.0.0 --port 8000
@@ -65,7 +67,7 @@ services:
       db:
         condition: service_healthy
       bot:
-        condition: service_healthy
+        condition: service_started
     volumes:
       - logs_data:/app/logs
     healthcheck:
