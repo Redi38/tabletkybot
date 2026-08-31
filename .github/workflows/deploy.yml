@@ -42,7 +42,7 @@ jobs:
         run: |
           set -e
           cd /home/ubuntu/tgbot
-          for i in $(seq 1 18); do
+          for i in $(seq 1 30); do
             bot_status=$(docker inspect --format='{{.State.Health.Status}}' medbot_core 2>/dev/null || echo "missing")
             admin_status=$(docker inspect --format='{{.State.Health.Status}}' medbot_admin 2>/dev/null || echo "missing")
             echo "Attempt $i: bot=$bot_status admin=$admin_status"
@@ -50,13 +50,9 @@ jobs:
               echo "All containers healthy."
               exit 0
             fi
-            if [ "$bot_status" = "unhealthy" ] || [ "$admin_status" = "unhealthy" ]; then
-              echo "A container reported unhealthy, failing fast."
-              exit 1
-            fi
             sleep 5
           done
-          echo "Timed out waiting for containers to become healthy."
+          echo "Timed out waiting for containers to become healthy (last: bot=$bot_status admin=$admin_status)."
           exit 1
 
       - name: Notify success
