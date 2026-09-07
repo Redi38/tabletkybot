@@ -126,6 +126,48 @@
         margin-left: 1rem;
     }
     .log-group-body .log-row { padding-left: 0.75rem; }
+
+    /* ── Mobile toolbar: full-width, stacked controls instead of a
+       cramped single row of selects. ─────────────────────────────── */
+    @media (max-width: 767.98px) {
+        .logs-toolbar > * { width: 100%; margin: 0 !important; }
+        .logs-toolbar #logSearch { width: 100% !important; }
+        .logs-toolbar .form-check.form-switch { width: auto; }
+        .logs-toolbar #logStatus { margin-left: 0 !important; text-align: center; }
+    }
+
+    /* ── Mobile log rows: the fixed-width flex columns (time/ctx/module)
+       add up to ~35rem, wider than any phone screen, so on narrow
+       viewports collapse each entry to two lines — a compact meta line
+       (time · level · context) above the message — instead of forcing
+       a horizontal scroll per row. ────────────────────────────────── */
+    @media (max-width: 575.98px) {
+        .logs-box { font-size: 0.78rem; height: 60vh; }
+
+        .log-header { display: none; }
+
+        .log-row, .log-group-header {
+            flex-wrap: wrap;
+            padding: 0.4rem 0.6rem;
+            row-gap: 0.2rem;
+        }
+
+        .lc-time { width: auto; order: 1; }
+        .lvl-badge, .log-header .lc-level { order: 2; margin-left: 0.4rem; }
+        .lc-ctx { width: auto; order: 3; margin-left: 0.4rem; overflow: visible; text-overflow: clip; }
+        .lc-module {
+            order: 4;
+            width: 100%;
+            flex-basis: 100%;
+            white-space: normal;
+            overflow: visible;
+            font-size: 0.72rem;
+        }
+        .lc-msg { order: 5; flex-basis: 100%; width: 100%; }
+        .group-summary { flex-wrap: wrap; }
+
+        .log-group-body { margin-left: 0.5rem; }
+    }
 </style>
 
 <div class="page-wrapper custom-font">

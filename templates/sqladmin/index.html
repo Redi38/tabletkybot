@@ -16,6 +16,16 @@
     .stat-card { text-align: center; padding: 1.25rem 0.5rem; }
     .stat-value { font-size: 2rem; font-weight: 700; line-height: 1.2; }
     .stat-label { color: var(--tblr-secondary, #6c757d); font-size: 0.95rem; }
+
+    @media (max-width: 575.98px) {
+        /* Smaller charts and a 2x2 button grid instead of one cramped
+           row, so the period picker stays tappable on a phone. */
+        .pie-container, .bar-container { height: 220px; }
+        .stat-value { font-size: 1.5rem; }
+        .stat-label { font-size: 0.8rem; }
+        .btn-group.shadow-sm { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+        .btn-group.shadow-sm .btn { border-radius: 4px !important; }
+    }
 </style>
 
 <div class="page-wrapper custom-font">
