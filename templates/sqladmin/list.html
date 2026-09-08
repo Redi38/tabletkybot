@@ -33,9 +33,42 @@
             display: inline-block;
             width: auto;
             padding: 0.15rem 0;
+            vertical-align: middle;
         }
-        .list-table tr > td:nth-child(2) { float: right; }
-        .list-table tr > td:nth-child(2) a span { font-size: 1.1rem; padding: 0.25rem; }
+
+        /* The action icons: turn the bare <a><span><i></span></a> links
+           into a tight row of round, tappable icon buttons instead of
+           loosely spaced underlined text links. */
+        .list-table tr > td:nth-child(2) {
+            float: right;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+        .list-table tr > td:nth-child(2) a {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 50%;
+            background: var(--tblr-active-bg, rgba(0, 0, 0, 0.04));
+            color: var(--tblr-body-color, #626976);
+            text-decoration: none;
+        }
+        .list-table tr > td:nth-child(2) a:active {
+            background: var(--tblr-border-color, #dde1e6);
+        }
+        .list-table tr > td:nth-child(2) a span {
+            margin: 0 !important;
+            font-size: 1rem;
+            padding: 0;
+            display: inline-flex;
+        }
+        .list-table tr > td:nth-child(2) a[href*="delete"],
+        .list-table tr > td:nth-child(2) a[data-bs-target="#modal-delete"] {
+            color: var(--tblr-danger, #d63939);
+        }
 
         /* Data columns: label above value, like a small definition list,
            so every field stays readable without side-scrolling. */
@@ -54,6 +87,24 @@
             color: var(--tblr-secondary, #6c757d);
             margin-bottom: 0.1rem;
         }
+
+        /* Header buttons (Export / Import CSV / + New): on desktop these
+           sit inline, each with a left margin (ms-3) for spacing from
+           its neighbor. On mobile that row wraps, but the left margin
+           stays on the wrapped buttons too, so they end up staggered
+           at different horizontal offsets instead of sharing one edge.
+           Stack them as a full-width, evenly-gapped column instead. */
+        .card-header { flex-wrap: wrap; row-gap: 0.5rem; }
+        .card-header .ms-auto {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+            margin-left: 0 !important;
+            gap: 0.5rem;
+        }
+        .card-header .ms-auto > .ms-3 { margin-left: 0 !important; width: 100%; }
+        .card-header .ms-auto .btn { width: 100%; }
 
         /* Toolbar (actions dropdown + search) stacks and goes full-width
            so both controls stay reachable with a thumb. */
