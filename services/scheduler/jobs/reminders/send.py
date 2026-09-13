@@ -9,6 +9,8 @@ the medicine instead of sending a normal dose reminder).
 """
 
 import logging
+from datetime import datetime
+from datetime import timezone as dt_timezone
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
@@ -25,9 +27,54 @@ from ...redis_state import (
 )
 from ..core import _repeat_job_id, scheduler
 from .remove import remove_reminders
-from .utils import _handle_user_blocked, _local_today, _manual_reminder_today, get_reminder_keyboard
+from .utils import (
+    _MAX_UNACKNOWLEDGED_DAYS,
+    _handle_user_blocked,
+    _local_today,
+    _manual_reminder_today,
+    _unacknowledged_duration,
+    get_reminder_keyboard,
+)
 
 logger = logging.getLogger(__name__)
+
+
+async def _archive_for_inactivity(
+    bot: Bot,
+    chat_id: int,
+    medicine_id: int,
+    medicine_name: str,
+    language: str,
+    days_unacknowledged: int,
+    session_factory: async_sessionmaker | None,
+) -> None:
+    """
+    Archives a medicine whose reminder has gone unacknowledged (no
+    Taken/Skip tap) for _MAX_UNACKNOWLEDGED_DAYS or more: flips it inactive,
+    cancels every scheduled job (daily + hourly repeat) and clears all
+    Redis state for it via remove_reminders(), then lets the user know why
+    it disappeared from their active list instead of leaving them wondering.
+    """
+    if session_factory is not None:
+        from database import crud
+
+        async with session_factory() as session:
+            await crud.update_medicine_field(session, medicine_id, "is_active", False)
+    remove_reminders(medicine_id)
+    try:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=get_text(language, "med_auto_archived_inactivity", name=medicine_name, days=days_unacknowledged),
+            parse_mode="HTML",
+        )
+        logger.info(
+            f"Medicine '{medicine_name}' (id={medicine_id}) auto-archived for user {chat_id} "
+            f"— no take/skip response for {days_unacknowledged}+ day(s)"
+        )
+    except TelegramForbiddenError:
+        await _handle_user_blocked(chat_id, session_factory)
+    except Exception as e:
+        logger.error(f"Error sending inactivity auto-archive notification to {chat_id}: {e}")
 
 
 async def send_reminder(
@@ -92,6 +139,26 @@ async def send_reminder(
                 logger.error(f"Error sending auto-archive notification to {chat_id}: {e}")
             return
 
+    # ── Inactivity auto-archive check ────────────────────────────────────
+    # If the PREVIOUS dose reminder for this exact schedule slot is still
+    # unacknowledged and has been so for _MAX_UNACKNOWLEDGED_DAYS or more,
+    # archive the medicine now instead of sending yet another reminder that
+    # will most likely go unanswered too. Without this check, send_reminder
+    # would just silently overwrite the old pending entry (resetting the
+    # unacknowledged streak) every time a new dose comes due — this also
+    # covers users who have hourly repeat reminders turned off, since for
+    # them the daily send_reminder call is the only recurring check point.
+    existing_pending = None
+    if session_factory is not None and not is_manual:
+        existing_pending = await _get_pending_reminder(chat_id, medicine_id, schedule_id)
+        if existing_pending:
+            duration = _unacknowledged_duration(existing_pending, datetime.now(dt_timezone.utc))
+            if duration is not None and duration.days >= _MAX_UNACKNOWLEDGED_DAYS:
+                await _archive_for_inactivity(
+                    bot, chat_id, medicine_id, medicine_name, language, duration.days, session_factory
+                )
+                return
+
     # ── Refresh course_duration from the DB ─────────────────────────────
     if session_factory is not None:
         from database import crud
@@ -132,6 +199,7 @@ async def send_reminder(
             course_duration,
             language,
             timezone,
+            first_sent_at=(existing_pending or {}).get("first_sent_at") or (existing_pending or {}).get("sent_at"),
         )
 
         repeat_enabled = True
@@ -205,6 +273,23 @@ async def send_repeat_reminder(
     language = pending["language"]
     medicine_name = pending["medicine_name"]
 
+    # ── Inactivity auto-archive check ────────────────────────────────────
+    # Same check as in send_reminder(), but reached via the hourly repeat
+    # path instead of the daily one — catches users who do have repeat
+    # reminders enabled well before the next day's dose would.
+    if session_factory is not None:
+        duration = _unacknowledged_duration(pending, datetime.now(dt_timezone.utc))
+        if duration is not None and duration.days >= _MAX_UNACKNOWLEDGED_DAYS:
+            try:
+                scheduler.remove_job(repeat_job_id)
+            except Exception:
+                pass
+            await _delete_pending_reminder(chat_id, medicine_id, schedule_id)
+            await _archive_for_inactivity(
+                bot, chat_id, medicine_id, medicine_name, language, duration.days, session_factory
+            )
+            return
+
     try:
         await bot.delete_message(chat_id=chat_id, message_id=pending["message_id"])
     except TelegramBadRequest:
@@ -228,6 +313,7 @@ async def send_repeat_reminder(
             pending["course_duration"],
             language,
             pending["timezone"],
+            first_sent_at=pending.get("first_sent_at") or pending.get("sent_at"),
         )
         logger.info(f"Repeat reminder sent to {chat_id} for {medicine_name}")
     except TelegramForbiddenError:

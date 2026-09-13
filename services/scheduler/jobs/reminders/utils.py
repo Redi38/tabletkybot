@@ -25,6 +25,12 @@ logger = logging.getLogger(__name__)
 
 _manual_reminder_today: dict[tuple[int, int], date_type] = {}
 
+# After a dose reminder has gone unacknowledged (no Taken/Skip) for this many
+# days in a row, the medicine is auto-archived instead of keeping the user
+# stuck in an endless reminder loop for a medicine they've clearly stopped
+# tracking.
+_MAX_UNACKNOWLEDGED_DAYS = 7
+
 
 def _local_today(tz_name: str) -> date_type:
     try:
@@ -72,6 +78,26 @@ def _next_grid_slot(sent_at_str: str | None, now: datetime) -> datetime | None:
     elapsed_hours = (now - sent_at).total_seconds() / 3600
     next_slot = math.ceil(elapsed_hours) if elapsed_hours > 0 else 1
     return sent_at + timedelta(hours=next_slot)
+
+
+def _unacknowledged_duration(pending: dict, now: datetime) -> timedelta | None:
+    """
+    How long a dose reminder has sat unacknowledged, based on
+    "first_sent_at" (falling back to "sent_at" for older Redis entries
+    saved before "first_sent_at" existed). Returns None if neither field is
+    present/parseable, so callers can skip the inactivity check rather than
+    misreading a missing timestamp as "just sent".
+    """
+    raw = pending.get("first_sent_at") or pending.get("sent_at")
+    if not raw:
+        return None
+    try:
+        first_sent_at = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if first_sent_at.tzinfo is None:
+        first_sent_at = first_sent_at.replace(tzinfo=dt_timezone.utc)
+    return now - first_sent_at
 
 
 async def _handle_user_blocked(chat_id: int, session_factory: async_sessionmaker | None) -> None:

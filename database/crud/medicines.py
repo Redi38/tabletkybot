@@ -1,10 +1,12 @@
 """CRUD operations for medicines, schedules, and intake records."""
 
-from sqlalchemy import delete, select
+from datetime import datetime
+
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from database.models import Medicine, MedicineRecord, MedicineSchedule
+from database.models import Medicine, MedicineRecord, MedicineSchedule, User
 
 
 def _medicine_with_schedules():
@@ -146,3 +148,36 @@ async def get_archived_medicines(session: AsyncSession, user_id: int) -> list[Me
         _medicine_with_schedules().where(Medicine.user_id == user_id, Medicine.is_active.is_(False))
     )
     return list(result.scalars().all())
+
+
+async def get_stale_active_medicines(session: AsyncSession, cutoff: datetime) -> list[tuple[Medicine, User, datetime]]:
+    """
+    Returns (medicine, user, last_activity_at) for every active medicine
+    whose last recorded dose (MedicineRecord.taken_at, "taken" or "skipped"
+    both count as a response) is older than `cutoff` — or, for a medicine
+    with no records at all yet, whose creation date is older than `cutoff`.
+    last_activity_at is that reference timestamp, returned so callers can
+    report how many days it's been.
+
+    Used by the inactivity sweep (services/scheduler/jobs/reminders/
+    inactivity_sweep.py) to catch medicines that are ALREADY stale — unlike
+    the day-to-day check in send_reminder()/send_repeat_reminder(), which
+    can only measure inactivity starting from when it began running (it
+    relies on Redis's pending-reminder state, overwritten by every resend),
+    this reads the durable intake log instead, so it also works
+    retroactively for medicines that were overdue before the sweep existed.
+    """
+    last_taken_subq = (
+        select(MedicineRecord.medicine_id, func.max(MedicineRecord.taken_at).label("last_taken_at"))
+        .group_by(MedicineRecord.medicine_id)
+        .subquery()
+    )
+    last_activity = func.coalesce(last_taken_subq.c.last_taken_at, Medicine.created_at).label("last_activity_at")
+    stmt = (
+        select(Medicine, User, last_activity)
+        .join(User, Medicine.user_id == User.id)
+        .outerjoin(last_taken_subq, last_taken_subq.c.medicine_id == Medicine.id)
+        .where(Medicine.is_active.is_(True), last_activity < cutoff)
+    )
+    result = await session.execute(stmt)
+    return [(row[0], row[1], row[2]) for row in result.all()]

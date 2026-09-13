@@ -32,6 +32,7 @@ from services.scheduler import (
     scheduler,
     start_scheduler,
     stop_scheduler,
+    sweep_inactive_medicines,
     sync_reminders,
 )
 from web.internal_api import build_health_handler, build_scheduled_jobs_handler, build_sync_handler
@@ -160,6 +161,11 @@ async def main() -> None:
     with correlation_scope("job:startup_sync"):
         await sync_reminders(bot, session_factory)
         await resume_pending_reminders(bot, session_factory)
+        # Catches medicines that were ALREADY inactive (no take/skip for
+        # _MAX_UNACKNOWLEDGED_DAYS+) before this feature existed — the
+        # day-to-day check in send_reminder/send_repeat_reminder only
+        # measures inactivity going forward from when it starts running.
+        await sweep_inactive_medicines(bot, session_factory)
 
     async def _timed_job(name: str, coro) -> None:
         start = asyncio.get_running_loop().time()
@@ -180,6 +186,10 @@ async def main() -> None:
     async def _tagged_archive_expired_prescriptions(bot, session_factory):
         with correlation_scope("job:archive_expired_prescriptions"):
             await _timed_job("archive_expired_prescriptions", archive_expired_prescriptions(bot, session_factory))
+
+    async def _tagged_sweep_inactive_medicines(bot, session_factory):
+        with correlation_scope("job:sweep_inactive_medicines"):
+            await _timed_job("sweep_inactive_medicines", sweep_inactive_medicines(bot, session_factory))
 
     async def _tagged_backup(config):
         with correlation_scope("job:db_backup_daily"):
@@ -211,6 +221,17 @@ async def main() -> None:
         minute=10,
         timezone="UTC",
         id="presc_archive_expired_daily",
+        replace_existing=True,
+        kwargs={"bot": bot, "session_factory": session_factory},
+    )
+
+    scheduler.add_job(
+        _tagged_sweep_inactive_medicines,
+        trigger="cron",
+        hour=0,
+        minute=20,
+        timezone="UTC",
+        id="sweep_inactive_medicines_daily",
         replace_existing=True,
         kwargs={"bot": bot, "session_factory": session_factory},
     )

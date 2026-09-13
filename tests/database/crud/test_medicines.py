@@ -2,6 +2,8 @@
 async session. See the `db_session` fixture in conftest.py.
 """
 
+from datetime import datetime, timedelta, timezone
+
 import database.crud as crud
 
 
@@ -253,3 +255,130 @@ class TestArchivedMedicines:
 
         result = await crud.get_archived_medicines(db_session, 1)
         assert {m.id for m in result} == {archived.id}
+
+
+class TestGetStaleActiveMedicines:
+    """
+    Tests for get_stale_active_medicines(): used by the inactivity sweep to
+    catch medicines that were already stale (no taken/skipped dose for
+    N+ days) before the feature existed, using the durable MedicineRecord
+    log — or, absent any record, the medicine's creation date — rather than
+    Redis's pending-reminder state.
+    """
+
+    async def test_returns_a_medicine_with_no_records_older_than_cutoff(self, db_session):
+        from database.models import Medicine
+
+        user = await crud.get_or_create_user(db_session, 1, "a", "A")
+        old_medicine = Medicine(
+            user_id=user.id,
+            name="OldMed",
+            form="tablet",
+            dosage="10mg",
+            course_duration=5,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=10),
+        )
+        db_session.add(old_medicine)
+        await db_session.commit()
+
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
+        stale = await crud.get_stale_active_medicines(db_session, cutoff)
+
+        assert len(stale) == 1
+        medicine, returned_user, _last_activity_at = stale[0]
+        assert medicine.id == old_medicine.id
+        assert returned_user.id == user.id
+
+    async def test_excludes_a_medicine_created_after_the_cutoff(self, db_session):
+        from database.models import Medicine
+
+        user = await crud.get_or_create_user(db_session, 1, "a", "A")
+        recent_medicine = Medicine(
+            user_id=user.id,
+            name="RecentMed",
+            form="tablet",
+            dosage="10mg",
+            course_duration=5,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1),
+        )
+        db_session.add(recent_medicine)
+        await db_session.commit()
+
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
+        stale = await crud.get_stale_active_medicines(db_session, cutoff)
+
+        assert stale == []
+
+    async def test_a_recent_record_excludes_the_medicine_even_with_an_old_creation_date(self, db_session):
+        from database.models import Medicine, MedicineRecord
+
+        user = await crud.get_or_create_user(db_session, 1, "a", "A")
+        medicine = Medicine(
+            user_id=user.id,
+            name="Med",
+            form="tablet",
+            dosage="10mg",
+            course_duration=5,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30),
+        )
+        db_session.add(medicine)
+        await db_session.flush()
+        db_session.add(
+            MedicineRecord(
+                medicine_id=medicine.id,
+                status="taken",
+                taken_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1),
+            )
+        )
+        await db_session.commit()
+
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
+        stale = await crud.get_stale_active_medicines(db_session, cutoff)
+
+        assert stale == []
+
+    async def test_uses_the_last_record_not_the_creation_date_as_the_reference(self, db_session):
+        from database.models import Medicine, MedicineRecord
+
+        user = await crud.get_or_create_user(db_session, 1, "a", "A")
+        medicine = Medicine(
+            user_id=user.id,
+            name="Med",
+            form="tablet",
+            dosage="10mg",
+            course_duration=5,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30),
+        )
+        db_session.add(medicine)
+        await db_session.flush()
+        old_record_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=9)
+        db_session.add(MedicineRecord(medicine_id=medicine.id, status="skipped", taken_at=old_record_time))
+        await db_session.commit()
+
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
+        stale = await crud.get_stale_active_medicines(db_session, cutoff)
+
+        assert len(stale) == 1
+        _medicine, _user, last_activity_at = stale[0]
+        assert abs((last_activity_at - old_record_time).total_seconds()) < 1
+
+    async def test_excludes_archived_medicines(self, db_session):
+        from database.models import Medicine
+
+        user = await crud.get_or_create_user(db_session, 1, "a", "A")
+        archived_medicine = Medicine(
+            user_id=user.id,
+            name="Archived",
+            form="tablet",
+            dosage="10mg",
+            course_duration=5,
+            is_active=False,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30),
+        )
+        db_session.add(archived_medicine)
+        await db_session.commit()
+
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
+        stale = await crud.get_stale_active_medicines(db_session, cutoff)
+
+        assert stale == []

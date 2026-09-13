@@ -31,6 +31,7 @@ from .reminders import (
     resume_repeat_reminders_for_user,
     send_reminder,
     send_repeat_reminder,
+    sweep_inactive_medicines,
 )
 from .sync import (
     _cron_field_value,
@@ -53,6 +54,7 @@ __all__ = [
     "resume_pending_reminders",
     "pause_repeat_reminders_for_user",
     "resume_repeat_reminders_for_user",
+    "sweep_inactive_medicines",
     "pause_daily_reminders_for_user",
     "resume_daily_reminders_for_user",
     "remove_reminders",

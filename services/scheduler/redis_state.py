@@ -55,16 +55,25 @@ async def _save_pending_reminder(
     course_duration: int,
     language: str,
     timezone: str,
+    first_sent_at: str | None = None,
 ) -> None:
     if not _redis_client:
         return
+    now_iso = datetime.now(dt_timezone.utc).isoformat()
     data = {
         "message_id": message_id,
         "medicine_name": medicine_name,
         "course_duration": course_duration,
         "language": language,
         "timezone": timezone,
-        "sent_at": datetime.now(dt_timezone.utc).isoformat(),
+        "sent_at": now_iso,
+        # Unlike "sent_at" (overwritten on every hourly resend, so it can be
+        # used for grid alignment), "first_sent_at" is carried forward
+        # unchanged across resends — it marks when this dose FIRST went
+        # unacknowledged, so callers can tell how many days a user has gone
+        # without pressing Taken/Skip. Defaults to "now" only on the very
+        # first save for a given dose.
+        "first_sent_at": first_sent_at or now_iso,
     }
     await _redis_client.set(_pending_key(chat_id, medicine_id, schedule_id), json.dumps(data), ex=_PENDING_TTL_SECONDS)  # type: ignore[misc]
 

@@ -31,6 +31,7 @@ from .jobs import (
     send_repeat_reminder,
     start_scheduler,
     stop_scheduler,
+    sweep_inactive_medicines,
     sync_reminders,
     sync_single_reminder,
 )
@@ -78,4 +79,5 @@ __all__ = [
     "get_prescription_alert_keyboard",
     "check_prescription_reminders",
     "archive_expired_prescriptions",
+    "sweep_inactive_medicines",
 ]
