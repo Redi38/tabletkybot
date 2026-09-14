@@ -60,6 +60,7 @@ async def _archive_for_inactivity(
 
         async with session_factory() as session:
             await crud.update_medicine_field(session, medicine_id, "is_active", False)
+            await session.commit()
     remove_reminders(medicine_id)
     try:
         await bot.send_message(
@@ -119,6 +120,7 @@ async def send_reminder(
 
             async with session_factory() as session:
                 await crud.update_medicine_field(session, medicine_id, "is_active", False)
+                await session.commit()
             remove_reminders(medicine_id)
             await clear_stock_alert_pending(chat_id, medicine_id)
             lang = stock_alert.get("language", language)
