@@ -49,10 +49,14 @@ def get_reminder_keyboard(medicine_id: int, schedule_id: int | None, language: s
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=get_text(language, "btn_take"), callback_data=f"take_{medicine_id}_{sched_token}"
+                    text=get_text(language, "btn_take"),
+                    callback_data=f"take_{medicine_id}_{sched_token}",
+                    style="success",
                 ),
                 InlineKeyboardButton(
-                    text=get_text(language, "btn_skip"), callback_data=f"skip_{medicine_id}_{sched_token}"
+                    text=get_text(language, "btn_skip"),
+                    callback_data=f"skip_{medicine_id}_{sched_token}",
+                    style="danger",
                 ),
             ]
         ]
