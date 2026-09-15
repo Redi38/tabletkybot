@@ -13,7 +13,7 @@ SQLAlchemy==2.0.52
 uvicorn==0.52.4
 cryptography==50.0.1
 wtforms==3.2.2
-boto3==1.43.92
+boto3==1.43.93
 geopy==2.5.0
 timezonefinder==8.3.0
 itsdangerous==2.2.0
