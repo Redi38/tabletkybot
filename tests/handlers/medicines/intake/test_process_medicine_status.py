@@ -60,7 +60,7 @@ class TestProcessMedicineStatusTake:
 
         refreshed = await crud.get_medicine_by_id(db_session, medicine.id)
         assert refreshed.course_duration == 10  # not recorded — redirected instead
-        state.update_data.assert_awaited_once_with(medicine_id=medicine.id, lang="ua")
+        state.update_data.assert_awaited_once_with(medicine_id=medicine.id, lang="en")
         _, kwargs = message.edit_text.call_args
         callback_datas = [btn.callback_data for row in kwargs["reply_markup"].inline_keyboard for btn in row]
         assert f"restock_yes_{medicine.id}" in callback_datas

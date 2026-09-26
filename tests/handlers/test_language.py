@@ -35,14 +35,14 @@ class TestSetLanguage:
     """
 
     async def test_deletes_the_language_selection_message(self, db_session):
-        call, message = _fake_call(1, "lang_en")
+        call, message = _fake_call(1, "lang_ru")
 
         await set_language(call, db_session)
 
         message.delete.assert_awaited_once()
 
     async def test_sends_exactly_one_confirmation_message(self, db_session):
-        call, message = _fake_call(1, "lang_en")
+        call, message = _fake_call(1, "lang_ru")
 
         await set_language(call, db_session)
 
@@ -57,7 +57,7 @@ class TestSetLanguage:
         assert await crud.get_user_language(db_session, 1) == "ru"
 
     async def test_survives_delete_failing_with_telegram_bad_request(self, db_session):
-        call, message = _fake_call(1, "lang_en")
+        call, message = _fake_call(1, "lang_ru")
         message.delete.side_effect = TelegramBadRequest(method=MagicMock(), message="message to delete not found")
 
         await set_language(call, db_session)
@@ -65,7 +65,7 @@ class TestSetLanguage:
         # Deletion failing (e.g. message too old, already gone) must not stop
         # the confirmation from being sent.
         message.answer.assert_awaited_once()
-        assert await crud.get_user_language(db_session, 1) == "en"
+        assert await crud.get_user_language(db_session, 1) == "ru"
 
     async def test_acknowledges_the_callback(self, db_session):
         call, _ = _fake_call(1, "lang_en")

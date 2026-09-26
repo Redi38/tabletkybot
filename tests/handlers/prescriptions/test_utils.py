@@ -108,7 +108,7 @@ class TestBaseCtx:
 
         assert result is not None
         assert result[0] is message
-        assert result[1] == "ua"
+        assert result[1] == "en"
 
     async def test_returns_none_without_from_user(self, db_session):
         call, _ = _fake_call(1, "presc_menu")

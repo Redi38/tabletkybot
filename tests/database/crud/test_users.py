@@ -51,9 +51,9 @@ class TestUsers:
         assert tz == "Europe/Kyiv"
 
     async def test_get_user_language_defaults_for_unknown_user(self, db_session):
-        # No such user at all -> falls back to "ua"
+        # No such user at all -> falls back to DEFAULT_LANG
         lang = await crud.get_user_language(db_session, 999)
-        assert lang == "ua"
+        assert lang == "en"
 
     async def test_get_repeat_reminders_enabled_defaults_true_for_new_user(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")

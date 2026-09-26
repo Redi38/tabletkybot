@@ -114,7 +114,7 @@ class TestBaseCtx:
 
         assert result is not None
         assert result[0] is message
-        assert result[1] == "ua"  # default language
+        assert result[1] == "en"  # default language
 
     async def test_returns_none_when_no_from_user(self, db_session):
         call, _ = _fake_call(1, "some_data")

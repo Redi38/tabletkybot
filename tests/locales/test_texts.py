@@ -56,9 +56,9 @@ def test_get_text_missing_key_returns_placeholder(sample_texts):
     assert result == "Missing key: nonexistent_key"
 
 
-def test_get_text_unknown_language_falls_back_to_ua(sample_texts):
+def test_get_text_unknown_language_falls_back_to_default_lang(sample_texts):
     result = texts.get_text("fr", "btn_settings")
-    assert result == "Налаштування"
+    assert result == "Settings"
 
 
 def test_get_text_key_missing_in_requested_lang_but_present_in_ua(sample_texts):
@@ -135,8 +135,8 @@ class TestDataLang:
     def test_returns_lang_when_present(self):
         assert texts.data_lang({"lang": "en"}) == "en"
 
-    def test_defaults_to_ua_when_missing(self):
-        assert texts.data_lang({}) == "ua"
+    def test_defaults_to_default_lang_when_missing(self):
+        assert texts.data_lang({}) == "en"
 
     def test_ignores_unrelated_keys(self):
         assert texts.data_lang({"medicine_id": 5, "lang": "ru"}) == "ru"
@@ -149,17 +149,17 @@ class TestUserLang:
 
         assert texts.user_lang(FakeUser()) == "en"
 
-    def test_defaults_to_ua_when_none(self):
+    def test_defaults_to_default_lang_when_none(self):
         class FakeUser:
             language = None
 
-        assert texts.user_lang(FakeUser()) == "ua"
+        assert texts.user_lang(FakeUser()) == "en"
 
-    def test_defaults_to_ua_when_empty_string(self):
+    def test_defaults_to_default_lang_when_empty_string(self):
         class FakeUser:
             language = ""
 
-        assert texts.user_lang(FakeUser()) == "ua"
+        assert texts.user_lang(FakeUser()) == "en"
 
 
 class TestGetLang:
@@ -171,10 +171,10 @@ class TestGetLang:
         result = await texts.get_lang(FakeState())
         assert result == "en"
 
-    async def test_defaults_to_ua_when_state_has_no_lang(self):
+    async def test_defaults_to_default_lang_when_state_has_no_lang(self):
         class FakeState:
             async def get_data(self):
                 return {}
 
         result = await texts.get_lang(FakeState())
-        assert result == "ua"
+        assert result == "en"
