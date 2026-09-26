@@ -40,7 +40,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     username: Mapped[str | None] = mapped_column(String(64), nullable=True)
     full_name: Mapped[str] = mapped_column(String(128))
-    language: Mapped[str] = mapped_column(String(8), default="ua")
+    language: Mapped[str] = mapped_column(String(8), default="en")
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     repeat_reminders_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)

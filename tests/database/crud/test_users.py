@@ -16,7 +16,7 @@ class TestUsers:
         )
         assert user.id == 1
         assert user.username == "redi"
-        assert user.language == "ua"  # default
+        assert user.language == "en"  # default
 
     async def test_get_or_create_user_returns_existing(self, db_session):
         first = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")

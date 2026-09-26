@@ -9,7 +9,7 @@ for _module in _MODULES:
     for _lang, _texts in _module.TEXTS.items():
         TEXTS.setdefault(_lang, {}).update(_texts)
 
-DEFAULT_LANG = "ua"
+DEFAULT_LANG = "en"
 
 
 def get_text(lang: str, key: str, **kwargs) -> str:
