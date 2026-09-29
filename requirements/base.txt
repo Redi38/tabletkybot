@@ -9,7 +9,7 @@ pytz==2026.3.post1
 redis==8.1.0
 requests==2.34.2
 sqladmin==0.31.1
-SQLAlchemy==2.0.54
+SQLAlchemy[asyncio]==2.1.0
 uvicorn==0.53.0
 cryptography==50.0.1
 wtforms==3.2.2
