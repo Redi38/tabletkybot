@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramForbiddenError
+from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -64,7 +64,17 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
             language = user_lang(user)
 
             try:
-                await bot.send_message(
+                # Replace, don't stack: drop the previous reminder for this prescription first.
+                # Failure (already deleted by the user, too old) must not block the new reminder.
+                if prescription.last_reminder_message_id:
+                    try:
+                        await bot.delete_message(chat_id=user.id, message_id=prescription.last_reminder_message_id)
+                    except TelegramForbiddenError:
+                        raise
+                    except TelegramAPIError as e:
+                        logger.info(f"Could not delete previous reminder for prescription {prescription.id}: {e}")
+
+                sent = await bot.send_message(
                     chat_id=user.id,
                     text=get_text(
                         language,
@@ -77,6 +87,7 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
                     parse_mode="HTML",
                 )
                 await crud.mark_prescription_reminder_sent(session, prescription.id)
+                await crud.set_prescription_last_reminder_message(session, prescription.id, sent.message_id)
                 await session.commit()
                 logger.info(f"Prescription reminder {prescription.id} sent to {user.id}")
             except TelegramForbiddenError:

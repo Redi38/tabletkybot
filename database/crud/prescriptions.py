@@ -114,6 +114,13 @@ async def mark_prescription_reminder_sent(session: AsyncSession, prescription_id
     await update_prescription_field(session, prescription_id, "reminder_sent", True)
 
 
+async def set_prescription_last_reminder_message(
+    session: AsyncSession, prescription_id: int, message_id: int | None
+) -> None:
+    """Remembers (or clears) the Telegram message_id of the latest expiry reminder."""
+    await update_prescription_field(session, prescription_id, "last_reminder_message_id", message_id)
+
+
 async def get_expired_active_prescriptions(session: AsyncSession) -> list[tuple[Prescription, User]]:
     """
     Returns all active prescriptions whose validity period has already expired
@@ -158,6 +165,7 @@ async def restore_prescription(
     prescription.purchased_quantity = 0
     prescription.is_fully_purchased = False
     prescription.reminder_sent = False
+    prescription.last_reminder_message_id = None
     prescription.is_active = True
     await session.flush()
     return True

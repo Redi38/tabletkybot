@@ -407,3 +407,55 @@ async def test_processes_multiple_prescriptions_independently(db_session, mock_b
     mock_bot.send_message.assert_awaited_once()
     refreshed = await crud.get_prescription_by_id(db_session, matching.id)
     assert refreshed.reminder_sent is True
+
+
+async def test_new_reminder_replaces_previous_one(db_session, mock_bot, monkeypatch):
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    prescription = await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+    factory = _session_factory_for(db_session)
+
+    # First run: nothing to delete, id of the sent message is remembered.
+    mock_bot.send_message.return_value.message_id = 111
+    await check_prescription_reminders(mock_bot, factory)
+    mock_bot.delete_message.assert_not_awaited()
+    assert (await crud.get_prescription_by_id(db_session, prescription.id)).last_reminder_message_id == 111
+
+    # Second run: previous reminder is deleted, the new one's id replaces it.
+    mock_bot.send_message.return_value.message_id = 222
+    await check_prescription_reminders(mock_bot, factory)
+    mock_bot.delete_message.assert_awaited_once_with(chat_id=user.id, message_id=111)
+    assert (await crud.get_prescription_by_id(db_session, prescription.id)).last_reminder_message_id == 222
+
+
+async def test_reminder_still_sent_if_deleting_previous_fails(db_session, mock_bot, monkeypatch):
+    from aiogram.exceptions import TelegramBadRequest
+
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    prescription = await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await crud.set_prescription_last_reminder_message(db_session, prescription.id, 111)
+    await db_session.commit()
+
+    mock_bot.delete_message.side_effect = TelegramBadRequest(method=None, message="message to delete not found")
+    mock_bot.send_message.return_value.message_id = 222
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+
+    mock_bot.send_message.assert_awaited_once()
+    assert (await crud.get_prescription_by_id(db_session, prescription.id)).last_reminder_message_id == 222

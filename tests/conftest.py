@@ -51,7 +51,7 @@ def mock_redis():
 @pytest.fixture
 def mock_bot():
     bot = MagicMock()
-    bot.send_message = AsyncMock()
+    bot.send_message = AsyncMock(return_value=MagicMock(message_id=1000))
     bot.delete_message = AsyncMock()
     return bot
 

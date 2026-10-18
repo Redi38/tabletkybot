@@ -1,4 +1,4 @@
-from sqlalchemy import Connection
+from sqlalchemy import Connection, inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from database.models import Base
@@ -7,6 +7,14 @@ from database.models import Base
 def _create_tables(sync_conn: Connection) -> None:
     """Helper synchronous function for proper typing."""
     Base.metadata.create_all(sync_conn)
+    _add_missing_columns(sync_conn)
+
+
+def _add_missing_columns(sync_conn: Connection) -> None:
+    """create_all() never alters existing tables; add columns introduced after first deploy."""
+    columns = {c["name"] for c in inspect(sync_conn).get_columns("prescriptions")}
+    if "last_reminder_message_id" not in columns:
+        sync_conn.execute(text("ALTER TABLE prescriptions ADD COLUMN last_reminder_message_id BIGINT"))
 
 
 async def init_db(database_url: str) -> async_sessionmaker:

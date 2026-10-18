@@ -32,6 +32,7 @@ from .prescriptions import (
     mark_prescription_purchased,
     mark_prescription_reminder_sent,
     restore_prescription,
+    set_prescription_last_reminder_message,
     update_prescription_field,
 )
 from .stats import (
@@ -89,6 +90,7 @@ __all__ = [
     "delete_prescription",
     "get_prescriptions_needing_reminder",
     "mark_prescription_reminder_sent",
+    "set_prescription_last_reminder_message",
     "get_expired_active_prescriptions",
     "get_user_archived_prescriptions",
     "restore_prescription",

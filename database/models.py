@@ -117,6 +117,9 @@ class Prescription(Base):
     is_fully_purchased: Mapped[bool] = mapped_column(Boolean, default=False)
     reminder_days_before: Mapped[int] = mapped_column(Integer, default=3)
     reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Telegram message_id of the most recent expiry reminder, so the next one can replace it
+    # instead of stacking up (twice-daily reminders would otherwise spam the chat).
+    last_reminder_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
