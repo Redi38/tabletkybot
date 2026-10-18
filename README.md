@@ -22,7 +22,7 @@ A production-ready Telegram bot for medication schedule and prescription managem
 ## Features
 
 - **Medication Management** — add, edit (name, dosage, intake time, course length, stock, low-stock threshold), extend, archive, and delete medication schedules with timezone-aware reminders and stock tracking (low-stock alerts, restock flow)
-- **Prescription Management** — track prescriptions with expiration dates, allowed quantities, partial-purchase tracking, expiry reminders, and auto-archiving of expired prescriptions
+- **Prescription Management** — track prescriptions with expiration dates, allowed quantities, partial-purchase tracking, expiry reminders sent twice daily (06:00 and 15:00 UTC) until the prescription is marked purchased, and auto-archiving of expired prescriptions
 - **Smart, Persistent Reminders** — APScheduler-based notifications with hourly follow-ups for unacknowledged intakes, a per-user repeat-reminders on/off toggle, and misfire grace handling; pending reminders survive container restarts via Redis, preserving the original hourly cadence instead of resetting it
 - **Geo-Based Timezone Setup** — users type their city and country and the bot resolves the IANA timezone automatically (geopy + timezonefinder), rescheduling all reminders instantly
 - **Reports & Export** — styled Excel (.xlsx) and CSV reports of medication history, including per-medicine adherence statistics

@@ -51,6 +51,25 @@ async def test_archives_expired_prescription_and_notifies_user(db_session, mock_
     assert kwargs["chat_id"] == user.id
 
 
+async def test_archive_is_committed_not_just_flushed(db_session, mock_bot):
+    """Regression: archive was only flushed, so it was lost when the job's session closed."""
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    prescription = await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date.today() - timedelta(days=30),
+        expires_at=date.today() - timedelta(days=1),
+    )
+    await db_session.commit()
+
+    await archive_expired_prescriptions(mock_bot, _session_factory_for(db_session))
+    await db_session.rollback()  # anything not committed is discarded here
+
+    refreshed = await crud.get_prescription_by_id(db_session, prescription.id)
+    assert refreshed.is_active is False
+
+
 async def test_does_not_touch_still_valid_prescriptions(db_session, mock_bot):
     user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
     prescription = await crud.add_prescription(
@@ -118,10 +137,11 @@ async def test_continues_after_a_notification_failure(db_session, mock_bot):
 
 # ── check_prescription_reminders ──────────────────────────────────────
 #
-# The "is today the day, and is it 9am" check is timezone-sensitive, so
+# The "is today inside the reminder window" check is timezone-sensitive, so
 # these tests freeze services.scheduler.prescriptions.datetime.now() to a
 # fixed instant (2026-07-20 09:00, naive) rather than depending on the
-# real wall clock.
+# real wall clock. The job itself runs at 06:00 and 15:00 UTC (see main.py),
+# so the function does not check the hour.
 
 
 class _FrozenDateTime(datetime):
@@ -136,7 +156,7 @@ def _freeze(monkeypatch, frozen=_FrozenDateTime):
     monkeypatch.setattr(prescriptions_module, "datetime", frozen)
 
 
-async def test_reminder_sent_when_today_is_target_date_and_hour(db_session, mock_bot, monkeypatch):
+async def test_reminder_sent_when_today_is_first_reminder_day(db_session, mock_bot, monkeypatch):
     _freeze(monkeypatch)
     user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
     # target = expires_at - reminder_days_before = 2026-07-23 - 3 = 2026-07-20 (frozen "today")
@@ -154,6 +174,26 @@ async def test_reminder_sent_when_today_is_target_date_and_hour(db_session, mock
 
     mock_bot.send_message.assert_awaited_once()
     assert mock_bot.send_message.call_args.kwargs["chat_id"] == user.id
+    refreshed = await crud.get_prescription_by_id(db_session, prescription.id)
+    assert refreshed.reminder_sent is True
+
+
+async def test_reminder_sent_flag_is_committed(db_session, mock_bot, monkeypatch):
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    prescription = await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+    await db_session.rollback()
+
     refreshed = await crud.get_prescription_by_id(db_session, prescription.id)
     assert refreshed.reminder_sent is True
 
@@ -176,11 +216,11 @@ async def test_no_reminder_when_target_date_not_reached(db_session, mock_bot, mo
     mock_bot.send_message.assert_not_awaited()
 
 
-async def test_no_reminder_outside_the_9am_hour(db_session, mock_bot, monkeypatch):
-    class _WrongHour(_FrozenDateTime):
-        fixed = datetime(2026, 7, 20, 14, 0)
+async def test_reminder_sent_regardless_of_hour(db_session, mock_bot, monkeypatch):
+    class _OtherHour(_FrozenDateTime):
+        fixed = datetime(2026, 7, 20, 15, 0)
 
-    _freeze(monkeypatch, _WrongHour)
+    _freeze(monkeypatch, _OtherHour)
     user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
     await crud.add_prescription(
         db_session,
@@ -194,10 +234,10 @@ async def test_no_reminder_outside_the_9am_hour(db_session, mock_bot, monkeypatc
 
     await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
 
-    mock_bot.send_message.assert_not_awaited()
+    mock_bot.send_message.assert_awaited_once()
 
 
-async def test_no_reminder_when_already_sent(db_session, mock_bot, monkeypatch):
+async def test_reminder_repeats_even_if_already_sent(db_session, mock_bot, monkeypatch):
     _freeze(monkeypatch)
     user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
     prescription = await crud.add_prescription(
@@ -209,6 +249,73 @@ async def test_no_reminder_when_already_sent(db_session, mock_bot, monkeypatch):
         reminder_days_before=3,
     )
     await crud.mark_prescription_reminder_sent(db_session, prescription.id)
+    await db_session.commit()
+
+    await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+
+    mock_bot.send_message.assert_awaited_once()
+
+
+async def test_reminder_sent_on_each_day_of_window_including_expiry_day(db_session, mock_bot, monkeypatch):
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+
+    # window: 07-20 (first), 07-21, 07-22, 07-23 (last valid day)
+    for day in (20, 21, 22, 23):
+
+        class _Day(_FrozenDateTime):
+            fixed = datetime(2026, 7, day, 6, 0)
+
+        _freeze(monkeypatch, _Day)
+        mock_bot.send_message.reset_mock()
+        await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+        mock_bot.send_message.assert_awaited_once()
+
+
+async def test_no_reminder_day_before_window_or_after_expiry(db_session, mock_bot, monkeypatch):
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        reminder_days_before=3,
+    )
+    await db_session.commit()
+
+    for day in (19, 24):
+
+        class _Day(_FrozenDateTime):
+            fixed = datetime(2026, 7, day, 6, 0)
+
+        _freeze(monkeypatch, _Day)
+        await check_prescription_reminders(mock_bot, _session_factory_for(db_session))
+
+    mock_bot.send_message.assert_not_awaited()
+
+
+async def test_reminders_stop_once_fully_purchased(db_session, mock_bot, monkeypatch):
+    _freeze(monkeypatch)
+    user = await crud.get_or_create_user(db_session, 1, "redi", "Redi Test")
+    prescription = await crud.add_prescription(
+        db_session,
+        user_id=user.id,
+        medicine_name="Amoxicillin",
+        valid_from=date(2026, 1, 1),
+        expires_at=date(2026, 7, 23),
+        max_quantity=2,
+        reminder_days_before=3,
+    )
+    await crud.mark_prescription_purchased(db_session, prescription.id, 2)
     await db_session.commit()
 
     await check_prescription_reminders(mock_bot, _session_factory_for(db_session))

@@ -1,7 +1,8 @@
 """
-Prescription-related scheduled checks: nightly reminder for prescriptions
-nearing their expiry date, and auto-archiving ones that have expired
-without the user taking action.
+Prescription-related scheduled checks: reminders for prescriptions nearing
+their expiry date (sent on every run — 06:00 and 15:00 UTC — from the first
+reminder day until the prescription is fully purchased, archived or expired),
+and auto-archiving ones that have expired without the user taking action.
 
 Independent of both jobs.py and redis_state.py — these run as their own
 periodic scheduler.add_job() calls (registered in main.py) rather than
@@ -50,13 +51,16 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
             except Exception:
                 tz = ZoneInfo("Europe/Kyiv")
 
-            local_now = datetime.now(tz)
-            target_date = prescription.expires_at - timedelta(days=prescription.reminder_days_before)
+            local_today = datetime.now(tz).date()
+            start_date = prescription.expires_at - timedelta(days=prescription.reminder_days_before)
 
-            if local_now.date() != target_date or local_now.hour != 9:
+            # Keep reminding on every run from the first reminder day through the
+            # last valid day (expires_at inclusive); the query already excludes
+            # fully purchased / archived prescriptions.
+            if not (start_date <= local_today <= prescription.expires_at):
                 continue
 
-            days_left = (prescription.expires_at - local_now.date()).days
+            days_left = (prescription.expires_at - local_today).days
             language = user_lang(user)
 
             try:
@@ -73,9 +77,11 @@ async def check_prescription_reminders(bot: Bot, session_factory: async_sessionm
                     parse_mode="HTML",
                 )
                 await crud.mark_prescription_reminder_sent(session, prescription.id)
+                await session.commit()
                 logger.info(f"Prescription reminder {prescription.id} sent to {user.id}")
             except TelegramForbiddenError:
                 await crud.mark_user_blocked(session, user.id)
+                await session.commit()
                 logger.info(f"User {user.id} has blocked the bot — marking blocked, skipping prescription reminder")
             except Exception as e:
                 logger.error(f"Prescription reminder error {prescription.id}: {e}")
@@ -89,6 +95,10 @@ async def archive_expired_prescriptions(bot: Bot, session_factory: async_session
 
         for prescription, user in expired:
             await crud.archive_prescription(session, prescription.id)
+            # Persist before notifying: without this commit the archive was only
+            # flushed and got rolled back on session close, while the user still
+            # received the "auto-archived" message (and again on every nightly run).
+            await session.commit()
             if user.is_blocked:
                 continue
             language = user_lang(user)
@@ -101,6 +111,7 @@ async def archive_expired_prescriptions(bot: Bot, session_factory: async_session
                 logger.info(f"Prescription {prescription.id} auto-archived (expired)")
             except TelegramForbiddenError:
                 await crud.mark_user_blocked(session, user.id)
+                await session.commit()
                 logger.info(f"User {user.id} has blocked the bot — marking blocked, skipping archive notification")
             except Exception as e:
                 logger.error(f"Error notifying about auto-archiving prescription {prescription.id}: {e}")

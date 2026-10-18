@@ -207,9 +207,10 @@ async def main() -> None:
     scheduler.add_job(
         _tagged_check_prescriptions,
         trigger="cron",
+        hour="6,15",
         minute=0,
         timezone="UTC",
-        id="presc_reminder_check_hourly",
+        id="presc_reminder_check_twice_daily",
         replace_existing=True,
         kwargs={"bot": bot, "session_factory": session_factory},
     )

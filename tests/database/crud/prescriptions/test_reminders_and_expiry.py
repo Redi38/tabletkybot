@@ -11,7 +11,7 @@ from ._helpers import _make_user
 
 
 class TestReminderAndExpiryQueries:
-    async def test_get_prescriptions_needing_reminder_excludes_sent(self, db_session):
+    async def test_get_prescriptions_needing_reminder_includes_already_sent(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
         pending = await crud.add_prescription(
             db_session,
@@ -32,8 +32,9 @@ class TestReminderAndExpiryQueries:
         result = await crud.get_prescriptions_needing_reminder(db_session)
         result_ids = {presc.id for presc, user in result}
 
+        # reminders repeat daily until purchased, so reminder_sent is not a filter
         assert pending.id in result_ids
-        assert already_sent.id not in result_ids
+        assert already_sent.id in result_ids
 
     async def test_get_prescriptions_needing_reminder_excludes_fully_purchased(self, db_session):
         await crud.get_or_create_user(db_session, 1, "a", "A")
@@ -74,7 +75,7 @@ class TestReminderAndExpiryQueries:
         assert still_valid.id not in result_ids
 
 
-async def test_get_prescriptions_needing_reminder_returns_eligible_only(db_session):
+async def test_get_prescriptions_needing_reminder_excludes_purchased_and_archived(db_session):
     await _make_user(db_session, user_id=1)
     today = date.today()
 
@@ -93,8 +94,8 @@ async def test_get_prescriptions_needing_reminder_returns_eligible_only(db_sessi
 
     result = await crud.get_prescriptions_needing_reminder(db_session)
 
-    names = [p.medicine_name for p, _ in result]
-    assert names == ["Eligible"]
+    names = sorted(p.medicine_name for p, _ in result)
+    assert names == ["Already sent", "Eligible"]
 
 
 async def test_get_prescriptions_needing_reminder_includes_user_object(db_session):
@@ -110,7 +111,7 @@ async def test_get_prescriptions_needing_reminder_includes_user_object(db_sessio
     assert user.id == 1
 
 
-async def test_mark_prescription_reminder_sent_excludes_from_future_queries(db_session):
+async def test_mark_prescription_reminder_sent_keeps_prescription_in_future_queries(db_session):
     await _make_user(db_session)
     today = date.today()
     created = await crud.add_prescription(db_session, 1, "Med", today, today + timedelta(days=10))
@@ -118,7 +119,7 @@ async def test_mark_prescription_reminder_sent_excludes_from_future_queries(db_s
     await crud.mark_prescription_reminder_sent(db_session, created.id)
 
     result = await crud.get_prescriptions_needing_reminder(db_session)
-    assert result == []
+    assert [p.id for p, _ in result] == [created.id]
 
 
 async def test_get_expired_active_prescriptions_returns_only_past_expiry(db_session):

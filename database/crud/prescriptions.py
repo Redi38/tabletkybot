@@ -91,10 +91,11 @@ async def delete_prescription(session: AsyncSession, prescription_id: int) -> bo
 
 async def get_prescriptions_needing_reminder(session: AsyncSession) -> list[tuple[Prescription, User]]:
     """
-    Returns all active, not-yet-fully-purchased prescriptions that haven't had
-    a reminder sent, together with the user (for timezone/language). The exact
-    check of "whether today is the day" is done by the scheduler, since it
-    depends on the specific user's timezone.
+    Returns all active, not-yet-fully-purchased prescriptions together with the
+    user (for timezone/language). Reminders repeat on every scheduler run until
+    the prescription is fully purchased, archived or expired, so reminder_sent
+    is NOT a filter here. The exact check of "is today inside the reminder
+    window" is done by the scheduler, since it depends on the user's timezone.
     """
     stmt = (
         select(Prescription, User)
@@ -102,7 +103,6 @@ async def get_prescriptions_needing_reminder(session: AsyncSession) -> list[tupl
         .where(
             Prescription.is_active.is_(True),
             Prescription.is_fully_purchased.is_(False),
-            Prescription.reminder_sent.is_(False),
         )
     )
     result = await session.execute(stmt)
@@ -110,6 +110,7 @@ async def get_prescriptions_needing_reminder(session: AsyncSession) -> list[tupl
 
 
 async def mark_prescription_reminder_sent(session: AsyncSession, prescription_id: int) -> None:
+    """Flags that at least one reminder has been sent (informational, shown in admin)."""
     await update_prescription_field(session, prescription_id, "reminder_sent", True)
 
 
